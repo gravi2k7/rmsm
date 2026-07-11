@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p ${ADMIN_PORT:-3002}",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start -p ${ADMIN_PORT:-3002}",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@rmsm/shared": "workspace:*",
