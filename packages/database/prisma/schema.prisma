@@ -1,0 +1,27 @@
+// RMSM AI — Prisma schema
+// Module 001 scope: system-level tables ONLY. No business/domain models yet
+// (those begin in Module 002 — Database Core Schema & Multi-Tenancy).
+//
+// SystemHealth exists purely so Module 001's acceptance criteria
+// ("Prisma migration works") can be verified end-to-end without
+// introducing any business logic.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Infrastructure-only table used to verify the migration pipeline works.
+/// Not a business/domain model.
+model SystemHealth {
+  id        String   @id @default(uuid())
+  component String   @unique
+  status    String
+  checkedAt DateTime @default(now())
+
+  @@map("system_health")
+}

@@ -1,0 +1,62 @@
+# ==========================
+# Dependencies
+# ==========================
+node_modules/
+.pnpm-store/
+
+# ==========================
+# Turbo
+# ==========================
+.turbo/
+
+# ==========================
+# Environment
+# ==========================
+.env
+.env.local
+.env.*.local
+
+# Keep template files
+!.env.example
+
+# ==========================
+# Build Outputs
+# ==========================
+dist/
+build/
+.next/
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# ==========================
+# Logs
+# ==========================
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# ==========================
+# Prisma
+# ==========================
+prisma/dev.db
+prisma/dev.db-journal
+
+# ==========================
+# Python (AI Service)
+# ==========================
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# ==========================
+# IDE / OS
+# ==========================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

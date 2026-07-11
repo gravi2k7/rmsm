@@ -1,0 +1,34 @@
+[project]
+name = "rmsm-ai-service"
+version = "0.1.0"
+description = "RMSM AI — AI/analysis microservice (FastAPI)"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.112.0",
+  "uvicorn[standard]>=0.30.6",
+  "pydantic>=2.8.2",
+  "pydantic-settings>=2.4.0",
+  "langchain>=0.2.14",
+  "openai>=1.42.0",
+  "pandas>=2.2.2",
+  "numpy>=2.0.1",
+  "scikit-learn>=1.5.1",
+  "httpx>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.2",
+  "pytest-asyncio>=0.24.0",
+  "ruff>=0.6.1",
+  "black>=24.8.0",
+  "mypy>=1.11.1",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
