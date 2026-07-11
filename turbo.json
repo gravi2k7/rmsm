@@ -1,8 +1,12 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
+    "@rmsm/database#generate": {
+      "cache": false,
+      "outputs": ["node_modules/.prisma/**"]
+    },
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "@rmsm/database#generate"],
       "outputs": ["dist/**", ".next/**"]
     },
     "dev": {
@@ -13,10 +17,10 @@
       "dependsOn": ["^lint"]
     },
     "typecheck": {
-      "dependsOn": ["^typecheck"]
+      "dependsOn": ["^typecheck", "@rmsm/database#generate"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["@rmsm/database#generate"]
     }
   }
 }

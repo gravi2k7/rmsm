@@ -3,19 +3,26 @@ import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { prisma } from "@rmsm/database";
 import Redis from "ioredis";
 import { loadConfig } from "@rmsm/config";
+import { Public } from "../modules/auth/decorators/public.decorator";
 
 @ApiTags("Health")
 @Controller("health")
 export class HealthController {
+  @Public()
   @Get()
   @ApiOperation({ summary: "Liveness probe — process is up." })
-  liveness() {
+  liveness(): { status: string; timestamp: string } {
     return { status: "ok", timestamp: new Date().toISOString() };
   }
 
+  @Public()
   @Get("ready")
   @ApiOperation({ summary: "Readiness probe — DB and Redis are reachable." })
-  async readiness() {
+  async readiness(): Promise<{
+    status: string;
+    checks: Record<string, "ok" | "error">;
+    timestamp: string;
+  }> {
     const checks: Record<string, "ok" | "error"> = { database: "ok", redis: "ok" };
 
     try {

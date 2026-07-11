@@ -1,13 +1,11 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  test: {
-    environment: "jsdom",
+  test: { environment: "jsdom", globals: true,
     exclude: [
-      "node_modules",
-      "dist",
-      ".next",
-      "e2e/**"
-    ]
-  }
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/e2e/**",
+    ],
+  },
 });

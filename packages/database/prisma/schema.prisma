@@ -1,10 +1,16 @@
 // RMSM AI — Prisma schema
-// Module 001 scope: system-level tables ONLY. No business/domain models yet
-// (those begin in Module 002 — Database Core Schema & Multi-Tenancy).
+// Module 002 adds the full Authentication & Authorization (IAM) data model.
+// Module 001's SystemHealth infra table is preserved unchanged.
 //
-// SystemHealth exists purely so Module 001's acceptance criteria
-// ("Prisma migration works") can be verified end-to-end without
-// introducing any business logic.
+// Design notes:
+// - Soft deletes on User (deletedAt) — users are never hard-deleted; audit
+//   trails and financial/compliance history must survive account closure.
+// - All tokens (refresh, password reset, email verification, recovery
+//   codes) are stored as HASHES ONLY. Raw tokens are never persisted.
+// - UserRole carries a nullable tenantId now so multi-tenancy (explicitly
+//   scoped as a future requirement) doesn't require a breaking schema
+//   migration later — it's simply unused (always null) until a Tenant
+//   model is introduced.
 
 generator client {
   provider = "prisma-client-js"
@@ -15,8 +21,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Module 001 — preserved
+// ─────────────────────────────────────────────────────────────────────────
+
 /// Infrastructure-only table used to verify the migration pipeline works.
-/// Not a business/domain model.
 model SystemHealth {
   id        String   @id @default(uuid())
   component String   @unique
@@ -24,4 +33,284 @@ model SystemHealth {
   checkedAt DateTime @default(now())
 
   @@map("system_health")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Module 002 — Authentication & Authorization
+// ─────────────────────────────────────────────────────────────────────────
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  LOCKED
+  SUSPENDED
+  DELETED
+}
+
+enum OAuthProvider {
+  GOOGLE
+  GITHUB
+  MICROSOFT
+}
+
+model User {
+  id                  String     @id @default(uuid())
+  email               String     @unique
+  /// Nullable: OAuth-only users may never set a password.
+  passwordHash        String?
+  status              UserStatus @default(PENDING_VERIFICATION)
+  emailVerifiedAt     DateTime?
+  failedLoginAttempts Int        @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  /// Soft delete — accounts are deactivated, never hard-removed.
+  deletedAt DateTime?
+
+  profile            Profile?
+  userRoles          UserRole[]
+  sessions           Session[]
+  refreshTokens      RefreshToken[]
+  loginHistory       LoginHistory[]
+  passwordResets     PasswordReset[]
+  emailVerifications EmailVerification[]
+  twoFactorSecret    TwoFactorSecret?
+  recoveryCodes      RecoveryCode[]
+  auditLogs          AuditLog[]
+  oauthAccounts      OAuthAccount[]
+
+  @@index([status])
+  @@map("users")
+}
+
+model Profile {
+  id                      String   @id @default(uuid())
+  userId                  String   @unique
+  firstName               String?
+  lastName                String?
+  avatarUrl               String?
+  timezone                String   @default("UTC")
+  language                String   @default("en")
+  phone                   String?
+  /// Free-form JSON: { email: bool, push: bool, sms: bool, marketing: bool }
+  notificationPreferences Json     @default("{}")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  /// System roles (seeded defaults) cannot be deleted via the API.
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  /// Dotted key, e.g. "users.read", "signals.write". Application code
+  /// references permissions by key, never by id.
+  key         String   @unique
+  description String?
+  /// Groups permissions for admin UI display, e.g. "users", "billing".
+  group       String
+  createdAt   DateTime @default(now())
+
+  rolePermissions RolePermission[]
+
+  @@index([group])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id         String   @id @default(uuid())
+  userId     String
+  roleId     String
+  /// Reserved for future multi-tenancy. Always null until a Tenant model
+  /// exists — present now to avoid a breaking migration later.
+  tenantId   String?
+  assignedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId, tenantId])
+  @@index([userId])
+  @@map("user_roles")
+}
+
+model Session {
+  id          String    @id @default(uuid())
+  userId      String
+  ipAddress   String?
+  userAgent   String?
+  deviceLabel String?
+  createdAt   DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model RefreshToken {
+  id                String    @id @default(uuid())
+  userId            String
+  sessionId         String
+  /// SHA-256 hash of the raw refresh token. Raw value is never stored.
+  tokenHash         String    @unique
+  /// Rotation family id — shared across a token's rotation chain so reuse
+  /// of a revoked token can be detected and the whole family revoked.
+  family            String
+  issuedAt          DateTime  @default(now())
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  replacedByTokenId String?
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([family])
+  @@map("refresh_tokens")
+}
+
+model LoginHistory {
+  id        String   @id @default(uuid())
+  userId    String?
+  email     String
+  success   Boolean
+  reason    String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([email])
+  @@index([createdAt])
+  @@map("login_history")
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_resets")
+}
+
+model EmailVerification {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verifications")
+}
+
+model TwoFactorSecret {
+  id         String    @id @default(uuid())
+  userId     String    @unique
+  /// Encrypted at rest by the application layer before write (see
+  /// TwoFactorService) — never stored as plaintext.
+  secretEnc  String
+  enabled    Boolean   @default(false)
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("two_factor_secrets")
+}
+
+model RecoveryCode {
+  id        String    @id @default(uuid())
+  userId    String
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("recovery_codes")
+}
+
+model OAuthAccount {
+  id                String        @id @default(uuid())
+  userId            String
+  provider          OAuthProvider
+  providerAccountId String
+  accessTokenEnc    String?
+  refreshTokenEnc   String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("oauth_accounts")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json     @default("{}")
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
 }

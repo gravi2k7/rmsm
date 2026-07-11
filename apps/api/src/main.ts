@@ -3,6 +3,7 @@ import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import { loadConfig } from "@rmsm/config";
 import { AppModule } from "./app.module";
 import { winstonLogger } from "./common/logger/winston.config";
@@ -14,6 +15,10 @@ async function bootstrap() {
 
   // Security headers
   app.use(helmet());
+
+  // Signed cookies — used for the optional secure-httpOnly-cookie refresh
+  // token delivery mode on web (see Module 002 doc, Security Design).
+  app.use(cookieParser(config.COOKIE_SECRET));
 
   // CORS — locked to known frontends; extended per-environment via env vars
   // in a later module once allowed origins are finalized.

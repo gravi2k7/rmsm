@@ -35,6 +35,40 @@ export const envSchema = z.object({
   // Rate limiting
   RATE_LIMIT_TTL_MS: z.coerce.number().default(60000),
   RATE_LIMIT_MAX: z.coerce.number().default(100),
+
+  // --- Module 002: Auth ---
+  ACCOUNT_LOCKOUT_MAX_ATTEMPTS: z.coerce.number().default(5),
+  ACCOUNT_LOCKOUT_DURATION_MS: z.coerce.number().default(15 * 60 * 1000),
+  PASSWORD_MIN_LENGTH: z.coerce.number().default(12),
+  EMAIL_VERIFICATION_TTL_MS: z.coerce.number().default(24 * 60 * 60 * 1000),
+  PASSWORD_RESET_TTL_MS: z.coerce.number().default(60 * 60 * 1000),
+
+  // 2FA secret encryption (AES-256-GCM key, 32 bytes hex-encoded = 64 chars)
+  TWO_FACTOR_ENCRYPTION_KEY: z.string().min(32).default("0".repeat(64)),
+  TWO_FACTOR_ISSUER: z.string().default("RMSM AI"),
+
+  // Cookies
+  COOKIE_SECRET: z.string().min(16).default("dev-cookie-secret-change-me!!"),
+
+  // OAuth (all optional — provider is disabled if its client id/secret are absent)
+  OAUTH_GOOGLE_CLIENT_ID: z.string().optional(),
+  OAUTH_GOOGLE_CLIENT_SECRET: z.string().optional(),
+  OAUTH_GOOGLE_CALLBACK_URL: z.string().optional(),
+  OAUTH_GITHUB_CLIENT_ID: z.string().optional(),
+  OAUTH_GITHUB_CLIENT_SECRET: z.string().optional(),
+  OAUTH_GITHUB_CALLBACK_URL: z.string().optional(),
+  OAUTH_MICROSOFT_CLIENT_ID: z.string().optional(),
+  OAUTH_MICROSOFT_CLIENT_SECRET: z.string().optional(),
+  OAUTH_MICROSOFT_CALLBACK_URL: z.string().optional(),
+
+  // Email
+  EMAIL_PROVIDER: z.enum(["console", "smtp"]).default("console"),
+  EMAIL_FROM: z.string().default("RMSM AI <no-reply@rmsm.ai>"),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  WEB_APP_URL: z.string().default("http://localhost:3000"),
 });
 
 export type Env = z.infer<typeof envSchema>;
