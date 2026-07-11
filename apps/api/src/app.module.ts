@@ -7,13 +7,20 @@ import { QueueModule } from "./queue/queue.module";
 import { HealthModule } from "./health/health.module";
 import { GlobalExceptionFilter } from "./common/filters/http-exception.filter";
 import { LoggingInterceptor } from "./common/interceptors/logging.interceptor";
+import { EmailModule } from "./modules/email/email.module";
+import { AuthModule } from "./modules/auth/auth.module";
+import { UsersModule } from "./modules/users/users.module";
+import { RbacModule } from "./modules/rbac/rbac.module";
+import { OAuthModule } from "./modules/oauth/oauth.module";
+import { JwtAuthGuard } from "./modules/auth/guards/jwt-auth.guard";
 
 const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
 
 /**
- * Root module. Module 001 scope: infrastructure only — config, queue,
- * health. Business modules (auth, users, signals, ...) attach here starting
- * Module 002 onward, one feature module at a time.
+ * Root module. Module 002 adds the full IAM stack (Auth, Users/Profile,
+ * RBAC, OAuth, Email) on top of Module 001's infrastructure. JwtAuthGuard
+ * is now global — every endpoint requires auth by default; use @Public()
+ * to opt out (see auth/decorators/public.decorator.ts).
  */
 @Module({
   imports: [
@@ -21,9 +28,15 @@ const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
     ThrottlerModule.forRoot([{ ttl: RATE_LIMIT_TTL_MS, limit: RATE_LIMIT_MAX }]),
     QueueModule,
     HealthModule,
+    EmailModule,
+    AuthModule,
+    UsersModule,
+    RbacModule,
+    OAuthModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
   ],
