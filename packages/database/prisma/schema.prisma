@@ -44,6 +44,11 @@ enum UserStatus {
   ACTIVE
   LOCKED
   SUSPENDED
+  /// Added in Module 003: user-initiated or compliance-driven account
+  /// archival, distinct from DELETED (soft delete). Archived accounts are
+  /// not deleted — they can be restored — but are excluded from active-user
+  /// listings and cannot log in until restored.
+  ARCHIVED
   DELETED
 }
 
@@ -81,6 +86,12 @@ model User {
   auditLogs          AuditLog[]
   oauthAccounts      OAuthAccount[]
 
+  // ── Module 003 additions ──────────────────────────────────────────────
+  organizationMemberships  OrganizationMembership[]
+  sentInvitations          OrganizationInvitation[] @relation("InvitationSender")
+  createdOrganizations     Organization[]           @relation("OrganizationCreatedBy")
+  updatedOrganizations     Organization[]           @relation("OrganizationUpdatedBy")
+
   @@index([status])
   @@map("users")
 }
@@ -99,8 +110,37 @@ model Profile {
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // ── Module 003 additions (all additive — nullable or defaulted, so no
+  // existing Module 002 row or caller breaks) ─────────────────────────────
+  /// BCP-47 locale, e.g. "en-US" — distinct from `language` (Module 002's
+  /// simple UI-language code); locale additionally governs number/date
+  /// formatting. Kept as a separate field rather than overloading
+  /// `language` to avoid a breaking change to that column's meaning.
+  locale                  String?
+  /// ISO 3166-1 alpha-2 country code.
+  country                 String?
+  theme                   String   @default("system")
+  /// Free-form JSON, shape owned by apps/web (e.g. widget positions/sizes).
+  dashboardLayout         Json?
+  /// The organization shown by default on login. Nullable — a user with no
+  /// organizations, or who hasn't picked a default, has none. Intentionally
+  /// NOT a required relation: Profile must remain creatable before a user
+  /// has joined any organization (registration in Module 002 creates an
+  /// empty Profile immediately).
+  defaultOrganizationId   String?
+  /// { twoFactorReminders: bool, loginAlerts: bool, ... } — presentation-
+  /// layer preferences only; the actual security *enforcement* (lockout
+  /// thresholds, password policy) stays owned by Module 002's AuthService
+  /// and is not duplicated here.
+  securityPreferences     Json     @default("{}")
+  tradingPreferences      Json     @default("{}")
+  /// { reducedMotion: bool, highContrast: bool, screenReaderOptimized: bool }
+  accessibilityPreferences Json    @default("{}")
 
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultOrganization Organization? @relation("ProfileDefaultOrganization", fields: [defaultOrganizationId], references: [id], onDelete: SetNull)
+
+  @@index([defaultOrganizationId])
   @@map("profiles")
 }
 
@@ -313,4 +353,134 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// Module 003 — User & Organization Management
+//
+// Design note: Organization roles (OWNER/ADMINISTRATOR/MANAGER/ANALYST/
+// TRADER/VIEWER) are intentionally NOT the same thing as Module 002's
+// platform-wide Role/Permission tables. Module 002's RBAC answers "what can
+// this user do on the platform" (e.g. can they access the admin portal).
+// OrganizationMembership.role answers "what can this user do inside THIS
+// organization" — a scoped, per-workspace question. Conflating the two
+// would mean every organization needs its own copies of platform roles, or
+// every platform role needs organization-awareness bolted on — both worse
+// than keeping them as separate, composable concerns. A user's *effective*
+// permission for an action is the intersection of both systems, resolved
+// by the Phase 4 OrganizationRoleGuard, not by this schema.
+// ═════════════════════════════════════════════════════════════════════════
+
+enum OrganizationStatus {
+  ACTIVE
+  ARCHIVED
+  /// Soft delete — see Organization.deletedAt below for the timestamp.
+  DELETED
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMINISTRATOR
+  MANAGER
+  ANALYST
+  TRADER
+  VIEWER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+  /// Member-initiated departure — distinct from being removed by an admin,
+  /// which deletes the row entirely (nothing to restore).
+  LEFT
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+model Organization {
+  id          String             @id @default(uuid())
+  name        String
+  slug        String             @unique
+  logoUrl     String?
+  description String?
+  timezone    String             @default("UTC")
+  currency    String             @default("USD")
+  country     String?
+  website     String?
+  /// Free-form JSON for org-level settings (branding, default permissions,
+  /// workspace preferences) — kept as JSON rather than dozens of nullable
+  /// columns since this set is expected to grow across future modules
+  /// (Billing, Notifications) without needing a schema migration each time.
+  settings    Json               @default("{}")
+  status      OrganizationStatus @default(ACTIVE)
+
+  createdById String?
+  updatedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  /// Soft delete — set alongside status = DELETED. Archival (status =
+  /// ARCHIVED) does NOT set this; only hard-delete-equivalent does.
+  deletedAt   DateTime?
+
+  createdBy               User?                     @relation("OrganizationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy               User?                     @relation("OrganizationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  memberships              OrganizationMembership[]
+  invitations              OrganizationInvitation[]
+  profilesDefaultingHere   Profile[]                 @relation("ProfileDefaultOrganization")
+
+  @@index([status])
+  @@index([slug])
+  @@map("organizations")
+}
+
+model OrganizationMembership {
+  id             String           @id @default(uuid())
+  organizationId String
+  userId         String
+  role           OrganizationRole
+  status         MembershipStatus @default(ACTIVE)
+  invitedById    String?
+  joinedAt       DateTime         @default(now())
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // A user has exactly one membership row per organization — role changes
+  // and suspensions update this row rather than creating new ones.
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId, status])
+  @@map("organization_memberships")
+}
+
+model OrganizationInvitation {
+  id             String           @id @default(uuid())
+  organizationId String
+  email          String
+  role           OrganizationRole
+  /// SHA-256 hash of the invitation token — same pattern as Module 002's
+  /// PasswordReset/EmailVerification tokens. Raw value is emailed once,
+  /// never persisted.
+  tokenHash      String           @unique
+  status         InvitationStatus @default(PENDING)
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([email])
+  @@map("organization_invitations")
 }
