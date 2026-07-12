@@ -453,8 +453,16 @@ model Organization {
   memberships              OrganizationMembership[]
   invitations              OrganizationInvitation[]
   membershipEvents OrganizationMembershipEvent[]
-
   profilesDefaultingHere   Profile[]                 @relation("ProfileDefaultOrganization")
+
+  // ── Module 004 additions ──────────────────────────────────────────────
+  subscription      OrganizationSubscription?
+  billingAccount    BillingAccount?
+  invoices          Invoice[]
+  payments          Payment[]
+  coupons           Coupon[]
+  couponRedemptions CouponRedemption[]
+  usageRecords      UsageRecord[]
 
   @@index([status])
   @@index([slug])
@@ -553,4 +561,368 @@ model OrganizationMembershipEvent {
   @@index([organizationId, createdAt])
   @@index([userId])
   @@map("organization_membership_events")
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// Module 004 — Billing & Subscription Management
+//
+// Integration point: every model here is organization-scoped
+// (organizationId FK), consistent with ADR-001 ("Organization is the
+// tenant boundary"). No user-level billing exists — a user's billing
+// relationship with the platform is always mediated through the
+// organization(s) they belong to, matching how Module 003 already scopes
+// everything else.
+// ═════════════════════════════════════════════════════════════════════════
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+  INCOMPLETE
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  FAILED
+}
+
+/// Explicitly includes providers beyond the two implemented in Phase 3
+/// (STRIPE, MOCK) — RAZORPAY/PADDLE/LEMONSQUEEZY are named in the prompt's
+/// "Future" list. Adding the enum values now costs nothing and lets the
+/// provider-abstraction interface (Phase 1, see below) reference the full
+/// intended vocabulary; implementing those providers is explicitly
+/// deferred, not implied by their presence here.
+enum PaymentProviderType {
+  STRIPE
+  MOCK
+  RAZORPAY
+  PADDLE
+  LEMONSQUEEZY
+}
+
+/// Not one of the prompt's 5 explicitly-named enums — needed because
+/// Payments requires a method type per the spec's "Method: Card, UPI,
+/// Bank, Wallet" line. Flagged as an addition beyond the explicit list,
+/// same discipline as every other schema-gap decision in this project.
+enum PaymentMethod {
+  CARD
+  UPI
+  BANK
+  WALLET
+}
+
+/// Addition beyond the explicit enum list — Coupons requires distinguishing
+/// percentage vs fixed-amount discounts per the spec.
+enum CouponType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+/// Addition beyond the explicit enum list — FeatureFlag/PlanFeature need to
+/// distinguish a simple on/off capability from one with a numeric cap.
+enum FeatureType {
+  BOOLEAN
+  LIMIT
+}
+
+/// Addition beyond the explicit enum list — needed for PaymentWebhook's
+/// idempotent processing state machine (Section 11: "webhook verification").
+enum WebhookProcessingStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+model SubscriptionPlan {
+  id              String   @id @default(uuid())
+  /// Stable machine key, e.g. "free", "professional" — application code
+  /// and the future admin UI reference plans by this, never by id, so
+  /// seed data can be re-run idempotently (same pattern as Module 002's
+  /// Role.name).
+  key             String   @unique
+  name            String
+  description     String?
+  /// Cents, matching Stripe's and most providers' native unit — avoids
+  /// floating-point currency bugs entirely.
+  monthlyPriceCents Int
+  yearlyPriceCents  Int
+  currency        String   @default("USD")
+  trialDays       Int      @default(0)
+  gracePeriodDays Int      @default(0)
+  isVisible       Boolean  @default(true)
+  isActive        Boolean  @default(true)
+  displayOrder    Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  planFeatures  PlanFeature[]
+  subscriptions OrganizationSubscription[]
+
+  @@index([isActive, isVisible])
+  @@map("subscription_plans")
+}
+
+model FeatureFlag {
+  id          String      @id @default(uuid())
+  /// e.g. "organizations", "users", "ai_requests", "storage" — the keys
+  /// named in the spec's Feature Flags section.
+  key         String      @unique
+  name        String
+  description String?
+  type        FeatureType
+  createdAt   DateTime    @default(now())
+
+  planFeatures PlanFeature[]
+
+  @@map("feature_flags")
+}
+
+model PlanFeature {
+  id            String  @id @default(uuid())
+  planId        String
+  featureFlagId String
+  enabled       Boolean @default(true)
+  /// Null = unlimited. Only meaningful when the parent FeatureFlag.type is
+  /// LIMIT; ignored (should stay null) for BOOLEAN features — enforced by
+  /// QuotaService (Phase 3), not by the schema, since Prisma has no
+  /// conditional-field-based check constraint support.
+  limit         Int?
+
+  plan        SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  featureFlag FeatureFlag      @relation(fields: [featureFlagId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, featureFlagId])
+  @@map("plan_features")
+}
+
+model OrganizationSubscription {
+  id                    String             @id @default(uuid())
+  /// Unique, not just indexed — "each organization owns exactly one
+  /// subscription" (spec, verbatim) is a hard 1:1, enforced at the
+  /// database level, not just assumed by application code.
+  organizationId        String             @unique
+  planId                String
+  status                SubscriptionStatus @default(TRIALING)
+  paymentProvider       PaymentProviderType @default(MOCK)
+  invoices Invoice[]
+  /// The subscription id on the provider's side (e.g. Stripe subscription
+  /// id). Null until the provider integration actually creates one —
+  /// MOCK-provider subscriptions may never populate this.
+  providerSubscriptionId String?
+  billingCycle          BillingCycle       @default(MONTHLY)
+  startDate             DateTime           @default(now())
+  renewalDate           DateTime?
+  cancellationDate      DateTime?
+  trialEndsAt           DateTime?
+  gracePeriodEndsAt     DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@index([planId])
+  @@map("organization_subscriptions")
+}
+
+model BillingAccount {
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  billingEmail   String
+  companyName    String?
+  /// GST/VAT/Tax ID — one field for whichever tax-identifier scheme the
+  /// organization's country uses, per the spec listing "GST/VAT Number"
+  /// and "Tax ID" together rather than as clearly distinct fields.
+  taxId          String?
+  /// { line1, line2?, city, state?, postalCode, } — JSON rather than
+  /// discrete columns since address shape varies significantly by
+  /// country and this project has no immediate need to query into
+  /// individual address fields.
+  address        Json     @default("{}")
+  country        String
+  currency       String   @default("USD")
+  timezone       String   @default("UTC")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("billing_accounts")
+}
+
+model Invoice {
+  id             String        @id @default(uuid())
+  /// Human-facing sequential/formatted number (e.g. "INV-2026-000123"),
+  /// distinct from `id` — generated by InvoiceService (Phase 3), not the
+  /// database, since numbering schemes are a business decision.
+  invoiceNumber  String        @unique
+  organizationId String
+  subscriptionId String?
+  subtotalCents  Int
+  taxCents       Int           @default(0)
+  discountCents  Int           @default(0)
+  totalCents     Int
+  currency       String        @default("USD")
+  status         InvoiceStatus @default(DRAFT)
+  pdfUrl         String?
+  issueDate      DateTime      @default(now())
+  dueDate        DateTime
+  paymentDate    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription OrganizationSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  lines        InvoiceLine[]
+  payments     Payment[]
+  couponRedemptions CouponRedemption[]
+
+  @@index([organizationId, status])
+  @@index([status])
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id             String   @id @default(uuid())
+  invoiceId      String
+  description    String
+  quantity       Int      @default(1)
+  unitAmountCents Int
+  amountCents    Int
+  createdAt      DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_lines")
+}
+
+model Payment {
+  id                   String              @id @default(uuid())
+  organizationId       String
+  invoiceId            String?
+  provider             PaymentProviderType
+  /// Unique per provider — a transaction id from Stripe and one from a
+  /// (hypothetical) Razorpay payment could theoretically collide as bare
+  /// strings, so uniqueness is scoped to [provider, providerTransactionId]
+  /// rather than the field alone.
+  providerTransactionId String?
+  amountCents          Int
+  currency             String              @default("USD")
+  status               PaymentStatus       @default(PENDING)
+  method               PaymentMethod?
+  metadata             Json                @default("{}")
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerTransactionId])
+  @@index([organizationId, status])
+  @@map("payments")
+}
+
+model Coupon {
+  id                String     @id @default(uuid())
+  code              String     @unique
+  type              CouponType
+  /// Percentage: 1-100. Fixed amount: cents. Interpretation depends on
+  /// `type` — enforced by CouponService (Phase 3), not the schema.
+  value             Int
+  currency          String?
+  expiresAt         DateTime?
+  maxRedemptions    Int?
+  currentRedemptions Int       @default(0)
+  /// Null = public coupon, usable by any organization. Non-null =
+  /// restricted to that one organization.
+  organizationId    String?
+  isPublic          Boolean    @default(true)
+  isActive          Boolean    @default(true)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  organization Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  redemptions  CouponRedemption[]
+
+  @@index([isActive, isPublic])
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id             String   @id @default(uuid())
+  couponId       String
+  organizationId String
+  invoiceId      String?
+  redeemedAt     DateTime @default(now())
+
+  coupon       Coupon       @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  /// One redemption per (coupon, organization) — an org can't stack the
+  /// same coupon twice. Not stated explicitly in the spec; a defensible
+  /// default, flagged here rather than silently assumed.
+  @@unique([couponId, organizationId])
+  @@map("coupon_redemptions")
+}
+
+model UsageRecord {
+  id             String   @id @default(uuid())
+  organizationId String
+  /// First-of-month date, e.g. 2026-07-01 — truncated to month so a
+  /// single row accumulates the whole billing period's usage for one
+  /// metric, rather than one row per event (aggregated by UsageService,
+  /// Phase 3, not per-call).
+  period         DateTime
+  /// e.g. "api_calls", "storage_bytes", "ai_tokens" — matches the metrics
+  /// named in the spec's Usage Tracking section. String, not an enum,
+  /// since new trackable metrics (Indicators, Strategies, Signals...) are
+  /// expected to grow across future modules without a migration each time.
+  metric         String
+  value          BigInt   @default(0)
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, period, metric])
+  @@index([organizationId, period])
+  @@map("usage_records")
+}
+
+model PaymentWebhook {
+  id               String                  @id @default(uuid())
+  provider         PaymentProviderType
+  eventType        String
+  /// The provider's own event id — the idempotency key.
+  /// WebhookService (Phase 3) checks this before processing so a
+  /// provider's at-least-once delivery retry never double-applies an
+  /// event (e.g. crediting a payment twice).
+  providerEventId  String                  @unique
+  payload          Json
+  status           WebhookProcessingStatus @default(PENDING)
+  processedAt      DateTime?
+  createdAt        DateTime                @default(now())
+
+  @@index([provider, eventType])
+  @@index([status])
+  @@map("payment_webhooks")
 }

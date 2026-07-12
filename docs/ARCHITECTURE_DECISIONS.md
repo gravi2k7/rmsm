@@ -95,6 +95,49 @@ gating. `OrganizationRoleGuard` is new code (not a modification of Module 002's 
 fulfilling the guard Phase 1's ADR-002 said Phase 4 would need to build.
 _Source: `docs/modules/PHASE4_IMPLEMENTATION.md`, Section 1._
 
+### ADR-011 — Billing is organization-scoped, never user-scoped
+Every Module 004 model (`OrganizationSubscription`, `BillingAccount`, `Invoice`, `Payment`,
+usage, coupons) carries `organizationId`, never `userId`. A user's billing relationship with
+the platform is always mediated through the organization(s) they belong to — direct
+consequence of ADR-001 ("Organization is the tenant boundary"). There is no per-user
+subscription concept anywhere in this schema.
+_Source: `docs/modules/MODULE_004_PHASE_1_SPEC_ARCHITECTURE_SCHEMA.md`._
+
+### ADR-012 — Payment provider abstraction mirrors Module 002's OAuth registry pattern
+`PaymentProviderAdapter` (abstract class) + a future `PaymentProviderRegistry` (Phase 3) is
+structurally the same pattern as `OAuthProviderStrategy` + `OAuthProviderRegistry` from Module
+002 — proven, consistent, and deliberately reused rather than inventing a new abstraction
+shape. No provider SDK (Stripe's or otherwise) is a dependency of any service, controller, or
+DTO; only provider *implementation* classes (Phase 3) touch a provider's actual API, the same
+way Module 002's OAuth providers use raw `fetch` against REST endpoints rather than an SDK.
+_Source: `docs/modules/MODULE_004_PHASE_1_SPEC_ARCHITECTURE_SCHEMA.md`._
+
+### ADR-013 — Money is always integer cents
+Every price/amount field (`monthlyPriceCents`, `totalCents`, `amountCents`, etc.) is an
+integer number of the currency's smallest unit, never a float. Standard practice for avoiding
+floating-point rounding bugs in financial calculations, and matches Stripe's own native unit —
+no conversion layer needed when Stripe support is implemented in Phase 3.
+_Source: `docs/modules/MODULE_004_PHASE_1_SPEC_ARCHITECTURE_SCHEMA.md`._
+
+### ADR-014 — Plan tier ambiguity, resolved and flagged
+The Module 004 prompt listed plan tiers as "Free / Starter / Professional / Enterprise /
+Unlimited / Support" with each on its own line — ambiguous whether "Support" is a sixth tier
+or an artifact (e.g. bleeding from a "Priority Support" feature). Resolved as **5 tiers**
+(FREE, STARTER, PROFESSIONAL, ENTERPRISE, UNLIMITED); "Support" was not modeled as a tier.
+Flagged explicitly for confirmation rather than silently guessed — if a sixth tier or a
+differently-named set was intended, seed data (Phase 5) is a one-line change, not a schema
+change, since `SubscriptionPlan` rows are data, not enum values.
+_Source: `docs/modules/MODULE_004_PHASE_1_SPEC_ARCHITECTURE_SCHEMA.md`._
+
+### ADR-015 — Webhook idempotency via unique provider event id
+`PaymentWebhook.providerEventId` is unique at the database level. Every provider's webhook
+delivery is at-least-once, not exactly-once — WebhookService (Phase 3) will check for an
+existing row with the same `providerEventId` before processing, and the unique constraint is
+the backstop against a race between two simultaneous deliveries of the same retried event,
+mirroring ADR-004's defense-in-depth philosophy (application check + database constraint, not
+either alone).
+_Source: `docs/modules/MODULE_004_PHASE_1_SPEC_ARCHITECTURE_SCHEMA.md`._
+
 ---
 
 ## How to add to this file
