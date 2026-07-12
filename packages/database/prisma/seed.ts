@@ -32,12 +32,41 @@ const DEFAULT_PERMISSIONS: { key: string; group: string; description: string }[]
   { key: "sessions.read", group: "sessions", description: "View any user's sessions." },
   { key: "sessions.revoke", group: "sessions", description: "Revoke any user's sessions." },
   { key: "audit.read", group: "audit", description: "View audit logs." },
+
+  // ── Module 003, Phase 4 additions (additive — nothing above this comment changed) ──
+  // These are platform-tier gates only ("does this account tier have this
+  // feature at all") — the actual per-organization authorization is
+  // OrganizationRoleGuard checking OrganizationMembership.role, not these
+  // permissions. See ARCHITECTURE_DECISIONS.md and
+  // MODULE_003_PHASE_4_CONTROLLERS.md for the full reasoning.
+  { key: "organization.create", group: "organization", description: "Create an organization." },
+  { key: "organization.read", group: "organization", description: "View organizations and their members." },
+  { key: "organization.update", group: "organization", description: "Update organization details." },
+  { key: "organization.delete", group: "organization", description: "Archive or soft-delete an organization." },
+  { key: "organization.restore", group: "organization", description: "Restore an archived organization." },
+  { key: "organization.member.invite", group: "organization", description: "Invite, resend, or cancel invitations." },
+  { key: "organization.member.remove", group: "organization", description: "Remove a member from an organization." },
+  { key: "organization.member.update", group: "organization", description: "Change a member's role, suspend, or reactivate them." },
+  { key: "organization.owner.transfer", group: "organization", description: "Transfer organization ownership." },
+  { key: "organization.settings.update", group: "organization", description: "Update organization settings." },
 ];
 
 // Role -> permission key grants for the roles that should have elevated
 // access out of the box. SUBSCRIBER/FREE_USER/API_CLIENT intentionally get
 // no IAM-admin permissions here — their business-facing permissions are
 // granted by later modules.
+const ORGANIZATION_BASIC_PERMISSIONS = ["organization.create", "organization.read"];
+const ORGANIZATION_MANAGEMENT_PERMISSIONS = [
+  "organization.update",
+  "organization.delete",
+  "organization.restore",
+  "organization.member.invite",
+  "organization.member.remove",
+  "organization.member.update",
+  "organization.owner.transfer",
+  "organization.settings.update",
+];
+
 const ROLE_GRANTS: Record<string, string[]> = {
   SUPER_ADMIN: DEFAULT_PERMISSIONS.map((p) => p.key),
   ADMIN: [
@@ -47,9 +76,19 @@ const ROLE_GRANTS: Record<string, string[]> = {
     "sessions.read",
     "sessions.revoke",
     "audit.read",
+    ...ORGANIZATION_BASIC_PERMISSIONS,
+    ...ORGANIZATION_MANAGEMENT_PERMISSIONS,
   ],
   SUPPORT: ["users.read", "sessions.read", "sessions.revoke"],
-  ANALYST: ["users.read", "audit.read"],
+  ANALYST: ["users.read", "audit.read", ...ORGANIZATION_BASIC_PERMISSIONS],
+  // Judgment call, flagged explicitly (no product spec supplied a tier
+  // matrix): every account can create and view organizations; only
+  // SUBSCRIBER-tier and above can perform organization *management*
+  // actions (update, delete, invite members, transfer ownership, etc.).
+  // FREE_USER therefore gets create/read but not the management set.
+  // Revisit when a real pricing/tier spec exists.
+  SUBSCRIBER: [...ORGANIZATION_BASIC_PERMISSIONS, ...ORGANIZATION_MANAGEMENT_PERMISSIONS],
+  FREE_USER: [...ORGANIZATION_BASIC_PERMISSIONS],
 };
 
 async function main() {

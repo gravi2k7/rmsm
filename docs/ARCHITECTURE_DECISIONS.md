@@ -84,6 +84,17 @@ columns so a future Subscription/Billing module can attach itself without a migr
 Module 003 code reads or writes either field.
 _Source: `docs/modules/MODULE_003_PHASE_2_REPOSITORIES.md`, Section 1._
 
+### ADR-010 — Two authorization layers on every organization-scoped write endpoint
+Module 002's `PermissionsGuard` (platform-wide, JWT-embedded permissions) and the new
+`OrganizationRoleGuard` (per-organization membership role) are applied together, not as
+alternatives. `PermissionsGuard` answers "does this account tier have this feature at all";
+`OrganizationRoleGuard` answers "does this specific user hold a sufficient role in this
+specific organization." Neither can answer the other's question — `PermissionsGuard` has no
+concept of organizations, and `OrganizationRoleGuard` has no concept of platform-tier feature
+gating. `OrganizationRoleGuard` is new code (not a modification of Module 002's guards),
+fulfilling the guard Phase 1's ADR-002 said Phase 4 would need to build.
+_Source: `docs/modules/PHASE4_IMPLEMENTATION.md`, Section 1._
+
 ---
 
 ## How to add to this file

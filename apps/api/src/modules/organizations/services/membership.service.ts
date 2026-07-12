@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { prisma, OrganizationMembership, OrganizationMembershipWithUser, OrganizationRole, Prisma } from "@rmsm/database";
+import { prisma, OrganizationMembership, OrganizationMembershipWithUser, OrganizationRole, Organization, Prisma } from "@rmsm/database";
 import { ConflictError, NotFoundError } from "@rmsm/shared";
 import { AuditService, AuditContext } from "../../auth/services/audit.service";
 import { OrganizationMembershipRepository } from "../repositories/membership.repository";
@@ -38,6 +38,21 @@ export class OrganizationMembershipService {
 
   listActiveMembers(organizationId: string): Promise<OrganizationMembershipWithUser[]> {
     return this.membershipRepository.findActiveByOrganization(organizationId);
+  }
+
+  /** Phase 4 addition (additive). */
+  async getMember(organizationId: string, membershipId: string): Promise<OrganizationMembershipWithUser> {
+    const member = await this.membershipRepository.findByIdWithUser(membershipId);
+    if (!member || member.organizationId !== organizationId) {
+      throw new NotFoundError("OrganizationMembership", membershipId);
+    }
+    return member;
+  }
+
+  /** Phase 4 addition (additive). Maps the caller's active memberships to their organizations, for the tenant-scoped "list my organizations" endpoint — see OrganizationController.listOrganizations()'s comment on why this is scoped, not platform-wide. */
+  async listOrganizationsForUser(userId: string): Promise<Organization[]> {
+    const memberships = await this.membershipRepository.findActiveByUser(userId);
+    return memberships.map((m) => m.organization);
   }
 
   private async getMembershipInOrg(organizationId: string, membershipId: string): Promise<OrganizationMembership> {
@@ -117,43 +132,54 @@ export class OrganizationMembershipService {
       throw new ConflictError("Cannot transfer ownership to the current Owner.");
     }
 
-    const [previousOwner, newOwner] = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const stillCurrentOwner = await this.membershipRepository.findActiveOwner(organizationId, tx);
-      if (!stillCurrentOwner || stillCurrentOwner.id !== currentOwner.id) {
-        throw new ConflictError("Ownership changed during this request. Refresh and try again.");
-      }
+    /**
+     * The callback's return is explicitly typed as a fixed 2-tuple, not
+     * left to infer as `OrganizationMembership[]`. Under this project's
+     * `noUncheckedIndexedAccess` (tsconfig.base.json), destructuring from a
+     * plain array type gives each variable `T | undefined` — only
+     * destructuring from an actual tuple type gives the exact `T` for each
+     * position. Without this annotation, `previousOwner`/`newOwner` below
+     * would be `OrganizationMembership | undefined`, and every property
+     * access on them (`.userId`, in the audit log call right after this
+     * block) would fail to typecheck.
+     */
+    const [previousOwner, newOwner] = await prisma.$transaction(
+      async (tx: Prisma.TransactionClient): Promise<[OrganizationMembership, OrganizationMembership]> => {
+        const stillCurrentOwner = await this.membershipRepository.findActiveOwner(organizationId, tx);
+        if (!stillCurrentOwner || stillCurrentOwner.id !== currentOwner.id) {
+          throw new ConflictError("Ownership changed during this request. Refresh and try again.");
+        }
 
-      const demoted = await this.membershipRepository.updateRole(currentOwner.id, "ADMINISTRATOR", tx);
-      const promoted = await this.membershipRepository.updateRole(target.id, "OWNER", tx);
+        const demoted = await this.membershipRepository.updateRole(currentOwner.id, "ADMINISTRATOR", tx);
+        const promoted = await this.membershipRepository.updateRole(target.id, "OWNER", tx);
 
-      await this.membershipEventRepository.create(
-        {
-          organizationId,
-          userId: currentOwner.userId,
-          action: "OWNERSHIP_TRANSFERRED",
-          previousRole: "OWNER",
-          newRole: "ADMINISTRATOR",
-          actorId,
-        },
-        tx,
-      );
-      await this.membershipEventRepository.create(
-        {
-          organizationId,
-          userId: target.userId,
-          action: "OWNERSHIP_TRANSFERRED",
-          previousRole: target.role,
-          newRole: "OWNER",
-          actorId,
-        },
-        tx, 
-      );
+        await this.membershipEventRepository.create(
+          {
+            organizationId,
+            userId: currentOwner.userId,
+            action: "OWNERSHIP_TRANSFERRED",
+            previousRole: "OWNER",
+            newRole: "ADMINISTRATOR",
+            actorId,
+          },
+          tx,
+        );
+        await this.membershipEventRepository.create(
+          {
+            organizationId,
+            userId: target.userId,
+            action: "OWNERSHIP_TRANSFERRED",
+            previousRole: target.role,
+            newRole: "OWNER",
+            actorId,
+          },
+          tx,
+        );
 
-      return [demoted, promoted];
-    });
-    if (!previousOwner || !newOwner) {
-        throw new Error("Ownership transfer failed.");
-      }
+        return [demoted, promoted];
+      },
+    );
+
     await this.auditService.log("organization.ownership_transferred", {
       userId: actorId,
       entityType: "Organization",

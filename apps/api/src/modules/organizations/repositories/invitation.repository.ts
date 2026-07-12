@@ -42,6 +42,11 @@ export class OrganizationInvitationRepository {
     });
   }
 
+  /** Phase 4 addition (additive). Used by OrganizationStatisticsService — avoids fetching full rows just to count them. */
+  countPendingByOrganization(organizationId: string, client: DbClient = prisma): Promise<number> {
+    return client.organizationInvitation.count({ where: { organizationId, status: "PENDING" } });
+  }
+
   findPendingByOrgAndEmail(
     organizationId: string,
     email: string,

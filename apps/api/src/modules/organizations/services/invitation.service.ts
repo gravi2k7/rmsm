@@ -252,6 +252,11 @@ export class OrganizationInvitationService {
     return this.invitationRepository.findPendingByOrganization(organizationId);
   }
 
+  /** Phase 4 addition (additive) — public wrapper around the existing private getInvitationInOrg() lookup. */
+  getInvitation(organizationId: string, invitationId: string): Promise<OrganizationInvitation> {
+    return this.getInvitationInOrg(organizationId, invitationId);
+  }
+
   listPendingForEmail(email: string): Promise<OrganizationInvitationWithOrganization[]> {
     return this.invitationRepository.findPendingByEmail(email);
   }
@@ -259,6 +264,58 @@ export class OrganizationInvitationService {
   /** Scheduled sweep — not wired to a cron trigger in this phase (Phase 3 is services only); a scheduler module calling this is a Phase 5+ concern. */
   expireOverdueInvitations(): Promise<Prisma.BatchPayload> {
     return this.invitationRepository.expireOverdue();
+  }
+
+  // ── Phase 4 additions (additive — no existing method above was modified) ──
+
+  /**
+   * Read-only check: is this token currently valid, without consuming it.
+   * Used by the public "Validate Invitation" endpoint so a not-yet-
+   * registered invitee can see what they're being invited to (org name,
+   * role) before creating an account, distinct from acceptInvitation()
+   * which requires an authenticated, email-matched user and mutates state.
+   */
+  async validateToken(
+    rawToken: string,
+  ): Promise<{ valid: boolean; organizationName?: string; role?: OrganizationRole; email?: string }> {
+    const tokenHash = this.tokenService.hashToken(rawToken);
+    const invitation = await this.invitationRepository.findByTokenHash(tokenHash);
+
+    if (!invitation || invitation.status !== "PENDING" || invitation.expiresAt < new Date()) {
+      return { valid: false };
+    }
+
+    const organization = await this.organizationRepository.findById(invitation.organizationId);
+    return { valid: true, organizationName: organization?.name, role: invitation.role, email: invitation.email };
+  }
+
+  /**
+   * Admin-initiated immediate expiry of a single invitation — distinct
+   * from cancelInvitation() (a deliberate revocation, notifies the
+   * invitee) and from expireOverdueInvitations() (a bulk, time-based
+   * sweep). This lets an admin force one specific invitation to EXPIRED
+   * without waiting for its expiresAt to pass and without sending the
+   * "cancelled" email cancelInvitation() sends.
+   */
+  async expireInvitation(
+    organizationId: string,
+    invitationId: string,
+    actorId: string,
+    ctx: AuditContext = {},
+  ): Promise<OrganizationInvitation> {
+    const invitation = await this.getInvitationInOrg(organizationId, invitationId);
+    if (invitation.status !== "PENDING") {
+      throw new ConflictError(`Cannot expire an invitation with status ${invitation.status}.`);
+    }
+
+    const updated = await this.invitationRepository.updateStatus(invitationId, "EXPIRED");
+    await this.auditService.log("organization.invitation.expired", {
+      userId: actorId,
+      entityType: "OrganizationInvitation",
+      entityId: invitationId,
+      ...ctx,
+    });
+    return updated;
   }
 
   private async getInvitationInOrg(organizationId: string, invitationId: string): Promise<OrganizationInvitation> {

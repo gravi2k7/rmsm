@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { prisma, Organization, OrganizationStatus, DbClient } from "@rmsm/database";
-import { Prisma } from "@rmsm/database";
+import { prisma, Organization, OrganizationStatus, DbClient, Prisma } from "@rmsm/database";
 
 export interface CreateOrganizationInput {
   name: string;
@@ -31,7 +30,7 @@ export interface UpdateOrganizationDetailsInput {
   currency?: string;
   country?: string | null;
   website?: string | null;
-  settings?: Prisma.InputJsonValue;
+  settings?: Record<string, unknown>;
 }
 
 export interface OrganizationListFilters {
@@ -42,6 +41,17 @@ export interface OrganizationListFilters {
 export interface PageParams {
   take: number;
   skip: number;
+}
+
+/**
+ * `Record<string, unknown>` is not structurally assignable to
+ * `Prisma.InputJsonValue` (same class of issue fixed in AuditService and
+ * OrganizationMembershipEventRepository — see those files' comments for
+ * the full reasoning). Round-tripping through JSON is the correct
+ * conversion, applied here for `Organization.settings`.
+ */
+function toInputJsonValue(value: Record<string, unknown>): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
 /**
@@ -68,7 +78,7 @@ export class OrganizationRepository {
         currency: data.currency,
         country: data.country,
         website: data.website,
-        settings: (data.settings ?? {}) as Prisma.InputJsonValue,
+        settings: toInputJsonValue(data.settings ?? {}),
         createdById: data.createdById,
         updatedById: data.createdById,
       },
@@ -95,23 +105,41 @@ export class OrganizationRepository {
     return client.organization.findUnique({ where: { slug } });
   }
 
- updateDetails(
-  id: string,
-  data: UpdateOrganizationDetailsInput,
-  updatedById: string | undefined,
-  client: DbClient = prisma,
-): Promise<Organization> {
-  return client.organization.update({
-    where: { id },
-    data: {
-      ...data,
-      ...(data.settings !== undefined
-        ? { settings: data.settings as Prisma.InputJsonValue }
-        : {}),
-      ...(updatedById ? { updatedById } : {}),
-    },
-  });
-}
+  /**
+   * Deliberately constructs the Prisma `data` object field-by-field rather
+   * than `{ ...data, updatedById }`. Spreading `UpdateOrganizationDetailsInput`
+   * directly into `Prisma.OrganizationUpdateInput` carried its loosely-typed
+   * `settings?: Record<string, unknown>` straight through unconverted (the
+   * same bug as create() above, just reached via a spread instead of a
+   * direct assignment), and gave up the compile-time guarantee that only
+   * the fields actually declared on `UpdateOrganizationDetailsInput` can
+   * ever reach this update. Each field is assigned explicitly instead;
+   * `settings` is only converted when the caller actually provided it —
+   * Prisma leaves a field's column untouched whether it's omitted or
+   * explicitly `undefined`, so this still behaves correctly as a partial
+   * update.
+   */
+  updateDetails(
+    id: string,
+    data: UpdateOrganizationDetailsInput,
+    updatedById: string | undefined,
+    client: DbClient = prisma,
+  ): Promise<Organization> {
+    return client.organization.update({
+      where: { id },
+      data: {
+        name: data.name,
+        logoUrl: data.logoUrl,
+        description: data.description,
+        timezone: data.timezone,
+        currency: data.currency,
+        country: data.country,
+        website: data.website,
+        settings: data.settings !== undefined ? toInputJsonValue(data.settings) : undefined,
+        updatedById,
+      },
+    });
+  }
 
   /** The one and only path by which a slug may change. */
   renameSlug(

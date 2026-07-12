@@ -42,6 +42,14 @@ export class OrganizationMembershipRepository {
     return client.organizationMembership.findUnique({ where: { id } });
   }
 
+  /** Phase 4 addition (additive). Same shape as findActiveByOrganization's include, single-row. */
+  findByIdWithUser(id: string, client: DbClient = prisma): Promise<OrganizationMembershipWithUser | null> {
+    return client.organizationMembership.findUnique({
+      where: { id },
+      include: { user: { include: { profile: true } } },
+    });
+  }
+
   /**
    * Returns the membership row regardless of status — including LEFT/
    * REMOVED — since callers need this to detect "this user has a history
@@ -96,6 +104,16 @@ export class OrganizationMembershipRepository {
     return client.organizationMembership.count({
       where: { organizationId, role, status: "ACTIVE" },
     });
+  }
+
+  /**
+   * Phase 4 addition (additive — no existing method touched). Used by
+   * OrganizationStatisticsService for the "active users" / "suspended
+   * users" counts. Same shape as countActiveByRole, generalized to any
+   * MembershipStatus without a role filter.
+   */
+  countByStatus(organizationId: string, status: MembershipStatus, client: DbClient = prisma): Promise<number> {
+    return client.organizationMembership.count({ where: { organizationId, status } });
   }
 
   /** Raw role change — no invariant enforcement. The service verifies preconditions before calling this. */
