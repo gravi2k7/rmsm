@@ -5,10 +5,11 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     exclude: [
+      "e2e/**",
       "**/e2e/**",
-      "**/playwright/**",
-      "**/node_modules/**",
-      "**/dist/**",
+      "node_modules/**",
+      ".next/**",
+      "dist/**",
     ],
   },
 });

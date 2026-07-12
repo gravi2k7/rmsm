@@ -453,6 +453,7 @@ model Organization {
   memberships              OrganizationMembership[]
   invitations              OrganizationInvitation[]
   membershipEvents OrganizationMembershipEvent[]
+
   profilesDefaultingHere   Profile[]                 @relation("ProfileDefaultOrganization")
 
   @@index([status])

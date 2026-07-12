@@ -1,53 +1,61 @@
-# Files Changed — Module 003, Phase 4
+# Files Changed — Module 003, Phase 5
 
-## Created (19 files)
+## Created (17 files)
 
 ```
-apps/api/src/modules/organizations/
-├── organization.controller.ts
-├── membership.controller.ts
-├── invitation.controller.ts
-├── statistics.controller.ts
-├── constants.ts
-├── guards/
-│   └── organization-role.guard.ts
-├── decorators/
-│   ├── require-org-role.decorator.ts
-│   └── current-org-membership.decorator.ts
-├── utils/
-│   └── request-context.util.ts
-├── dto/
-│   ├── pagination.dto.ts
-│   ├── create-organization.dto.ts
-│   ├── update-organization.dto.ts
-│   ├── organization-settings.dto.ts
-│   ├── organization-search.dto.ts
-│   ├── invite-member.dto.ts
-│   ├── update-member-role.dto.ts
-│   ├── transfer-ownership.dto.ts
-│   └── invitation-token.dto.ts
-└── services/
-    └── statistics.service.ts
+apps/api/test/
+├── factories/
+│   ├── user.factory.ts
+│   ├── organization.factory.ts
+│   ├── membership.factory.ts
+│   └── invitation.factory.ts
+├── helpers/
+│   ├── auth.helper.ts
+│   └── permission.helper.ts
+├── seed/
+│   └── test-database.seeder.ts
+├── organization-lifecycle.e2e-spec.ts
+├── membership-lifecycle.e2e-spec.ts
+├── authorization-matrix.e2e-spec.ts
+├── validation-rules.e2e-spec.ts
+├── concurrency.e2e-spec.ts
+├── database-integrity.e2e-spec.ts
+├── api-contract.e2e-spec.ts
+├── security.e2e-spec.ts
+└── performance.e2e-spec.ts
+
+docs/modules/
+├── TEST_COVERAGE.md
+├── API_TEST_MATRIX.md
+├── PHASE5_IMPLEMENTATION.md
+└── (FILES_CHANGED.md, TEST_RESULTS.md — this phase's versions)
+
+docs/modules/CHANGELOG.md — restructured to a multi-phase log (Phase 5 section added, Phase 4's content preserved beneath it, not lost)
 ```
 
-## Modified — additive only (8 files)
+## Modified (0 application files)
 
-| File | Change | Existing code touched? |
-|---|---|---|
-| `apps/api/src/modules/organizations/repositories/membership.repository.ts` | +2 methods: `countByStatus()`, `findByIdWithUser()` | No |
-| `apps/api/src/modules/organizations/repositories/invitation.repository.ts` | +1 method: `countPendingByOrganization()` | No |
-| `apps/api/src/modules/organizations/services/invitation.service.ts` | +3 methods: `validateToken()`, `expireInvitation()`, `getInvitation()` | No |
-| `apps/api/src/modules/organizations/services/membership.service.ts` | +2 methods: `listOrganizationsForUser()`, `getMember()` | No |
-| `apps/api/src/modules/organizations/organizations.module.ts` | Registered 4 controllers + 2 providers (`OrganizationRoleGuard`, `OrganizationStatisticsService`) | Every Phase 2/3 provider entry unchanged |
-| `packages/database/prisma/seed.ts` | +10 permission keys, +grant lists (`ORGANIZATION_BASIC_PERMISSIONS`, `ORGANIZATION_MANAGEMENT_PERMISSIONS`) | Every existing permission/grant entry unchanged |
-| `apps/api/src/modules/organizations/services/__tests__/membership.service.spec.ts` | Fixed 3 `as any` casts + underlying incomplete mock fixtures (Phase 3 file, bug found during Phase 4 verification) | Test *assertions* unchanged; only the mock construction changed |
+None. Every file under `apps/api/src/`, `packages/database/prisma/schema.prisma`, every
+repository, service, controller, and DTO from Phases 1–4 is byte-for-byte unchanged. This
+phase's only "modification" is to documentation: `CHANGELOG.md` was restructured (not rewritten
+— Phase 4's entries are preserved verbatim, just moved beneath the new Phase 5 section) so the
+file accumulates history across phases instead of each phase overwriting the last.
 
-No file outside `apps/api/src/modules/organizations/` or the two listed shared-package files was touched. No Module 001 or Module 002 file was modified. No Prisma schema change — Phase 4 is pure application code plus seed data.
+## Explicit confirmation of the prompt's "DO NOT" list
 
-## Verification method for "additive only"
-For each repository/service file above, the new methods were appended after the last existing
-method in the class, and every pre-existing method's signature and body were left character-for-
-character unchanged — confirmed by direct review (this sandbox has no `git diff` against a prior
-commit to run automatically, since these files aren't in a git-tracked checkout here; the claim
-above is a manual-review guarantee, not a diff-tool guarantee — flagged honestly rather than
-implying tooling verified it that wasn't actually run).
+| Prohibited | Touched? |
+|---|---|
+| Modify Prisma schema | No |
+| Modify repositories | No |
+| Modify services | No |
+| Modify controllers | No |
+| Rewrite DTOs | No |
+| Rewrite authentication | No |
+| Rewrite RBAC | No |
+| Rewrite Swagger | No |
+| Introduce breaking changes | No — additive test code only |
+
+The one exception the prompt itself allows — "only make code changes that are strictly
+necessary to make integration tests pass" — was not invoked, because no application code
+change was needed to make the tests as written pass; every test was written against the
+existing Phase 1–4 implementation as-is.

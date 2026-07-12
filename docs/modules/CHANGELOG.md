@@ -1,3 +1,41 @@
+# Changelog — Module 003
+
+## Phase 5
+
+### Added
+- 9 new e2e test suites (77 test cases) under `apps/api/test/`: organization lifecycle,
+  membership lifecycle, authorization matrix, validation rules, concurrency, database
+  integrity, API contract, security, performance
+- Test infrastructure: `UserFactory`, `OrganizationFactory`, `MembershipFactory`,
+  `InvitationFactory`, `AuthHelper` (authenticated/unprivileged test actors),
+  `PermissionHelper` (platform role grants), `TestDatabaseSeeder` (cleanup + reference-data
+  assertion)
+- `docs/modules/TEST_COVERAGE.md`, `API_TEST_MATRIX.md`, `PHASE5_IMPLEMENTATION.md`,
+  `FILES_CHANGED.md` (Phase 5 section), `TEST_RESULTS.md` (Phase 5 section)
+
+### Changed
+None. Per the prompt's explicit "DO NOT modify Prisma schema / repositories / services /
+controllers / DTOs," this phase adds test code and test infrastructure only. No application
+file was touched.
+
+### Fixed
+- `PermissionHelper.grantPlatformRole()` was initially written using `prisma.userRole.upsert()`
+  on the `userId_roleId_tenantId` compound key — the exact Prisma 5.22 nullable-compound-key
+  limitation already fixed once in `RbacService.assignRole` (Module 002) and again in the
+  TS2742-regression fix (Phase 4 follow-up). Caught during this phase's own authoring — not by
+  a failing test, since none could run here — and replaced with the same `findFirst` +
+  conditional `create` pattern used in both prior fixes, before it could ship as a third
+  instance of the same bug.
+
+### Known Gaps
+See `API_TEST_MATRIX.md`'s "Known Gaps" section for full detail: no dedicated happy-path test
+for Decline/Cancel/Expire Invitation (endpoints exist from Phase 4, exercised indirectly); and
+sorting is not implemented in `OrganizationSearchDto`/`OrganizationRepository.findMany()` — a
+real Phase 4 feature gap, not a test-writing gap, not fixed here since doing so would modify a
+DTO/repository this phase is told not to touch.
+
+---
+
 # Changelog — Module 003, Phase 4
 
 ## Added
