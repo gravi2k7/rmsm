@@ -87,3 +87,23 @@ export type OrganizationInvitationWithOrganization = Prisma.OrganizationInvitati
  * MODULE_003_PHASE_2_REPOSITORIES.md.
  */
 export type DbClient = PrismaClient | Prisma.TransactionClient;
+
+// ─────────────────────────────────────────────────────────────────────────
+// Module 004 additions
+// ─────────────────────────────────────────────────────────────────────────
+
+export type SubscriptionPlanWithFeatures = Prisma.SubscriptionPlanGetPayload<{
+  include: { planFeatures: { include: { featureFlag: true } } };
+}>;
+
+export type PlanFeatureWithFeatureFlag = Prisma.PlanFeatureGetPayload<{
+  include: { featureFlag: true };
+}>;
+
+export type OrganizationSubscriptionWithPlan = Prisma.OrganizationSubscriptionGetPayload<{
+  include: { plan: true };
+}>;
+
+export type InvoiceWithLines = Prisma.InvoiceGetPayload<{
+  include: { lines: true };
+}>;

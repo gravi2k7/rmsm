@@ -722,6 +722,7 @@ model OrganizationSubscription {
   status                SubscriptionStatus @default(TRIALING)
   paymentProvider       PaymentProviderType @default(MOCK)
   invoices Invoice[]
+
   /// The subscription id on the provider's side (e.g. Stripe subscription
   /// id). Null until the provider integration actually creates one —
   /// MOCK-provider subscriptions may never populate this.
