@@ -58,3 +58,32 @@ export type UserAccountSummary = Prisma.UserGetPayload<{
     profile: true;
   };
 }>;
+
+// ─────────────────────────────────────────────────────────────────────────
+// Module 003 additions
+// ─────────────────────────────────────────────────────────────────────────
+
+export type OrganizationMembershipWithUser = Prisma.OrganizationMembershipGetPayload<{
+  include: { user: { include: { profile: true } } };
+}>;
+
+export type OrganizationMembershipWithOrganization = Prisma.OrganizationMembershipGetPayload<{
+  include: { organization: true };
+}>;
+
+export type OrganizationInvitationWithOrganization = Prisma.OrganizationInvitationGetPayload<{
+  include: { organization: true };
+}>;
+
+/**
+ * Every Module 003 repository method accepts an optional transaction
+ * client as its final parameter, defaulting to the singleton `prisma`.
+ * This is what lets Phase 3 services compose atomic multi-table operations
+ * across multiple repositories (e.g. "create organization + create owner
+ * membership + write a history event" as one `prisma.$transaction`) while
+ * every individual repository method stays a single-table primitive with
+ * zero orchestration logic of its own — the transaction boundary itself is
+ * a service-layer decision, per the repository/service split in
+ * MODULE_003_PHASE_2_REPOSITORIES.md.
+ */
+export type DbClient = PrismaClient | Prisma.TransactionClient;

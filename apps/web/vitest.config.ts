@@ -5,15 +5,12 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
 
-    include: [
-      "src/**/*.{test,spec}.{ts,tsx}",
-    ],
-
     exclude: [
       "**/node_modules/**",
       "**/dist/**",
-      "**/.next/**",
+      "**/coverage/**",
       "**/e2e/**",
+      "**/playwright/**",
     ],
   },
 });

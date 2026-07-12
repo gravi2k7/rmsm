@@ -91,6 +91,8 @@ model User {
   sentInvitations          OrganizationInvitation[] @relation("InvitationSender")
   createdOrganizations     Organization[]           @relation("OrganizationCreatedBy")
   updatedOrganizations     Organization[]           @relation("OrganizationUpdatedBy")
+  membershipEventsAsSubject OrganizationMembershipEvent[] @relation("MembershipEventSubject")
+  membershipEventsAsActor   OrganizationMembershipEvent[] @relation("MembershipEventActor")
 
   @@index([status])
   @@map("users")
@@ -390,9 +392,18 @@ enum OrganizationRole {
 enum MembershipStatus {
   ACTIVE
   SUSPENDED
-  /// Member-initiated departure — distinct from being removed by an admin,
-  /// which deletes the row entirely (nothing to restore).
+  /// Member-initiated departure.
+  /// Phase 2 amendment: neither LEFT nor REMOVED delete the membership row.
+  /// "Preserve membership history" (Phase 2 constraint) means the row
+  /// persists as the durable record of that user's relationship with the
+  /// organization; rejoining reactivates the same row rather than creating
+  /// a new one, keeping the [organizationId, userId] unique constraint
+  /// intact. The original Phase 1 comment describing REMOVED as row
+  /// deletion is superseded by this.
   LEFT
+  /// Admin-initiated removal. See LEFT's comment — this does not delete
+  /// the row either, as of the Phase 2 amendment.
+  REMOVED
 }
 
 enum InvitationStatus {
@@ -420,6 +431,15 @@ model Organization {
   settings    Json               @default("{}")
   status      OrganizationStatus @default(ACTIVE)
 
+  /// Reserved for the future Subscription/Billing module (e.g. a Stripe
+  /// customer id). Not read or written by any Module 003 code — present
+  /// now so Billing doesn't need a migration just to attach itself to an
+  /// existing organization. Nullable and unenforced.
+  billingCustomerId String? @unique
+  /// Reserved for seat-based billing enforcement. Not enforced anywhere in
+  /// Module 003 — membership counts are not checked against this today.
+  seatsLimit        Int?
+
   createdById String?
   updatedById String?
   createdAt   DateTime  @default(now())
@@ -432,6 +452,7 @@ model Organization {
   updatedBy               User?                     @relation("OrganizationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   memberships              OrganizationMembership[]
   invitations              OrganizationInvitation[]
+  membershipEvents         OrganizationMembershipEvent[]
   profilesDefaultingHere   Profile[]                 @relation("ProfileDefaultOrganization")
 
   @@index([status])
@@ -483,4 +504,52 @@ model OrganizationInvitation {
   @@index([organizationId, status])
   @@index([email])
   @@map("organization_invitations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Phase 2 amendment — membership history (constraint: "preserve membership
+// history"). Distinct from Module 002's AuditLog: AuditLog is a
+// platform-wide security/compliance trail; this is a domain-specific,
+// product-facing timeline ("member since", role-change history) that
+// Phase 3 services and later UI will query differently (e.g. "show the
+// membership timeline for organization X"), justifying its own table
+// rather than overloading AuditLog's generic shape.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum MembershipEventAction {
+  INVITED
+  INVITATION_ACCEPTED
+  JOINED
+  ROLE_CHANGED
+  SUSPENDED
+  REACTIVATED
+  LEFT
+  REMOVED
+  OWNERSHIP_TRANSFERRED
+}
+
+model OrganizationMembershipEvent {
+  id             String                @id @default(uuid())
+  organizationId String
+  /// Nullable + SetNull, matching Module 002's LoginHistory/AuditLog
+  /// precedent: the event record outlives the user row in the rare case of
+  /// a hard delete (this module only soft-deletes, but the FK shouldn't
+  /// assume every future caller respects that).
+  userId         String?
+  action         MembershipEventAction
+  previousRole   OrganizationRole?
+  newRole        OrganizationRole?
+  /// Who performed the action (may differ from `userId`, e.g. an admin
+  /// removing another member). Null means system-initiated.
+  actorId        String?
+  metadata       Json                  @default("{}")
+  createdAt      DateTime              @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation("MembershipEventSubject", fields: [userId], references: [id], onDelete: SetNull)
+  actor        User?        @relation("MembershipEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([userId])
+  @@map("organization_membership_events")
 }
