@@ -42,6 +42,16 @@ export class OrganizationInvitationRepository {
     });
   }
 
+  findPendingByOrgAndEmail(
+    organizationId: string,
+    email: string,
+    client: DbClient = prisma,
+  ): Promise<OrganizationInvitation | null> {
+    return client.organizationInvitation.findFirst({
+      where: { organizationId, email, status: "PENDING" },
+    });
+  }
+
   findPendingByEmail(
     email: string,
     client: DbClient = prisma,
@@ -62,6 +72,19 @@ export class OrganizationInvitationRepository {
     return client.organizationInvitation.update({
       where: { id },
       data: { status, ...extra },
+    });
+  }
+
+  /** Used by the resend flow: issues a fresh token/expiry and resets status to PENDING, all in one write. */
+  regenerateToken(
+    id: string,
+    tokenHash: string,
+    expiresAt: Date,
+    client: DbClient = prisma,
+  ): Promise<OrganizationInvitation> {
+    return client.organizationInvitation.update({
+      where: { id },
+      data: { tokenHash, expiresAt, status: "PENDING" },
     });
   }
 

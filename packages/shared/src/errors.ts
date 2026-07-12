@@ -29,3 +29,22 @@ export class UnauthorizedError extends AppError {
     super(message, "UNAUTHORIZED", 401);
   }
 }
+
+/** Authenticated, but not permitted to perform this specific action. */
+export class ForbiddenError extends AppError {
+  constructor(message = "Forbidden") {
+    super(message, "FORBIDDEN", 403);
+  }
+}
+
+/**
+ * The request is well-formed but conflicts with current state — a unique
+ * constraint (slug already taken), or a domain invariant (removing the
+ * final active Owner). Distinct from ValidationError (400, malformed
+ * input) — a Conflict is valid input that can't be applied right now.
+ */
+export class ConflictError extends AppError {
+  constructor(message: string, details?: unknown) {
+    super(message, "CONFLICT", 409, details);
+  }
+}
