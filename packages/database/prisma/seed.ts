@@ -60,6 +60,12 @@ const DEFAULT_PERMISSIONS: { key: string; group: string; description: string }[]
   { key: "billing.usage.read", group: "billing", description: "View an organization's usage records." },
   { key: "billing.coupon.apply", group: "billing", description: "Validate and apply coupons to an organization's invoices." },
   { key: "billing.admin.manage", group: "billing", description: "Manage platform-wide subscription plans, features, and quotas." },
+
+  // ── Module 005, Phase 3 additions (additive) ──
+  { key: "notification.read", group: "notification", description: "View an organization's notifications and preferences." },
+  { key: "notification.send", group: "notification", description: "Send, bulk-send, or schedule notifications within an organization." },
+  { key: "notification.template.manage", group: "notification", description: "Create and update notification templates." },
+  { key: "notification.admin.manage", group: "notification", description: "Manage platform-wide notification provider configuration." },
 ];
 
 // Role -> permission key grants for the roles that should have elevated
@@ -93,6 +99,15 @@ const BILLING_READ_PERMISSIONS = [
 ];
 const BILLING_MANAGE_PERMISSIONS = ["billing.subscription.manage", "billing.account.manage", "billing.coupon.apply"];
 
+// Module 005 additions — same tier philosophy again: every account can
+// read notifications/preferences; only SUBSCRIBER-tier and above can
+// send/schedule notifications or manage templates (sending can reach an
+// organization's entire membership, a meaningfully higher-stakes action
+// than reading your own notifications). notification.admin.manage
+// (platform-wide provider configuration) is ADMIN/SUPER_ADMIN only, same
+// as billing.admin.manage.
+const NOTIFICATION_MANAGE_PERMISSIONS = ["notification.send", "notification.template.manage"];
+
 const ROLE_GRANTS: Record<string, string[]> = {
   SUPER_ADMIN: DEFAULT_PERMISSIONS.map((p) => p.key),
   ADMIN: [
@@ -107,23 +122,29 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...BILLING_READ_PERMISSIONS,
     ...BILLING_MANAGE_PERMISSIONS,
     "billing.admin.manage",
+    "notification.read",
+    ...NOTIFICATION_MANAGE_PERMISSIONS,
+    "notification.admin.manage",
   ],
   SUPPORT: ["users.read", "sessions.read", "sessions.revoke"],
-  ANALYST: ["users.read", "audit.read", ...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS],
+  ANALYST: ["users.read", "audit.read", ...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read"],
   // Judgment call, flagged explicitly (no product spec supplied a tier
   // matrix): every account can create and view organizations; only
   // SUBSCRIBER-tier and above can perform organization *management*
   // actions (update, delete, invite members, transfer ownership, etc.).
   // FREE_USER therefore gets create/read but not the management set.
-  // Same split applied to billing permissions this phase, for the same
-  // reason. Revisit when a real pricing/tier spec exists.
+  // Same split applied to billing and notification permissions this
+  // phase, for the same reason. Revisit when a real pricing/tier spec
+  // exists.
   SUBSCRIBER: [
     ...ORGANIZATION_BASIC_PERMISSIONS,
     ...ORGANIZATION_MANAGEMENT_PERMISSIONS,
     ...BILLING_READ_PERMISSIONS,
     ...BILLING_MANAGE_PERMISSIONS,
+    "notification.read",
+    ...NOTIFICATION_MANAGE_PERMISSIONS,
   ],
-  FREE_USER: [...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS],
+  FREE_USER: [...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read"],
 };
 
 // ─────────────────────────────────────────────────────────────────────────

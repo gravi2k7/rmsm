@@ -39,10 +39,10 @@ export class SendNotificationDto {
   @IsString()
   topic?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: "Already-resolved category id — no NotificationCategory lookup-by-key exists yet (see ADR discussion in MODULE_005_PHASE_2C_SERVICES.md)." })
   @IsOptional()
-  @IsString()
-  categoryKey?: string;
+  @IsUUID()
+  categoryId?: string;
 
   @ApiPropertyOptional({ description: "If set, renders this template instead of using subject/body directly." })
   @IsOptional()

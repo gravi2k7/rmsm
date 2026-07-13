@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { BullModule } from "@nestjs/bullmq";
 import { AuthModule } from "../auth/auth.module";
+import { OrganizationsModule } from "../organizations/organizations.module";
 import { NotificationRepository } from "./repositories/notification.repository";
 import { NotificationTemplateRepository } from "./repositories/notification-template.repository";
 import { NotificationPreferenceRepository } from "./repositories/notification-preference.repository";
@@ -34,21 +35,32 @@ import { WebhookService } from "./services/webhook.service";
 import { NotificationService } from "./services/notification.service";
 import { NotificationScheduler } from "./services/notification-scheduler.service";
 import { DigestService } from "./services/digest.service";
+import { EmailQueueProcessor } from "./workers/email-queue.processor";
+import { SmsQueueProcessor } from "./workers/sms-queue.processor";
+import { PushQueueProcessor } from "./workers/push-queue.processor";
+import { ScheduledQueueProcessor } from "./workers/scheduled-queue.processor";
+import { DigestQueueProcessor } from "./workers/digest-queue.processor";
+import { NotificationCronRegistrar } from "./workers/notification-cron.registrar";
+import { NotificationController } from "./notification.controller";
+import { NotificationPreferenceController } from "./notification-preference.controller";
+import { DeviceTokenController } from "./device-token.controller";
+import { WebhookController } from "./webhook.controller";
+import { NotificationTemplateController } from "./notification-template.controller";
+import { AdminNotificationController } from "./admin-notification.controller";
 
 /**
- * Phase 2a: 14 repositories (11 original + 3 added this phase — see
- * Phase 2c doc Section 1 for why NotificationSchedule/NotificationDigest/
- * NotificationWebhook's repositories arrived now rather than staying
- * deferred). Phase 2b: provider infrastructure. Phase 2c (this addition):
- * all 12 net-new services (ProviderRegistry/ProviderFactory were
- * effectively complete as of Phase 2b). Imports AuthModule to reuse
- * AuditService and UserRepository (real recipient email/phone
- * resolution — NotificationService's dispatch() — not a placeholder).
+ * Phase 2a: 14 repositories. Phase 2b: provider infrastructure. Phase 2c:
+ * 12 services. Phase 3 (this addition): 6 controllers, 5 BullMQ workers
+ * (one per queue), and a cron-sweep registrar using BullMQ's native
+ * repeatable-job feature (ADR-017 — no `@nestjs/schedule` dependency
+ * added). Imports OrganizationsModule for OrganizationRoleGuard's own
+ * dependency, the same pattern BillingModule already established.
  * Controllers remain Phase 3.
  */
 @Module({
   imports: [
     AuthModule,
+    OrganizationsModule,
     BullModule.registerQueue(
       { name: "email" },
       { name: "sms" },
@@ -56,6 +68,14 @@ import { DigestService } from "./services/digest.service";
       { name: "digest" },
       { name: "scheduled" },
     ),
+  ],
+  controllers: [
+    NotificationController,
+    NotificationPreferenceController,
+    DeviceTokenController,
+    WebhookController,
+    NotificationTemplateController,
+    AdminNotificationController,
   ],
   providers: [
     NotificationRepository,
@@ -91,6 +111,12 @@ import { DigestService } from "./services/digest.service";
     NotificationService,
     NotificationScheduler,
     DigestService,
+    EmailQueueProcessor,
+    SmsQueueProcessor,
+    PushQueueProcessor,
+    ScheduledQueueProcessor,
+    DigestQueueProcessor,
+    NotificationCronRegistrar,
   ],
   exports: [
     NotificationRepository,
