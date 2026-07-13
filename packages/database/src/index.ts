@@ -107,3 +107,15 @@ export type OrganizationSubscriptionWithPlan = Prisma.OrganizationSubscriptionGe
 export type InvoiceWithLines = Prisma.InvoiceGetPayload<{
   include: { lines: true };
 }>;
+
+// ─────────────────────────────────────────────────────────────────────────
+// Module 005 additions
+// ─────────────────────────────────────────────────────────────────────────
+
+export type NotificationTemplateWithLayout = Prisma.NotificationTemplateGetPayload<{
+  include: { layout: true };
+}>;
+
+export type NotificationWithDeliveries = Prisma.NotificationGetPayload<{
+  include: { deliveries: true };
+}>;

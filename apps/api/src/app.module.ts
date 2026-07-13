@@ -14,6 +14,7 @@ import { RbacModule } from "./modules/rbac/rbac.module";
 import { OAuthModule } from "./modules/oauth/oauth.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { BillingModule } from "./modules/billing/billing.module";
+import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { JwtAuthGuard } from "./modules/auth/guards/jwt-auth.guard";
 
 const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
@@ -37,6 +38,7 @@ const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
     OAuthModule,
     OrganizationsModule,
     BillingModule,
+    NotificationsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
