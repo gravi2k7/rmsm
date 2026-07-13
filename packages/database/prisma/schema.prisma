@@ -615,6 +615,10 @@ enum PaymentProviderType {
   RAZORPAY
   PADDLE
   LEMONSQUEEZY
+  /// Added Phase 3, per explicit instruction — not in the original prompt's
+  /// "Future" provider list (Razorpay/Paddle/LemonSqueezy), but PayPal is
+  /// implemented this phase alongside Razorpay.
+  PAYPAL
 }
 
 /// Not one of the prompt's 5 explicitly-named enums — needed because
@@ -717,12 +721,11 @@ model OrganizationSubscription {
   /// Unique, not just indexed — "each organization owns exactly one
   /// subscription" (spec, verbatim) is a hard 1:1, enforced at the
   /// database level, not just assumed by application code.
+  invoices Invoice[]
   organizationId        String             @unique
   planId                String
   status                SubscriptionStatus @default(TRIALING)
   paymentProvider       PaymentProviderType @default(MOCK)
-  invoices Invoice[]
-
   /// The subscription id on the provider's side (e.g. Stripe subscription
   /// id). Null until the provider integration actually creates one —
   /// MOCK-provider subscriptions may never populate this.

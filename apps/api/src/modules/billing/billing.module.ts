@@ -11,15 +11,19 @@ import { CouponRepository } from "./repositories/coupon.repository";
 import { CouponRedemptionRepository } from "./repositories/coupon-redemption.repository";
 import { UsageRecordRepository } from "./repositories/usage-record.repository";
 import { PaymentWebhookRepository } from "./repositories/payment-webhook.repository";
+import { MockProvider } from "./providers/mock.provider";
+import { StripeProvider } from "./providers/stripe.provider";
+import { RazorpayProvider } from "./providers/razorpay.provider";
+import { PayPalProvider } from "./providers/paypal.provider";
+import { PaymentProviderRegistry } from "./providers/payment-provider.registry";
 
 /**
- * Phase 2 scope: repositories only, per the Module 003 phasing precedent
- * this module follows. Services, controllers, DTOs, guards, and provider
- * implementations (Mock/Stripe) are Phases 3–4. No business logic lives
- * here — every repository is a single-table primitive; invariant
- * enforcement (e.g. "an organization has exactly one subscription" is
- * already a database-level @unique — see Phase 1) and transaction
- * orchestration across repositories are Phase 3 concerns.
+ * Phase 2 scope: repositories. Phase 3 (this addition): payment provider
+ * implementations (Mock/Stripe/Razorpay/PayPal) + PaymentProviderRegistry.
+ * Services, controllers, DTOs, and guards remain later phases. No business
+ * logic lives in the repositories; providers are pure integration
+ * adapters (no billing decisions — SubscriptionService, a later phase,
+ * decides *when* to call them).
  */
 @Module({
   providers: [
@@ -35,6 +39,11 @@ import { PaymentWebhookRepository } from "./repositories/payment-webhook.reposit
     CouponRedemptionRepository,
     UsageRecordRepository,
     PaymentWebhookRepository,
+    MockProvider,
+    StripeProvider,
+    RazorpayProvider,
+    PayPalProvider,
+    PaymentProviderRegistry,
   ],
   exports: [
     SubscriptionPlanRepository,
@@ -49,6 +58,7 @@ import { PaymentWebhookRepository } from "./repositories/payment-webhook.reposit
     CouponRedemptionRepository,
     UsageRecordRepository,
     PaymentWebhookRepository,
+    PaymentProviderRegistry,
   ],
 })
 export class BillingModule {}

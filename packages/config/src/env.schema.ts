@@ -69,6 +69,26 @@ export const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   WEB_APP_URL: z.string().default("http://localhost:3000"),
+
+  // --- Module 004: Billing / Payment Providers ---
+  // Every provider's credentials are optional — PaymentProviderRegistry
+  // treats a provider as disabled if its required keys are absent, same
+  // pattern as Module 002's OAuth provider config.
+  MOCK_WEBHOOK_SECRET: z.string().default("mock-webhook-secret-dev-only"),
+
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_API_BASE: z.string().default("https://api.stripe.com/v1"),
+
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+  RAZORPAY_API_BASE: z.string().default("https://api.razorpay.com/v1"),
+
+  PAYPAL_CLIENT_ID: z.string().optional(),
+  PAYPAL_CLIENT_SECRET: z.string().optional(),
+  PAYPAL_WEBHOOK_ID: z.string().optional(),
+  PAYPAL_API_BASE: z.string().default("https://api-m.sandbox.paypal.com"),
 });
 
 export type Env = z.infer<typeof envSchema>;

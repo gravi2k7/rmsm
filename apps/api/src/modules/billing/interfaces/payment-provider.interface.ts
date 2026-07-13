@@ -58,6 +58,14 @@ export interface NormalizedWebhookEvent {
 
 export abstract class PaymentProviderAdapter {
   abstract readonly provider: PaymentProviderType;
+  /**
+   * Phase 3 amendment: added to match `OAuthProviderStrategy`'s shape
+   * exactly (Module 002) — the registry (Phase 3) needs a uniform way to
+   * ask "is this provider actually configured" across all four
+   * implementations without special-casing MOCK (always enabled) against
+   * the real providers (enabled only when their credentials are present).
+   */
+  abstract readonly enabled: boolean;
 
   abstract createCustomer(organizationId: string, billingEmail: string): Promise<ProviderCustomer>;
 
@@ -70,8 +78,26 @@ export abstract class PaymentProviderAdapter {
     planProviderPriceId: string,
   ): Promise<CheckoutSession>;
 
-  /** Verifies a webhook payload's signature using the provider's own scheme. Returns false rather than throwing on failure — callers decide how to respond. */
-  abstract verifyWebhookSignature(rawBody: string, signatureHeader: string): boolean;
+  /**
+   * Verifies a webhook payload's signature using the provider's own
+   * scheme. Returns false rather than throwing on failure — callers
+   * decide how to respond.
+   *
+   * Phase 3 amendment: changed from `boolean` to `Promise<boolean>`.
+   * Stripe and Razorpay both sign webhooks with a local HMAC scheme that
+   * a synchronous check would have suited fine. PayPal does not — its
+   * verification is a required server-to-server call to PayPal's own
+   * `/v1/notifications/verify-webhook-signature` endpoint (certificate-
+   * based signing, no practical local verification without either that
+   * call or implementing a full X.509 chain validator, which this
+   * project isn't going to do for a security-relevant check). Rather
+   * than force PayPal into a shape it doesn't have, the interface is
+   * corrected here, before any caller depends on the old signature —
+   * Stripe's and Razorpay's implementations are trivially `async` wrappers
+   * around the same synchronous HMAC comparison, so nothing about their
+   * correctness changes.
+   */
+  abstract verifyWebhookSignature(rawBody: string, signatureHeader: string): Promise<boolean>;
 
   /** Parses an already-verified webhook payload into the normalized shape every provider produces. */
   abstract parseWebhookEvent(rawBody: string): NormalizedWebhookEvent;
