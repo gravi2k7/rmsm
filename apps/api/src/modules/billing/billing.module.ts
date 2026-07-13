@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { AuthModule } from "../auth/auth.module";
 import { SubscriptionPlanRepository } from "./repositories/subscription-plan.repository";
 import { FeatureFlagRepository } from "./repositories/feature-flag.repository";
 import { PlanFeatureRepository } from "./repositories/plan-feature.repository";
@@ -16,16 +17,25 @@ import { StripeProvider } from "./providers/stripe.provider";
 import { RazorpayProvider } from "./providers/razorpay.provider";
 import { PayPalProvider } from "./providers/paypal.provider";
 import { PaymentProviderRegistry } from "./providers/payment-provider.registry";
+import { BillingService } from "./services/billing.service";
+import { SubscriptionService } from "./services/subscription.service";
+import { InvoiceService } from "./services/invoice.service";
+import { PaymentService } from "./services/payment.service";
+import { CouponService } from "./services/coupon.service";
+import { UsageService } from "./services/usage.service";
+import { QuotaService } from "./services/quota.service";
+import { FeatureService } from "./services/feature.service";
+import { WebhookService } from "./services/webhook.service";
 
 /**
- * Phase 2 scope: repositories. Phase 3 (this addition): payment provider
- * implementations (Mock/Stripe/Razorpay/PayPal) + PaymentProviderRegistry.
- * Services, controllers, DTOs, and guards remain later phases. No business
- * logic lives in the repositories; providers are pure integration
- * adapters (no billing decisions — SubscriptionService, a later phase,
- * decides *when* to call them).
+ * Phase 2: repositories. Phase 3a: payment providers + registry. Phase 3b
+ * (this addition): all 9 services. Controllers, DTOs, and subscription
+ * middleware/guards remain Phase 4. Imports AuthModule to reuse
+ * AuditService, matching every other feature module's pattern in this
+ * codebase (organizations, auth itself).
  */
 @Module({
+  imports: [AuthModule],
   providers: [
     SubscriptionPlanRepository,
     FeatureFlagRepository,
@@ -44,6 +54,15 @@ import { PaymentProviderRegistry } from "./providers/payment-provider.registry";
     RazorpayProvider,
     PayPalProvider,
     PaymentProviderRegistry,
+    BillingService,
+    SubscriptionService,
+    InvoiceService,
+    PaymentService,
+    CouponService,
+    UsageService,
+    QuotaService,
+    FeatureService,
+    WebhookService,
   ],
   exports: [
     SubscriptionPlanRepository,
@@ -59,6 +78,15 @@ import { PaymentProviderRegistry } from "./providers/payment-provider.registry";
     UsageRecordRepository,
     PaymentWebhookRepository,
     PaymentProviderRegistry,
+    BillingService,
+    SubscriptionService,
+    InvoiceService,
+    PaymentService,
+    CouponService,
+    UsageService,
+    QuotaService,
+    FeatureService,
+    WebhookService,
   ],
 })
 export class BillingModule {}

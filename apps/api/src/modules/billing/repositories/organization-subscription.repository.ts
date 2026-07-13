@@ -31,6 +31,19 @@ export class OrganizationSubscriptionRepository {
     return client.organizationSubscription.findUnique({ where: { id } });
   }
 
+  /**
+   * Resolves a provider's own subscription id back to the organization it
+   * belongs to — WebhookService's dispatch path needs this for every
+   * subscription/invoice event, since provider payloads only carry the
+   * provider's subscription id, never RMSM's organizationId directly.
+   */
+  findByProviderSubscriptionId(
+    providerSubscriptionId: string,
+    client: DbClient = prisma,
+  ): Promise<OrganizationSubscription | null> {
+    return client.organizationSubscription.findFirst({ where: { providerSubscriptionId } });
+  }
+
   /** The primary lookup every billing operation starts from — "does this organization have a subscription, and what plan/status is it." */
   findByOrganizationId(
     organizationId: string,
