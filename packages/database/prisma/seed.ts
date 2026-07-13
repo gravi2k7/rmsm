@@ -49,6 +49,17 @@ const DEFAULT_PERMISSIONS: { key: string; group: string; description: string }[]
   { key: "organization.member.update", group: "organization", description: "Change a member's role, suspend, or reactivate them." },
   { key: "organization.owner.transfer", group: "organization", description: "Transfer organization ownership." },
   { key: "organization.settings.update", group: "organization", description: "Update organization settings." },
+
+  // ── Module 004, Phase 4 additions (additive) ──
+  { key: "billing.subscription.read", group: "billing", description: "View an organization's subscription." },
+  { key: "billing.subscription.manage", group: "billing", description: "Create, change, or cancel an organization's subscription." },
+  { key: "billing.account.read", group: "billing", description: "View an organization's billing account." },
+  { key: "billing.account.manage", group: "billing", description: "Create or update an organization's billing account." },
+  { key: "billing.invoice.read", group: "billing", description: "View an organization's invoices." },
+  { key: "billing.payment.read", group: "billing", description: "View an organization's payments." },
+  { key: "billing.usage.read", group: "billing", description: "View an organization's usage records." },
+  { key: "billing.coupon.apply", group: "billing", description: "Validate and apply coupons to an organization's invoices." },
+  { key: "billing.admin.manage", group: "billing", description: "Manage platform-wide subscription plans, features, and quotas." },
 ];
 
 // Role -> permission key grants for the roles that should have elevated
@@ -67,6 +78,21 @@ const ORGANIZATION_MANAGEMENT_PERMISSIONS = [
   "organization.settings.update",
 ];
 
+// Module 004 additions — same tier philosophy as the organization
+// permissions above: every account can view its organization's billing
+// state; only SUBSCRIBER-tier and above can manage it (create/change/
+// cancel a subscription, edit the billing account, apply coupons).
+// billing.admin.manage (platform-wide plan/feature/quota administration)
+// is separate again — ADMIN/SUPER_ADMIN only, same as roles.write.
+const BILLING_READ_PERMISSIONS = [
+  "billing.subscription.read",
+  "billing.account.read",
+  "billing.invoice.read",
+  "billing.payment.read",
+  "billing.usage.read",
+];
+const BILLING_MANAGE_PERMISSIONS = ["billing.subscription.manage", "billing.account.manage", "billing.coupon.apply"];
+
 const ROLE_GRANTS: Record<string, string[]> = {
   SUPER_ADMIN: DEFAULT_PERMISSIONS.map((p) => p.key),
   ADMIN: [
@@ -78,17 +104,26 @@ const ROLE_GRANTS: Record<string, string[]> = {
     "audit.read",
     ...ORGANIZATION_BASIC_PERMISSIONS,
     ...ORGANIZATION_MANAGEMENT_PERMISSIONS,
+    ...BILLING_READ_PERMISSIONS,
+    ...BILLING_MANAGE_PERMISSIONS,
+    "billing.admin.manage",
   ],
   SUPPORT: ["users.read", "sessions.read", "sessions.revoke"],
-  ANALYST: ["users.read", "audit.read", ...ORGANIZATION_BASIC_PERMISSIONS],
+  ANALYST: ["users.read", "audit.read", ...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS],
   // Judgment call, flagged explicitly (no product spec supplied a tier
   // matrix): every account can create and view organizations; only
   // SUBSCRIBER-tier and above can perform organization *management*
   // actions (update, delete, invite members, transfer ownership, etc.).
   // FREE_USER therefore gets create/read but not the management set.
-  // Revisit when a real pricing/tier spec exists.
-  SUBSCRIBER: [...ORGANIZATION_BASIC_PERMISSIONS, ...ORGANIZATION_MANAGEMENT_PERMISSIONS],
-  FREE_USER: [...ORGANIZATION_BASIC_PERMISSIONS],
+  // Same split applied to billing permissions this phase, for the same
+  // reason. Revisit when a real pricing/tier spec exists.
+  SUBSCRIBER: [
+    ...ORGANIZATION_BASIC_PERMISSIONS,
+    ...ORGANIZATION_MANAGEMENT_PERMISSIONS,
+    ...BILLING_READ_PERMISSIONS,
+    ...BILLING_MANAGE_PERMISSIONS,
+  ],
+  FREE_USER: [...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS],
 };
 
 async function main() {

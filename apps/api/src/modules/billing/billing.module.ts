@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
+import { OrganizationsModule } from "../organizations/organizations.module";
 import { SubscriptionPlanRepository } from "./repositories/subscription-plan.repository";
 import { FeatureFlagRepository } from "./repositories/feature-flag.repository";
 import { PlanFeatureRepository } from "./repositories/plan-feature.repository";
@@ -26,16 +27,43 @@ import { UsageService } from "./services/usage.service";
 import { QuotaService } from "./services/quota.service";
 import { FeatureService } from "./services/feature.service";
 import { WebhookService } from "./services/webhook.service";
+import { ActiveSubscriptionGuard } from "./guards/active-subscription.guard";
+import { FeatureGuard } from "./guards/feature.guard";
+import { PlanGuard } from "./guards/plan.guard";
+import { QuotaGuard } from "./guards/quota.guard";
+import { PlansController } from "./plans.controller";
+import { SubscriptionController } from "./subscription.controller";
+import { BillingAccountController } from "./billing-account.controller";
+import { InvoiceController } from "./invoice.controller";
+import { PaymentController } from "./payment.controller";
+import { UsageController } from "./usage.controller";
+import { CouponController } from "./coupon.controller";
+import { AdminBillingController } from "./admin.controller";
+import { WebhookController } from "./webhook.controller";
 
 /**
- * Phase 2: repositories. Phase 3a: payment providers + registry. Phase 3b
- * (this addition): all 9 services. Controllers, DTOs, and subscription
- * middleware/guards remain Phase 4. Imports AuthModule to reuse
- * AuditService, matching every other feature module's pattern in this
- * codebase (organizations, auth itself).
+ * Phase 2: repositories. Phase 3a: payment providers + registry. Phase 3b:
+ * all 9 services. Phase 4 (this addition): controllers, DTOs (not listed
+ * here — DTOs are consumed by controllers, not providers), and the
+ * subscription middleware guards (ActiveSubscriptionGuard/FeatureGuard/
+ * PlanGuard/QuotaGuard). Imports OrganizationsModule so
+ * OrganizationRoleGuard's own dependency (OrganizationMembershipRepository)
+ * resolves — every billing controller reuses that guard exactly as-is,
+ * not a parallel implementation.
  */
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, OrganizationsModule],
+  controllers: [
+    PlansController,
+    SubscriptionController,
+    BillingAccountController,
+    InvoiceController,
+    PaymentController,
+    UsageController,
+    CouponController,
+    AdminBillingController,
+    WebhookController,
+  ],
   providers: [
     SubscriptionPlanRepository,
     FeatureFlagRepository,
@@ -63,6 +91,10 @@ import { WebhookService } from "./services/webhook.service";
     QuotaService,
     FeatureService,
     WebhookService,
+    ActiveSubscriptionGuard,
+    FeatureGuard,
+    PlanGuard,
+    QuotaGuard,
   ],
   exports: [
     SubscriptionPlanRepository,

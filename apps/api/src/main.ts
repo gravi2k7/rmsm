@@ -11,7 +11,7 @@ import { winstonLogger } from "./common/logger/winston.config";
 async function bootstrap() {
   const config = loadConfig();
 
-  const app = await NestFactory.create(AppModule, { logger: winstonLogger });
+  const app = await NestFactory.create(AppModule, { logger: winstonLogger, rawBody: true });
 
   // Security headers
   app.use(helmet());
