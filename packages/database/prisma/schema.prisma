@@ -94,6 +94,13 @@ model User {
   membershipEventsAsSubject OrganizationMembershipEvent[] @relation("MembershipEventSubject")
   membershipEventsAsActor   OrganizationMembershipEvent[] @relation("MembershipEventActor")
 
+  // ── Module 005 additions ──────────────────────────────────────────────
+  notificationsReceived   Notification[]            @relation("NotificationRecipient")
+  notificationLogsActedOn NotificationLog[]          @relation("NotificationLogActor")
+  notificationPreferences NotificationPreference[]
+  notificationDigests     NotificationDigest[]
+  deviceTokens            DeviceToken[]
+
   @@index([status])
   @@map("users")
 }
@@ -464,6 +471,20 @@ model Organization {
   couponRedemptions CouponRedemption[]
   usageRecords      UsageRecord[]
 
+  // ── Module 005 additions ──────────────────────────────────────────────
+  notificationCategories NotificationCategory[]
+  emailProviders         EmailProvider[]
+  smsProviders           SmsProvider[]
+  pushProviders          PushProvider[]
+  notificationTemplates  NotificationTemplate[]
+  notifications          Notification[]
+  notificationLogs       NotificationLog[]
+  notificationSchedules  NotificationSchedule[]
+  notificationDigests    NotificationDigest[]
+  notificationPreferences NotificationPreference[]
+  deviceTokens           DeviceToken[]
+  notificationWebhooks   NotificationWebhook[]
+
   @@index([status])
   @@index([slug])
   @@map("organizations")
@@ -721,7 +742,7 @@ model OrganizationSubscription {
   /// Unique, not just indexed — "each organization owns exactly one
   /// subscription" (spec, verbatim) is a hard 1:1, enforced at the
   /// database level, not just assumed by application code.
-   invoices Invoice[]
+  invoices Invoice[]
   organizationId        String             @unique
   planId                String
   status                SubscriptionStatus @default(TRIALING)
@@ -929,4 +950,621 @@ model PaymentWebhook {
   @@index([provider, eventType])
   @@index([status])
   @@map("payment_webhooks")
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// Module 005 — Notifications & Communication Platform
+//
+// Design note (flagged, not silently decided): the prompt's model list
+// includes NotificationChannel, NotificationStatus, NotificationPriority,
+// and NotificationType alongside genuine entities (Notification,
+// NotificationTemplate, etc.). Those four describe classification/state,
+// not things with their own id/lifecycle/relations — modeled as enums,
+// consistent with how every prior module in this project has resolved
+// this exact ambiguity (Module 004's Phase 1 did the same for
+// SubscriptionStatus/BillingCycle/etc.). The other 16 are real models.
+//
+// Tenant isolation: every model carries organizationId except where a
+// null value has a specific, documented meaning (e.g. a null
+// organizationId on NotificationTemplate/EmailProvider/etc. means
+// "platform-wide default," not "ungoverned data") — matching ADR-001
+// (Organization is the tenant boundary) and ADR-011's precedent
+// (Module 004's billing models are all organization-scoped).
+// ═════════════════════════════════════════════════════════════════════════
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+  IN_APP
+  WEBHOOK
+}
+
+enum NotificationStatus {
+  PENDING
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+  READ
+  ARCHIVED
+  CANCELLED
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+/// How a Notification's recipients are resolved — direct, broadcast,
+/// role-targeted, permission-targeted, topic-based, or a generated digest.
+enum NotificationType {
+  DIRECT
+  BROADCAST
+  ROLE
+  PERMISSION
+  TOPIC
+  DIGEST
+}
+
+enum EmailProviderType {
+  SMTP
+  SES
+  SENDGRID
+  MAILGUN
+  RESEND
+}
+
+enum SmsProviderType {
+  TWILIO
+  MESSAGEBIRD
+  VONAGE
+  AWS_SNS
+}
+
+enum PushProviderType {
+  FCM
+  APNS
+}
+
+enum QueueStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  DEAD_LETTER
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+  OPENED
+  CLICKED
+}
+
+enum ScheduleFrequency {
+  ONCE
+  DAILY
+  WEEKLY
+  MONTHLY
+  CUSTOM_CRON
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+  WEB
+}
+
+enum TemplateFormat {
+  HTML
+  TEXT
+  MARKDOWN
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Configuration & Classification
+// ─────────────────────────────────────────────────────────────────────────
+
+model NotificationCategory {
+  id             String   @id @default(uuid())
+  /// Null = platform-wide category (e.g. "security"). Non-null = an
+  /// organization's own custom category (e.g. "trading-signals" defined
+  /// per-org for a future Strategy Builder module to notify through).
+  organizationId String?
+  key            String
+  name           String
+  description    String?
+  defaultChannel NotificationChannel @default(IN_APP)
+  isActive       Boolean  @default(true)
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization  Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  templates     NotificationTemplate[]
+  notifications Notification[]
+  preferences   NotificationPreference[]
+
+  /// A category key is unique within its scope — platform-wide categories
+  /// (organizationId null) share one namespace; each organization has its
+  /// own. Prisma cannot express "unique per nullable scope" directly as a
+  /// single constraint the way a non-nullable FK could, but the
+  /// (organizationId, key) compound unique below correctly enforces this:
+  /// Postgres treats every NULL organizationId as distinct from every
+  /// other NULL for uniqueness purposes, which is wrong for the
+  /// "platform-wide keys must still be unique among themselves" case.
+  /// Flagged as a known follow-up (mirrors ADR-004's precedent): true
+  /// enforcement of "unique key among all organizationId=NULL rows" needs
+  /// a partial unique index, hand-written SQL, same as Decision 1's
+  /// single-active-owner constraint in Module 003. Not fixed in schema.prisma
+  /// itself — Phase 2's repository layer must additionally check
+  /// uniqueness in application code for the organizationId=NULL case until
+  /// that partial index exists.
+  @@unique([organizationId, key])
+  @@index([organizationId, isActive])
+  @@map("notification_categories")
+}
+
+model EmailProvider {
+  id             String            @id @default(uuid())
+  /// Null = platform default provider, used when an organization hasn't
+  /// configured its own.
+  organizationId String?
+  type           EmailProviderType
+  name           String
+  /// AES-256-GCM encrypted credential blob (API keys, SMTP passwords,
+  /// etc.) — same encryption approach as Module 002's TwoFactorSecret,
+  /// never stored plaintext. Application-layer responsibility (Phase 2's
+  /// EmailService), the schema only constrains the column to hold the
+  /// encrypted form.
+  credentialsEnc String
+  fromAddress    String
+  fromName       String?
+  isActive       Boolean           @default(true)
+  isDefault      Boolean           @default(false)
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries   NotificationDelivery[]
+
+  @@index([organizationId, isActive])
+  @@map("email_providers")
+}
+
+model SmsProvider {
+  id             String          @id @default(uuid())
+  organizationId String?
+  type           SmsProviderType
+  name           String
+  credentialsEnc String
+  fromNumber     String
+  isActive       Boolean         @default(true)
+  isDefault      Boolean         @default(false)
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries   NotificationDelivery[]
+
+  @@index([organizationId, isActive])
+  @@map("sms_providers")
+}
+
+model PushProvider {
+  id             String           @id @default(uuid())
+  organizationId String?
+  type           PushProviderType
+  name           String
+  credentialsEnc String
+  isActive       Boolean          @default(true)
+  isDefault      Boolean          @default(false)
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deviceTokens DeviceToken[]
+  deliveries   NotificationDelivery[]
+
+  @@index([organizationId, isActive])
+  @@map("push_providers")
+}
+
+model NotificationTemplate {
+  id             String              @id @default(uuid())
+  /// Null = platform-wide template (e.g. the password-reset email
+  /// Module 002 could migrate onto this system later — not done this
+  /// phase, see the doc's Integration Points section).
+  organizationId String?
+  categoryId     String?
+  key            String
+  name           String
+  description    String?
+  channel        NotificationChannel
+  format         TemplateFormat      @default(HTML)
+  subjectTemplate String?
+  bodyTemplate   String
+  /// Self-relation: a template can reference a reusable layout (e.g. a
+  /// branded HTML email shell) that wraps its own bodyTemplate content —
+  /// "Reusable layouts" from the spec's Template Engine section.
+  layoutId       String?
+  locale         String              @default("en")
+  version        Int                 @default(1)
+  isActive       Boolean             @default(true)
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization?         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     NotificationCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  layout       NotificationTemplate? @relation("TemplateLayout", fields: [layoutId], references: [id], onDelete: SetNull)
+  layoutUsers  NotificationTemplate[] @relation("TemplateLayout")
+  notifications Notification[]
+  schedules    NotificationSchedule[]
+
+  @@unique([organizationId, key, locale])
+  @@index([organizationId, channel, isActive])
+  @@map("notification_templates")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Core Notification
+// ─────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id                 String               @id @default(uuid())
+  organizationId     String
+  type               NotificationType     @default(DIRECT)
+  channel            NotificationChannel
+  priority           NotificationPriority @default(NORMAL)
+  status             NotificationStatus   @default(PENDING)
+  categoryId         String?
+  templateId         String?
+  /// Populated for DIRECT notifications. Null for BROADCAST/ROLE/
+  /// PERMISSION/TOPIC, whose actual recipients are resolved at send time
+  /// (Phase 2's NotificationService) and tracked per-recipient via
+  /// NotificationDelivery rows, not duplicated here.
+  recipientUserId    String?
+  /// Populated only when type = ROLE.
+  recipientRole      OrganizationRole?
+  /// Populated only when type = PERMISSION (a platform permission key,
+  /// e.g. "billing.admin.manage" — Module 002's Permission.key).
+  recipientPermission String?
+  /// Populated only when type = TOPIC — an arbitrary subscription topic
+  /// string, not backed by its own table this phase (see the doc's
+  /// deferred-scope section on pub/sub topic management).
+  topic              String?
+  subject            String?
+  body               String
+  /// Rendered template variables / arbitrary payload data, e.g. for
+  /// in-app notifications that carry structured data a frontend renders
+  /// beyond the plain body text.
+  data               Json                 @default("{}")
+  locale             String               @default("en")
+  scheduledFor       DateTime?
+  sentAt             DateTime?
+  readAt             DateTime?
+  archivedAt         DateTime?
+  createdById        String?
+  updatedById        String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  deletedAt          DateTime?
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     NotificationCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  template     NotificationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  recipient    User?                 @relation("NotificationRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  deliveries  NotificationDelivery[]
+  queueJobs   NotificationQueue[]
+  events      NotificationEvent[]
+  logs        NotificationLog[]
+  attachments NotificationAttachment[]
+
+  @@index([organizationId, status])
+  @@index([recipientUserId, status])
+  @@index([organizationId, scheduledFor])
+  @@index([organizationId, createdAt])
+  @@map("notifications")
+}
+
+model NotificationAttachment {
+  id             String   @id @default(uuid())
+  notificationId String
+  fileName       String
+  mimeType       String
+  sizeBytes      Int
+  /// Object-storage reference (e.g. an S3 key), not the file content
+  /// itself — this schema doesn't own file storage.
+  storageKey     String
+  createdAt      DateTime @default(now())
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+  @@map("notification_attachments")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Delivery, Events, Logs
+// ─────────────────────────────────────────────────────────────────────────
+
+model NotificationDelivery {
+  id                String         @id @default(uuid())
+  notificationId    String
+  channel           NotificationChannel
+  emailProviderId   String?
+  smsProviderId     String?
+  pushProviderId    String?
+  status            DeliveryStatus @default(PENDING)
+  /// The provider's own message/delivery id — needed to correlate inbound
+  /// webhook callbacks (bounce/open/click events) back to this row.
+  providerMessageId String?
+  attempts          Int            @default(0)
+  lastAttemptAt     DateTime?
+  deliveredAt       DateTime?
+  openedAt          DateTime?
+  clickedAt         DateTime?
+  bouncedAt         DateTime?
+  failureReason     String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  notification  Notification   @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  emailProvider EmailProvider? @relation(fields: [emailProviderId], references: [id], onDelete: SetNull)
+  smsProvider   SmsProvider?   @relation(fields: [smsProviderId], references: [id], onDelete: SetNull)
+  pushProvider  PushProvider?  @relation(fields: [pushProviderId], references: [id], onDelete: SetNull)
+  events        NotificationEvent[]
+
+  @@index([notificationId])
+  @@index([providerMessageId])
+  @@index([status])
+  @@map("notification_deliveries")
+}
+
+model NotificationEvent {
+  id             String    @id @default(uuid())
+  notificationId String
+  deliveryId     String?
+  /// e.g. "sent", "delivered", "opened", "clicked", "bounced",
+  /// "complained", "failed" — string, not an enum, since provider webhook
+  /// payloads (Section on Delivery Tracking) will introduce event
+  /// subtypes this schema shouldn't need a migration to accommodate,
+  /// mirroring Module 004's UsageRecord.metric design choice.
+  eventType      String
+  metadata       Json      @default("{}")
+  occurredAt     DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+
+  notification Notification          @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  delivery     NotificationDelivery? @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
+
+  @@index([notificationId, eventType])
+  @@index([occurredAt])
+  @@map("notification_events")
+}
+
+/// Domain-specific operational log for notification-system actions
+/// (template changes, provider credential rotation, manual resends, etc.)
+/// — distinct from Module 002's platform-wide AuditLog, same reasoning as
+/// Module 003's OrganizationMembershipEvent: different query patterns,
+/// different consumer (an ops/admin notifications dashboard vs. a
+/// compliance audit trail).
+model NotificationLog {
+  id             String   @id @default(uuid())
+  organizationId String
+  notificationId String?
+  action         String
+  actorId        String?
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now())
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  notification Notification? @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+  actor        User?         @relation("NotificationLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([notificationId])
+  @@map("notification_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Queue, Scheduling, Digest
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Durable record of a queued send job — distinct from Module 001's
+/// BullMQ/Redis queue runtime itself. BullMQ owns fast in-flight job
+/// state; this table is the durable, queryable audit trail an admin
+/// dashboard needs ("show me every failed job in the SMS queue this
+/// week") that a Redis-backed queue alone doesn't retain once a job
+/// completes or expires. Phase 2's QueueService is responsible for
+/// keeping the two in sync (create a row when enqueueing to BullMQ,
+/// update status as BullMQ reports progress) — not a replacement for
+/// BullMQ, a companion to it.
+model NotificationQueue {
+  id             String      @id @default(uuid())
+  notificationId String
+  queueName      String
+  status         QueueStatus @default(PENDING)
+  priority       NotificationPriority @default(NORMAL)
+  scheduledFor   DateTime?
+  attempts       Int         @default(0)
+  maxAttempts    Int         @default(5)
+  lastError      String?
+  processedAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([queueName, status])
+  @@index([status, scheduledFor])
+  @@map("notification_queue")
+}
+
+model NotificationSchedule {
+  id             String            @id @default(uuid())
+  organizationId String
+  templateId     String
+  frequency      ScheduleFrequency
+  cronExpression String?
+  nextRunAt      DateTime
+  lastRunAt      DateTime?
+  isActive       Boolean           @default(true)
+  /// Mirrors Notification's own recipient-targeting shape (type +
+  /// role/permission/topic), kept as JSON here rather than repeating the
+  /// same four nullable columns a second time — this row generates
+  /// Notification rows, it doesn't need to query by individual target
+  /// fields the way Notification itself does.
+  targetType     NotificationType
+  targetValue    Json              @default("{}")
+  createdById    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template     NotificationTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, isActive])
+  @@index([isActive, nextRunAt])
+  @@map("notification_schedules")
+}
+
+model NotificationDigest {
+  id              String            @id @default(uuid())
+  userId          String
+  organizationId  String
+  frequency       ScheduleFrequency
+  /// Category keys this digest aggregates — JSON array rather than a join
+  /// table, since a digest's category set is a simple user preference, not
+  /// something queried from the category side ("which digests include
+  /// category X" has no current use case; if one emerges, this is a
+  /// straightforward follow-up migration to a proper join table).
+  categoryKeys    Json              @default("[]")
+  lastSentAt      DateTime?
+  nextScheduledAt DateTime?
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId, frequency])
+  @@index([isActive, nextScheduledAt])
+  @@map("notification_digests")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Preferences, Devices, Outbound Webhooks
+// ─────────────────────────────────────────────────────────────────────────
+
+model NotificationPreference {
+  id              String               @id @default(uuid())
+  userId          String
+  organizationId  String
+  /// Null = applies to all categories (the user's default for this org).
+  categoryId      String?
+  /// Null = applies to all channels.
+  channel         NotificationChannel?
+  enabled         Boolean              @default(true)
+  quietHoursStart String?
+  quietHoursEnd   String?
+  timezone        String               @default("UTC")
+  /// If set, overrides immediate delivery in favor of the user's digest
+  /// for this category/channel combination.
+  digestFrequency ScheduleFrequency?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     NotificationCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  /// A user has at most one preference row per (org, category, channel)
+  /// combination — category and channel are both nullable "applies to
+  /// all" wildcards, so this compound unique has the same nullable-field
+  /// caveat as NotificationCategory's key uniqueness above (flagged
+  /// there, applies here identically — Phase 2's PreferenceService must
+  /// additionally guard against duplicate wildcard rows in application
+  /// code).
+  @@unique([userId, organizationId, categoryId, channel])
+  @@index([userId, organizationId])
+  @@map("notification_preferences")
+}
+
+model DeviceToken {
+  id             String         @id @default(uuid())
+  userId         String
+  /// Nullable — a device belongs to a user account, not necessarily one
+  /// organization (the same phone receives push notifications regardless
+  /// of which org context the user is currently viewing).
+  organizationId String?
+  platform       DevicePlatform
+  token          String         @unique
+  pushProviderId String?
+  isActive       Boolean        @default(true)
+  lastUsedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  pushProvider PushProvider? @relation(fields: [pushProviderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isActive])
+  @@map("device_tokens")
+}
+
+/// Organization-configured OUTBOUND webhook subscriptions ("notify my
+/// system when X happens") — distinct from INBOUND provider callbacks
+/// (SendGrid bounce webhooks, Twilio delivery receipts), which arrive at
+/// a WebhookController endpoint (Phase 2+) and are verified using each
+/// provider's own signature scheme, the same pattern Module 004 already
+/// established for payment provider webhooks. This model is the
+/// counterpart in the other direction.
+model NotificationWebhook {
+  id              String    @id @default(uuid())
+  organizationId  String
+  url             String
+  /// HMAC signing secret for outbound payloads — same encrypted-at-rest
+  /// discipline as provider credentials above.
+  secretEnc       String
+  /// Which NotificationEvent.eventType values trigger this webhook.
+  eventTypes      Json      @default("[]")
+  isActive        Boolean   @default(true)
+  lastTriggeredAt DateTime?
+  lastStatus      String?
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, isActive])
+  @@map("notification_webhooks")
 }

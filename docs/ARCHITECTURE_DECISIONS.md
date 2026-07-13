@@ -138,6 +138,30 @@ mirroring ADR-004's defense-in-depth philosophy (application check + database co
 either alone).
 _Source: `docs/modules/MODULE_004_PHASE_1_SPEC_ARCHITECTURE_SCHEMA.md`._
 
+### ADR-016 — Notification models resolve "ambiguous model-or-enum" the same way Module 004 did
+The Module 005 prompt's model list included `NotificationChannel`, `NotificationStatus`,
+`NotificationPriority`, and `NotificationType` alongside genuine entities. These four describe
+classification/state, not things with their own id/lifecycle/relations — modeled as enums,
+resolving the ambiguity the identical way Module 004's Phase 1 resolved
+`SubscriptionStatus`/`BillingCycle`/etc.
+_Source: `docs/modules/MODULE_005_PHASE_1_SPEC_ARCHITECTURE_SCHEMA.md`._
+
+### ADR-017 — NotificationQueue is a durable companion to BullMQ, not a replacement
+Module 001's BullMQ/Redis queue owns fast in-flight job state. `NotificationQueue` (Prisma) is
+the durable, queryable audit trail an admin dashboard needs once a job completes, fails, or
+expires — Redis-backed queues don't retain that. Phase 2's `QueueService` keeps both in sync;
+this is not a second queue system competing with BullMQ.
+_Source: `docs/modules/MODULE_005_PHASE_1_SPEC_ARCHITECTURE_SCHEMA.md`._
+
+### ADR-018 — Notification provider abstraction reuses the Module 004 pattern exactly, three times
+`EmailProviderAdapter`/`SmsProviderAdapter`/`PushProviderAdapter` + their registries are
+structurally identical to `PaymentProviderAdapter`/`PaymentProviderRegistry` — same "adapter
+interface + registry + factory, no SDK coupling in anything above the provider layer"
+philosophy, applied once per channel family instead of once for payments. Not a new pattern;
+the third consecutive reuse of one already proven twice (OAuth in Module 002, payments in
+Module 004).
+_Source: `docs/modules/MODULE_005_PHASE_1_SPEC_ARCHITECTURE_SCHEMA.md`._
+
 ---
 
 ## How to add to this file
