@@ -459,7 +459,7 @@ model Organization {
   updatedBy               User?                     @relation("OrganizationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   memberships              OrganizationMembership[]
   invitations              OrganizationInvitation[]
-    membershipEvents OrganizationMembershipEvent[]
+  membershipEvents         OrganizationMembershipEvent[]
   profilesDefaultingHere   Profile[]                 @relation("ProfileDefaultOrganization")
 
   // ── Module 004 additions ──────────────────────────────────────────────
@@ -742,7 +742,6 @@ model OrganizationSubscription {
   /// Unique, not just indexed — "each organization owns exactly one
   /// subscription" (spec, verbatim) is a hard 1:1, enforced at the
   /// database level, not just assumed by application code.
-  invoices Invoice[]
   organizationId        String             @unique
   planId                String
   status                SubscriptionStatus @default(TRIALING)
@@ -762,6 +761,7 @@ model OrganizationSubscription {
 
   organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   plan         SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  invoices     Invoice[]
 
   @@index([status])
   @@index([planId])

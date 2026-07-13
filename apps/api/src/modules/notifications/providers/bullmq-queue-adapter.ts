@@ -52,6 +52,7 @@ export class BullMqQueueAdapter implements QueueAdapter {
   async enqueue<T>(payload: T, options: EnqueueOptions): Promise<QueueJob<T>> {
     const queue = this.resolveQueue(options.queueName);
     const job = await queue.add("notification", payload, {
+      jobId: options.jobId,
       priority: PRIORITY_TO_BULLMQ[options.priority ?? "NORMAL"],
       delay: options.delayMs,
       attempts: options.maxAttempts ?? 5,

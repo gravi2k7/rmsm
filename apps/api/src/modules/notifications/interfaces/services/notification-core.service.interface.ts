@@ -5,7 +5,18 @@ export interface SendNotificationInput {
   type: NotificationType;
   channel: NotificationChannel;
   priority?: NotificationPriority;
-  categoryKey?: string;
+  /**
+   * Phase 2c correction: was `categoryKey` in the original Phase 1 draft.
+   * No `NotificationCategory` repository exists yet (deferred in Phase
+   * 2a — no corresponding service needs it this phase, unlike
+   * NotificationSchedule/NotificationDigest/NotificationWebhook, whose
+   * corresponding services — NotificationScheduler/DigestService/
+   * WebhookService — are built this phase). Accepting an already-resolved
+   * `categoryId` here avoids inventing category-key resolution logic
+   * this phase doesn't need; a future category-management layer can
+   * resolve a human-facing key to an id before calling this.
+   */
+  categoryId?: string;
   templateKey?: string;
   recipientUserId?: string;
   recipientRole?: string;
@@ -16,7 +27,8 @@ export interface SendNotificationInput {
   variables?: Record<string, unknown>;
   locale?: string;
   scheduledFor?: Date;
-  actorId: string;
+  /** Null for system-initiated sends (a fired schedule, a digest) — never a fake string like "system", which would violate AuditLog.userId's real FK to User. */
+  actorId: string | null;
 }
 
 /**

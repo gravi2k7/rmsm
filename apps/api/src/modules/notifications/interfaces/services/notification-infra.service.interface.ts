@@ -41,7 +41,8 @@ export interface IQueueService {
   enqueue<T>(payload: T, options: EnqueueOptions): Promise<QueueJob<T>>;
   processQueue(queueName: string, batchSize: number): Promise<void>;
   retryFailed(queueName: string): Promise<number>;
-  moveToDeadLetter(jobId: string, queueName: string, reason: string): Promise<void>;
+  /** `id` is the shared NotificationQueue-row-id-as-BullMQ-job-id — see QueueService's Phase 2c class comment for why there's only one id, not a separate (jobId, queueEntryId) pair to correlate. */
+  moveToDeadLetter(id: string, queueName: string, reason: string): Promise<void>;
 }
 
 export interface ITemplateService {
@@ -52,8 +53,8 @@ export interface ITemplateService {
 }
 
 export interface IPreferenceService {
-  /** The single check every send path calls before enqueueing — combines opt-in/out, quiet hours, and digest-redirect logic into one decision. */
-  isAllowed(userId: string, organizationId: string, categoryKey: string | undefined, channel: NotificationChannel): Promise<{ allowed: boolean; redirectToDigest: boolean; reason?: string }>;
-  setPreference(userId: string, organizationId: string, categoryKey: string | null, channel: NotificationChannel | null, enabled: boolean): Promise<void>;
+  /** The single check every send path calls before enqueueing — combines opt-in/out, quiet hours, and digest-redirect logic into one decision. `categoryId`, not `categoryKey` — see SendNotificationInput's Phase 2c comment for why. */
+  isAllowed(userId: string, organizationId: string, categoryId: string | undefined, channel: NotificationChannel): Promise<{ allowed: boolean; redirectToDigest: boolean; reason?: string }>;
+  setPreference(userId: string, organizationId: string, categoryId: string | null, channel: NotificationChannel | null, enabled: boolean): Promise<void>;
   getOrganizationDefaults(organizationId: string): Promise<Record<string, boolean>>;
 }

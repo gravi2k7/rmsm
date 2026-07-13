@@ -177,6 +177,28 @@ following the shape in `notification-preference.repository.spec.ts` and
 _Source: `docs/modules/MODULE_005_PHASE_2A_REPOSITORIES.md`, Section 8. Confirmed as binding
 standard in the Phase 2a approval response._
 
+### ADR-020 — Two missing back-relations blocked Prisma client generation entirely; a real limit of the stub-based typecheck method is now explicit
+The user ran a real `prisma generate` (unblocked on their machine) and hit schema-validation
+errors across every module — the cause was two missing back-relation fields:
+`OrganizationMembershipEvent.organization → Organization` had no corresponding
+`Organization.membershipEvents` field, and `Invoice.subscription → OrganizationSubscription`
+had no corresponding `OrganizationSubscription.invoices` field. Prisma refuses to generate a
+client at all when any relation is unpaired — not a partial failure, a total one — which is
+why it surfaced as errors in every downstream package rather than something narrower. Both
+fixed; a scripted audit of all 73 relation pairs in the schema found no further instances.
+
+**The real lesson, stated plainly rather than left implicit**: this project's stub-based
+typecheck verification (used in every phase's docs since the TS2742 fix, whenever real
+`prisma generate` was blocked) is a hand-maintained `.d.ts` file disconnected from
+`schema.prisma` itself — it can prove TypeScript-level correctness against *assumed* types, but
+it structurally cannot catch a schema-relation-pairing error, because the stub never derives
+from the real schema in the first place. Every phase's verification section has said "this is
+not a substitute for real Prisma validation" — this is a concrete instance of exactly what that
+caveat meant, not a hypothetical one. The fix here came from the one thing that actually
+validates the schema: a real `prisma generate` run, which this sandbox still cannot perform
+itself.
+_Source: user-reported fix; verified and audited in this conversation._
+
 ---
 
 ## How to add to this file

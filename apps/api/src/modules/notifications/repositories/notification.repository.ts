@@ -28,7 +28,7 @@ export interface CreateNotificationInput {
   data?: Record<string, unknown>;
   locale?: string;
   scheduledFor?: Date;
-  createdById?: string;
+  createdById?: string | null;
 }
 
 export interface NotificationListFilters {

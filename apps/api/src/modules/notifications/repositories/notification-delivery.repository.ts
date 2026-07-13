@@ -15,6 +15,11 @@ export class NotificationDeliveryRepository {
     return client.notificationDelivery.create({ data });
   }
 
+  /** Phase 2c addition (additive) — needed by TrackingService to resolve a delivery's parent notification id when recording an event. */
+  findById(id: string, client: DbClient = prisma): Promise<NotificationDelivery | null> {
+    return client.notificationDelivery.findUnique({ where: { id } });
+  }
+
   findByNotification(notificationId: string, client: DbClient = prisma): Promise<NotificationDelivery[]> {
     return client.notificationDelivery.findMany({ where: { notificationId } });
   }
