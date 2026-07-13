@@ -721,7 +721,7 @@ model OrganizationSubscription {
   /// Unique, not just indexed — "each organization owns exactly one
   /// subscription" (spec, verbatim) is a hard 1:1, enforced at the
   /// database level, not just assumed by application code.
-  invoices Invoice[]
+   invoices Invoice[]
   organizationId        String             @unique
   planId                String
   status                SubscriptionStatus @default(TRIALING)

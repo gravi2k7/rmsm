@@ -126,6 +126,126 @@ const ROLE_GRANTS: Record<string, string[]> = {
   FREE_USER: [...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS],
 };
 
+// ─────────────────────────────────────────────────────────────────────────
+// Module 004, Phase 5 addition — billing seed data. Without this, GET
+// /billing/plans returns an empty list and every FeatureService/
+// QuotaService check fails with "no such plan" — the schema and services
+// existed since Phases 1–4, but nothing populated the rows they depend on.
+// Not new functionality (no new endpoint, no new business rule) — this is
+// configuration data for functionality that already existed and was
+// untestable without it.
+//
+// Every price, trial length, and per-plan limit below is a placeholder
+// default, not a specified value — no pricing/limits spec was provided in
+// any Module 004 prompt. Flagged explicitly so these are recognized as
+// "the system needs *some* numbers to be functional" rather than mistaken
+// for confirmed business decisions. Plan tiers themselves (5, not 6) match
+// ADR-014's resolution of the "Free/Starter/Professional/Enterprise/
+// Unlimited/Support" ambiguity from Phase 1.
+// ─────────────────────────────────────────────────────────────────────────
+
+const DEFAULT_PLANS: {
+  key: string;
+  name: string;
+  description: string;
+  monthlyPriceCents: number;
+  yearlyPriceCents: number;
+  trialDays: number;
+  gracePeriodDays: number;
+  displayOrder: number;
+}[] = [
+  { key: "free", name: "Free", description: "Get started with the basics.", monthlyPriceCents: 0, yearlyPriceCents: 0, trialDays: 0, gracePeriodDays: 0, displayOrder: 0 },
+  { key: "starter", name: "Starter", description: "For individual traders getting serious.", monthlyPriceCents: 2900, yearlyPriceCents: 29000, trialDays: 14, gracePeriodDays: 7, displayOrder: 1 },
+  { key: "professional", name: "Professional", description: "Full toolset for active traders.", monthlyPriceCents: 9900, yearlyPriceCents: 99000, trialDays: 14, gracePeriodDays: 7, displayOrder: 2 },
+  { key: "enterprise", name: "Enterprise", description: "For trading teams and desks.", monthlyPriceCents: 29900, yearlyPriceCents: 299000, trialDays: 14, gracePeriodDays: 14, displayOrder: 3 },
+  { key: "unlimited", name: "Unlimited", description: "Every feature, no limits.", monthlyPriceCents: 99900, yearlyPriceCents: 999900, trialDays: 30, gracePeriodDays: 14, displayOrder: 4 },
+];
+
+// The exact 11 feature examples named in the original Module 004 prompt.
+const DEFAULT_FEATURE_FLAGS: { key: string; name: string; type: "BOOLEAN" | "LIMIT" }[] = [
+  { key: "organizations", name: "Organizations", type: "LIMIT" },
+  { key: "users", name: "Team Members", type: "LIMIT" },
+  { key: "indicators", name: "Custom Indicators", type: "LIMIT" },
+  { key: "ai_requests", name: "AI Requests", type: "LIMIT" },
+  { key: "storage", name: "Storage (MB)", type: "LIMIT" },
+  { key: "alerts", name: "Alerts", type: "LIMIT" },
+  { key: "api_calls", name: "API Calls", type: "LIMIT" },
+  { key: "historical_data", name: "Historical Data Access", type: "BOOLEAN" },
+  { key: "export", name: "Data Export", type: "BOOLEAN" },
+  { key: "backtesting", name: "Backtesting", type: "BOOLEAN" },
+  { key: "automation", name: "Automation", type: "BOOLEAN" },
+];
+
+// Per-plan grants: LIMIT features get a numeric cap (or `null` = unlimited);
+// BOOLEAN features get true/false. UNLIMITED plan sets every LIMIT feature
+// to `null` and every BOOLEAN feature to `true`, matching its name.
+const PLAN_FEATURE_GRANTS: Record<string, Record<string, { enabled: boolean; limit: number | null }>> = {
+  free: {
+    organizations: { enabled: true, limit: 1 },
+    users: { enabled: true, limit: 1 },
+    indicators: { enabled: true, limit: 3 },
+    ai_requests: { enabled: true, limit: 10 },
+    storage: { enabled: true, limit: 100 },
+    alerts: { enabled: true, limit: 5 },
+    api_calls: { enabled: true, limit: 100 },
+    historical_data: { enabled: false, limit: null },
+    export: { enabled: false, limit: null },
+    backtesting: { enabled: false, limit: null },
+    automation: { enabled: false, limit: null },
+  },
+  starter: {
+    organizations: { enabled: true, limit: 1 },
+    users: { enabled: true, limit: 3 },
+    indicators: { enabled: true, limit: 10 },
+    ai_requests: { enabled: true, limit: 100 },
+    storage: { enabled: true, limit: 1000 },
+    alerts: { enabled: true, limit: 20 },
+    api_calls: { enabled: true, limit: 1000 },
+    historical_data: { enabled: true, limit: null },
+    export: { enabled: false, limit: null },
+    backtesting: { enabled: false, limit: null },
+    automation: { enabled: false, limit: null },
+  },
+  professional: {
+    organizations: { enabled: true, limit: 3 },
+    users: { enabled: true, limit: 10 },
+    indicators: { enabled: true, limit: 50 },
+    ai_requests: { enabled: true, limit: 1000 },
+    storage: { enabled: true, limit: 10000 },
+    alerts: { enabled: true, limit: 100 },
+    api_calls: { enabled: true, limit: 10000 },
+    historical_data: { enabled: true, limit: null },
+    export: { enabled: true, limit: null },
+    backtesting: { enabled: true, limit: null },
+    automation: { enabled: false, limit: null },
+  },
+  enterprise: {
+    organizations: { enabled: true, limit: 10 },
+    users: { enabled: true, limit: 50 },
+    indicators: { enabled: true, limit: 200 },
+    ai_requests: { enabled: true, limit: 10000 },
+    storage: { enabled: true, limit: 100000 },
+    alerts: { enabled: true, limit: 500 },
+    api_calls: { enabled: true, limit: 100000 },
+    historical_data: { enabled: true, limit: null },
+    export: { enabled: true, limit: null },
+    backtesting: { enabled: true, limit: null },
+    automation: { enabled: true, limit: null },
+  },
+  unlimited: {
+    organizations: { enabled: true, limit: null },
+    users: { enabled: true, limit: null },
+    indicators: { enabled: true, limit: null },
+    ai_requests: { enabled: true, limit: null },
+    storage: { enabled: true, limit: null },
+    alerts: { enabled: true, limit: null },
+    api_calls: { enabled: true, limit: null },
+    historical_data: { enabled: true, limit: null },
+    export: { enabled: true, limit: null },
+    backtesting: { enabled: true, limit: null },
+    automation: { enabled: true, limit: null },
+  },
+};
 async function main() {
   await prisma.systemHealth.upsert({
     where: { component: "database" },
@@ -167,9 +287,52 @@ async function main() {
     }
   }
 
+  const planByKey = new Map<string, string>();
+  for (const plan of DEFAULT_PLANS) {
+    const created = await prisma.subscriptionPlan.upsert({
+      where: { key: plan.key },
+      update: {
+        name: plan.name,
+        description: plan.description,
+        monthlyPriceCents: plan.monthlyPriceCents,
+        yearlyPriceCents: plan.yearlyPriceCents,
+        trialDays: plan.trialDays,
+        gracePeriodDays: plan.gracePeriodDays,
+        displayOrder: plan.displayOrder,
+      },
+      create: plan,
+    });
+    planByKey.set(plan.key, created.id);
+  }
+
+  const featureFlagByKey = new Map<string, string>();
+  for (const flag of DEFAULT_FEATURE_FLAGS) {
+    const created = await prisma.featureFlag.upsert({
+      where: { key: flag.key },
+      update: { name: flag.name, type: flag.type },
+      create: flag,
+    });
+    featureFlagByKey.set(flag.key, created.id);
+  }
+
+  for (const [planKey, grants] of Object.entries(PLAN_FEATURE_GRANTS)) {
+    const planId = planByKey.get(planKey);
+    if (!planId) continue;
+    for (const [featureKey, grant] of Object.entries(grants)) {
+      const featureFlagId = featureFlagByKey.get(featureKey);
+      if (!featureFlagId) continue;
+      await prisma.planFeature.upsert({
+        where: { planId_featureFlagId: { planId, featureFlagId } },
+        update: { enabled: grant.enabled, limit: grant.limit },
+        create: { planId, featureFlagId, enabled: grant.enabled, limit: grant.limit },
+      });
+    }
+  }
+
   // eslint-disable-next-line no-console -- seed script CLI output, not app runtime logging
   console.log(
-    `Seed complete: ${DEFAULT_ROLES.length} roles, ${DEFAULT_PERMISSIONS.length} permissions, grants applied.`,
+    `Seed complete: ${DEFAULT_ROLES.length} roles, ${DEFAULT_PERMISSIONS.length} permissions, ` +
+      `${DEFAULT_PLANS.length} plans, ${DEFAULT_FEATURE_FLAGS.length} feature flags, grants applied.`,
   );
 }
 
