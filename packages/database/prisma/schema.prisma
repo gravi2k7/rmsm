@@ -459,7 +459,7 @@ model Organization {
   updatedBy               User?                     @relation("OrganizationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   memberships              OrganizationMembership[]
   invitations              OrganizationInvitation[]
-  membershipEvents OrganizationMembershipEvent[]
+    membershipEvents OrganizationMembershipEvent[]
   profilesDefaultingHere   Profile[]                 @relation("ProfileDefaultOrganization")
 
   // ── Module 004 additions ──────────────────────────────────────────────

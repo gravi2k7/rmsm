@@ -48,6 +48,25 @@ export class EmailProviderRepository {
     });
   }
 
+  /** Phase 2b addition (additive) — the specific lookup EmailProviderRegistry needs: "does this organization have a configured instance of provider type X." */
+  /** Phase 2b addition (additive) — organizationId literally null, not a sentinel value; needed for platform-default listings. */
+  findPlatformProviders(client: DbClient = prisma): Promise<EmailProvider[]> {
+    return client.emailProvider.findMany({
+      where: { organizationId: null, deletedAt: null },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  findByOrgAndType(
+    organizationId: string | null,
+    type: EmailProviderType,
+    client: DbClient = prisma,
+  ): Promise<EmailProvider | null> {
+    return client.emailProvider.findFirst({
+      where: { organizationId, type, isActive: true, deletedAt: null },
+    });
+  }
+
   update(
     id: string,
     data: Partial<Pick<EmailProvider, "name" | "fromAddress" | "fromName" | "isActive">>,

@@ -89,6 +89,9 @@ export const envSchema = z.object({
   PAYPAL_CLIENT_SECRET: z.string().optional(),
   PAYPAL_WEBHOOK_ID: z.string().optional(),
   PAYPAL_API_BASE: z.string().default("https://api-m.sandbox.paypal.com"),
+
+  // --- Module 005: Notifications ---
+  NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: z.string().min(32).default("1".repeat(64)),
 });
 
 export type Env = z.infer<typeof envSchema>;

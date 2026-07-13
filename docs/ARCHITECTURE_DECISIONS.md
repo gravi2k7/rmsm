@@ -162,6 +162,21 @@ the third consecutive reuse of one already proven twice (OAuth in Module 002, pa
 Module 004).
 _Source: `docs/modules/MODULE_005_PHASE_1_SPEC_ARCHITECTURE_SCHEMA.md`._
 
+### ADR-019 — Repository unit tests mock `@rmsm/database` directly; this is the standard, not an exception
+Every repository imports the `prisma` singleton directly (not via constructor injection of the
+client itself), which had made repositories effectively untestable in this sandbox — every
+test touching `@rmsm/database` failed at import time (`PrismaClient is not a constructor`,
+since `prisma generate` has been network-blocked since Module 001). `jest.mock("@rmsm/database",
+...)` replaces the entire module before the real one (and its blocked constructor call) is ever
+imported, which let Module 005's Phase 2a repository tests actually execute and pass — the
+first genuinely-running database-adjacent test coverage in this project. Confirmed as the
+project standard for all repository unit tests going forward, not a one-off workaround: new
+repositories should ship with `jest.mock("@rmsm/database", ...)`-based tests from the start,
+following the shape in `notification-preference.repository.spec.ts` and
+`notification.repository.spec.ts` (Module 005 Phase 2a).
+_Source: `docs/modules/MODULE_005_PHASE_2A_REPOSITORIES.md`, Section 8. Confirmed as binding
+standard in the Phase 2a approval response._
+
 ---
 
 ## How to add to this file

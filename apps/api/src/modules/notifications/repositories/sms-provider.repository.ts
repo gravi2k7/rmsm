@@ -35,6 +35,21 @@ export class SmsProviderRepository {
     });
   }
 
+  /** Phase 2b addition (additive) — same reasoning as EmailProviderRepository's equivalent method. */
+  /** Phase 2b addition (additive) — same reasoning as EmailProviderRepository's equivalent method. */
+  findPlatformProviders(client: DbClient = prisma): Promise<SmsProvider[]> {
+    return client.smsProvider.findMany({
+      where: { organizationId: null, deletedAt: null },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  findByOrgAndType(organizationId: string | null, type: SmsProviderType, client: DbClient = prisma): Promise<SmsProvider | null> {
+    return client.smsProvider.findFirst({
+      where: { organizationId, type, isActive: true, deletedAt: null },
+    });
+  }
+
   update(
     id: string,
     data: Partial<Pick<SmsProvider, "name" | "fromNumber" | "isActive">>,

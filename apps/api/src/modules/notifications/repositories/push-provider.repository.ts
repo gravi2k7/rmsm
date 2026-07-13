@@ -34,6 +34,21 @@ export class PushProviderRepository {
     });
   }
 
+  /** Phase 2b addition (additive) — same reasoning as EmailProviderRepository's equivalent method. */
+  /** Phase 2b addition (additive) — same reasoning as EmailProviderRepository's equivalent method. */
+  findPlatformProviders(client: DbClient = prisma): Promise<PushProvider[]> {
+    return client.pushProvider.findMany({
+      where: { organizationId: null, deletedAt: null },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  findByOrgAndType(organizationId: string | null, type: PushProviderType, client: DbClient = prisma): Promise<PushProvider | null> {
+    return client.pushProvider.findFirst({
+      where: { organizationId, type, isActive: true, deletedAt: null },
+    });
+  }
+
   update(
     id: string,
     data: Partial<Pick<PushProvider, "name" | "isActive">>,

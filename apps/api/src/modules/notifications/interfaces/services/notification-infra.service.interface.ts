@@ -5,11 +5,25 @@ import type { PushProviderAdapter } from "../providers/push-provider.interface";
 import type { QueueJob, EnqueueOptions } from "../queue-adapter.interface";
 import type { RenderedContent } from "../template-engine.interface";
 
-/** Same registry shape as Module 004's PaymentProviderRegistry — one per provider family, so adding a channel-specific provider is "implement the adapter, register it," nothing else. */
+/**
+ * Same registry shape as Module 004's PaymentProviderRegistry, with one
+ * necessary correction found while implementing it for real (Phase 2b):
+ * `get()`/`getDefault()` are `async`, not synchronous. Module 004's
+ * payment providers each had exactly one platform-wide instance,
+ * constructed once at DI-container startup from static env config — a
+ * synchronous in-memory map lookup was correct for that shape. Module
+ * 005's providers are explicitly per-organization configurable
+ * (`EmailProvider.organizationId`, credentials stored per-row in the
+ * database), so resolving "the SendGrid adapter for organization X" is a
+ * database lookup (which row, whose credentials) before it's an adapter
+ * construction — inherently async, the same category of Phase-1-interface
+ * correction as Module 004's `verifyWebhookSignature` fix. Fixed here,
+ * before any implementation depends on the wrong signature.
+ */
 export interface IProviderRegistry<TProviderType extends string, TAdapter> {
-  get(organizationId: string | null, type: TProviderType): TAdapter;
-  getDefault(organizationId: string | null): TAdapter;
-  listEnabled(organizationId: string | null): TProviderType[];
+  get(organizationId: string | null, type: TProviderType): Promise<TAdapter>;
+  getDefault(organizationId: string | null): Promise<TAdapter>;
+  listEnabled(organizationId: string | null): Promise<TProviderType[]>;
 }
 
 export type IEmailProviderRegistry = IProviderRegistry<EmailProviderType, EmailProviderAdapter>;
