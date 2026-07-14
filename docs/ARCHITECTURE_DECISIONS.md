@@ -138,6 +138,91 @@ mirroring ADR-004's defense-in-depth philosophy (application check + database co
 either alone).
 _Source: `docs/modules/MODULE_004_PHASE_1_SPEC_ARCHITECTURE_SCHEMA.md`._
 
+### ADR-016 — Notification models resolve "ambiguous model-or-enum" the same way Module 004 did
+The Module 005 prompt's model list included `NotificationChannel`, `NotificationStatus`,
+`NotificationPriority`, and `NotificationType` alongside genuine entities. These four describe
+classification/state, not things with their own id/lifecycle/relations — modeled as enums,
+resolving the ambiguity the identical way Module 004's Phase 1 resolved
+`SubscriptionStatus`/`BillingCycle`/etc.
+_Source: `docs/modules/MODULE_005_PHASE_1_SPEC_ARCHITECTURE_SCHEMA.md`._
+
+### ADR-017 — NotificationQueue is a durable companion to BullMQ, not a replacement
+Module 001's BullMQ/Redis queue owns fast in-flight job state. `NotificationQueue` (Prisma) is
+the durable, queryable audit trail an admin dashboard needs once a job completes, fails, or
+expires — Redis-backed queues don't retain that. Phase 2's `QueueService` keeps both in sync;
+this is not a second queue system competing with BullMQ.
+_Source: `docs/modules/MODULE_005_PHASE_1_SPEC_ARCHITECTURE_SCHEMA.md`._
+
+### ADR-018 — Notification provider abstraction reuses the Module 004 pattern exactly, three times
+`EmailProviderAdapter`/`SmsProviderAdapter`/`PushProviderAdapter` + their registries are
+structurally identical to `PaymentProviderAdapter`/`PaymentProviderRegistry` — same "adapter
+interface + registry + factory, no SDK coupling in anything above the provider layer"
+philosophy, applied once per channel family instead of once for payments. Not a new pattern;
+the third consecutive reuse of one already proven twice (OAuth in Module 002, payments in
+Module 004).
+_Source: `docs/modules/MODULE_005_PHASE_1_SPEC_ARCHITECTURE_SCHEMA.md`._
+
+### ADR-019 — Repository unit tests mock `@rmsm/database` directly; this is the standard, not an exception
+Every repository imports the `prisma` singleton directly (not via constructor injection of the
+client itself), which had made repositories effectively untestable in this sandbox — every
+test touching `@rmsm/database` failed at import time (`PrismaClient is not a constructor`,
+since `prisma generate` has been network-blocked since Module 001). `jest.mock("@rmsm/database",
+...)` replaces the entire module before the real one (and its blocked constructor call) is ever
+imported, which let Module 005's Phase 2a repository tests actually execute and pass — the
+first genuinely-running database-adjacent test coverage in this project. Confirmed as the
+project standard for all repository unit tests going forward, not a one-off workaround: new
+repositories should ship with `jest.mock("@rmsm/database", ...)`-based tests from the start,
+following the shape in `notification-preference.repository.spec.ts` and
+`notification.repository.spec.ts` (Module 005 Phase 2a).
+_Source: `docs/modules/MODULE_005_PHASE_2A_REPOSITORIES.md`, Section 8. Confirmed as binding
+standard in the Phase 2a approval response._
+
+### ADR-020 — Two missing back-relations blocked Prisma client generation entirely; a real limit of the stub-based typecheck method is now explicit
+The user ran a real `prisma generate` (unblocked on their machine) and hit schema-validation
+errors across every module — the cause was two missing back-relation fields:
+`OrganizationMembershipEvent.organization → Organization` had no corresponding
+`Organization.membershipEvents` field, and `Invoice.subscription → OrganizationSubscription`
+had no corresponding `OrganizationSubscription.invoices` field. Prisma refuses to generate a
+client at all when any relation is unpaired — not a partial failure, a total one — which is
+why it surfaced as errors in every downstream package rather than something narrower. Both
+fixed; a scripted audit of all 73 relation pairs in the schema found no further instances.
+
+**The real lesson, stated plainly rather than left implicit**: this project's stub-based
+typecheck verification (used in every phase's docs since the TS2742 fix, whenever real
+`prisma generate` was blocked) is a hand-maintained `.d.ts` file disconnected from
+`schema.prisma` itself — it can prove TypeScript-level correctness against *assumed* types, but
+it structurally cannot catch a schema-relation-pairing error, because the stub never derives
+from the real schema in the first place. Every phase's verification section has said "this is
+not a substitute for real Prisma validation" — this is a concrete instance of exactly what that
+caveat meant, not a hypothetical one. The fix here came from the one thing that actually
+validates the schema: a real `prisma generate` run, which this sandbox still cannot perform
+itself.
+_Source: user-reported fix; verified and audited in this conversation._
+
+### ADR-021 — AI-101 inverts every prior module's tenancy assumption, on purpose
+Every EP module (002-005) treats `Organization` as the tenant boundary — every table carries
+`organizationId`, either directly or via a documented nullable-means-platform-default
+convention. AI-101's market data tables (`Instrument`, `MarketCandle`, `MarketQuote`,
+`MarketTick`, `Exchange`, etc.) carry **no `organizationId` at all**, anywhere — per the
+prompt's explicit instruction that market data is global/product data, not per-tenant data.
+This is flagged here specifically because a future engine module's author skimming this
+schema for "where's the tenant column" (the pattern every other module trained them to expect)
+would otherwise reasonably assume one was missed rather than deliberately absent.
+Organization-scoped research artifacts that *reference* market data (a saved chart, a custom
+watchlist) belong in those future modules with their own `organizationId`, pointing at a
+global `instrumentId` — not the other way around.
+_Source: `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_1_ARCHITECTURE.md`._
+
+### ADR-022 — Corrections are new rows, never in-place updates (AI-101)
+`MarketCandle` (and by the same reasoning, any future correctable time-series row) is treated
+as effectively immutable once written. A correction produces a NEW row with
+`isCorrection: true` and `supersedesId` pointing at the row it replaces — never an `UPDATE` to
+historical data. This is the market-data-specific instance of a broader principle this project
+has applied before in different forms (Module 004's webhook idempotency, Module 005's
+append-only event/log tables) — historical financial data specifically must never silently
+change under a reader who cached it.
+_Source: `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_1_ARCHITECTURE.md`._
+
 ---
 
 ## How to add to this file
