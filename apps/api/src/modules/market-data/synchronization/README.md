@@ -1,12 +1,15 @@
 # synchronization/
 
-Deliberately empty this phase. AI-101 Phase 1's explicit scope is architecture, database
-schema, contracts, folder structure, and documentation only — this prompt's own words:
-"repositories, services, controllers and provider implementations must be deferred to later
-phases." This directory exists now (folder structure is an explicit Phase 1 deliverable) so
-Phase 2 has a defined place to land, but contains no implementation code yet, not even a
-placeholder or stub method — an empty directory with this note is more honest than a fake
-implementation that would violate the prompt's explicit "no placeholders, TODO-only methods,
-or fake production paths" instruction.
+Deliberately empty, still. This is NOT the same thing as
+`services/synchronization.service.ts` (Phase 3) — that file holds the sync *decision logic*
+("does this instrument need a sync, for what range"), which is genuinely built and tested.
 
-See `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_2_PLAN.md` for what's planned here.
+This folder is reserved for the actual scheduler/queue-worker infrastructure that would call
+that decision logic periodically — BullMQ repeatable jobs, cron registration, an
+`OnModuleInit` trigger, the equivalent of Module 005's `NotificationCronRegistrar`. Phase 3's
+explicit scope excluded "background schedulers beyond orchestration," so none of that exists
+yet. When it's built, it belongs here, calling into
+`SynchronizationService.synchronizeInstrument()` — not duplicating that logic.
+
+See `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_3_SERVICE_LAYER.md` for the full reasoning behind
+this split (ADR-029).

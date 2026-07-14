@@ -1,5 +1,29 @@
 # Changelog — AI-101: Market Data Management
 
+## Phase 3 — Service Layer & Synchronization Orchestration
+
+### Added
+- `services/provider-orchestration.service.ts` — centralized retry + rate-limit policy
+  application, in-process (not queued — ADR-029)
+- `services/market-data-metrics.service.ts` — metrics hooks (honestly-scoped, same pattern as
+  Module 005)
+- `services/market-data.service.ts` — the read-side "single source of truth" API
+- `services/historical-import.service.ts` — write-side orchestrator (fetch → validate →
+  deduplicate → persist, transactionally, with audit + metrics)
+- `services/synchronization.service.ts` — sync decision logic, no scheduler
+- 22 new unit tests across 4 spec files, all genuinely executed and passing
+- `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_3_SERVICE_LAYER.md`,
+  `AI_101_MARKET_DATA_PHASE_3_FILES_CHANGED.md`
+
+### Changed
+- `market-data.module.ts` — imports `AuthModule` (for `AuditService`); 5 new services wired in
+
+### Architecture Decisions
+- ADR-029: provider-call retries are in-process, not queued — the concrete answer to what
+  "orchestration without a scheduler" means
+
+---
+
 ## Phase 2C — Normalization & Validation
 
 ### Added

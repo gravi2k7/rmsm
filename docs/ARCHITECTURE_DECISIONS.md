@@ -300,6 +300,19 @@ _Source: `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_2C_NORMALIZATION_VALIDATION.md`.
 
 ---
 
+### ADR-029 — AI-101's provider-call retries are in-process, not queued (the orchestration/scheduler boundary)
+`ProviderOrchestrationService.executeWithRetry()` retries a failed provider call synchronously,
+within the same service method invocation, using `setTimeout`-based exponential backoff — not a
+BullMQ job, not a scheduled retry. This is the concrete answer to "what does 'orchestration
+without a scheduler' actually mean": retrying a call that's already in flight is orchestration
+(this phase's scope); deciding *when* to next attempt a sync that hasn't started yet is
+scheduling (explicitly out of scope, left to a future phase's actual cron/queue registration,
+the same way Module 005's `NotificationScheduler` separated sync decision logic from its own
+trigger wiring).
+_Source: `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_3_SERVICE_LAYER.md`._
+
+---
+
 ## How to add to this file
 When a decision is made that a *future module* needs to know about (not an implementation
 detail scoped to one module), add an entry here with a one-paragraph summary and a link to the
