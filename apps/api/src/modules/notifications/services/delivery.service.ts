@@ -5,6 +5,7 @@ import { NotificationDeliveryRepository } from "../repositories/notification-del
 import { EmailProviderRepository } from "../repositories/email-provider.repository";
 import { SmsProviderRepository } from "../repositories/sms-provider.repository";
 import { PushProviderRepository } from "../repositories/push-provider.repository";
+import { NotificationMetricsService } from "./notification-metrics.service";
 
 @Injectable()
 export class DeliveryService {
@@ -14,6 +15,7 @@ export class DeliveryService {
     private readonly smsProviderRepository: SmsProviderRepository,
     private readonly pushProviderRepository: PushProviderRepository,
     private readonly auditService: AuditService,
+    private readonly metrics: NotificationMetricsService,
   ) {}
 
   recordAttempt(notificationId: string, channel: NotificationChannel, providerId?: string): Promise<NotificationDelivery> {
@@ -28,6 +30,7 @@ export class DeliveryService {
 
   async recordSuccess(deliveryId: string, providerMessageId: string, ctx: AuditContext = {}): Promise<NotificationDelivery> {
     const updated = await this.deliveryRepository.updateStatus(deliveryId, "SENT", { providerMessageId });
+    this.metrics.increment(`delivery.${updated.channel.toLowerCase()}.sent`);
     await this.auditService.log("notification.delivery.sent", {
       entityType: "NotificationDelivery",
       entityId: deliveryId,
@@ -39,6 +42,7 @@ export class DeliveryService {
   async recordFailure(deliveryId: string, reason: string, ctx: AuditContext = {}): Promise<NotificationDelivery> {
     await this.deliveryRepository.incrementAttempts(deliveryId);
     const updated = await this.deliveryRepository.updateStatus(deliveryId, "FAILED", { failureReason: reason });
+    this.metrics.increment(`delivery.${updated.channel.toLowerCase()}.failed`);
     await this.auditService.log("notification.delivery.failed", {
       entityType: "NotificationDelivery",
       entityId: deliveryId,

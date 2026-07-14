@@ -1,4 +1,5 @@
 import { Controller, Param, Post, RawBodyRequest, Req } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 import { ValidationError } from "@rmsm/shared";
@@ -53,6 +54,7 @@ export class WebhookController {
   ) {}
 
   @Public()
+  @Throttle({ default: { limit: 200, ttl: 60000 } })
   @Post(":provider/organizations/:organizationId")
   @ApiParam({ name: "provider", enum: ["sendgrid", "mailgun", "resend", "ses", "twilio", "messagebird", "vonage", "aws_sns"] })
   @ApiOperation({ operationId: "handleInboundProviderWebhook", summary: "Receive and process an inbound provider delivery/bounce/open/click event." })

@@ -33,7 +33,24 @@ export class QueueService {
     );
   }
 
-  /** id is the shared NotificationQueue-row-id-as-BullMQ-job-id (see class comment). Called by a BullMQ worker process (not built this phase — worker registration is a deployment-topology decision, out of this service's scope) after a job fails its final attempt. */
+  /**
+   * Phase 4 addition — Phase 3's workers called dispatch() but never
+   * reported outcomes back to the durable NotificationQueue table,
+   * leaving it permanently stuck at PENDING regardless of what actually
+   * happened. Real bug, fixed here: QueueEventTracker (this phase) calls
+   * these from each processor's `@OnWorkerEvent` hooks so the durable
+   * record actually reflects BullMQ's real state.
+   */
+  async markCompleted(id: string): Promise<void> {
+    await this.queueRepository.updateStatus(id, "COMPLETED");
+  }
+
+  /** A non-final failed attempt — BullMQ will retry on its own backoff schedule; this only updates the durable record's attempt count/last error, it does not touch BullMQ's own retry state. */
+  async recordRetryAttempt(id: string, error: string): Promise<void> {
+    await this.queueRepository.incrementAttempts(id, error);
+  }
+
+  /** id is the shared NotificationQueue-row-id-as-BullMQ-job-id (see class comment). Called by QueueEventTracker (Phase 4) when a BullMQ job exhausts its final retry attempt. */
   async moveToDeadLetter(id: string, queueName: string, reason: string): Promise<void> {
     await this.queueAdapter.moveToDeadLetter(id, queueName, reason);
     await this.queueRepository.moveToDeadLetter(id, reason);

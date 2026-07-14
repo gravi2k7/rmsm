@@ -1,12 +1,15 @@
-import { Body, Controller, Get, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
-import type { EmailProvider, SmsProvider, PushProvider } from "@rmsm/database";
+import type { EmailProvider, SmsProvider, PushProvider, NotificationQueue } from "@rmsm/database";
 import { EmailProviderRepository } from "./repositories/email-provider.repository";
 import { CreateEmailProviderDto } from "./dto/create-email-provider.dto";
 import { CreateSmsProviderDto } from "./dto/create-sms-provider.dto";
 import { CreatePushProviderDto } from "./dto/create-push-provider.dto";
 import { SmsProviderRepository } from "./repositories/sms-provider.repository";
 import { PushProviderRepository } from "./repositories/push-provider.repository";
+import { NotificationQueueRepository } from "./repositories/notification-queue.repository";
+import { QueueService } from "./services/queue.service";
+import { NotificationMetricsService } from "./services/notification-metrics.service";
 import { CredentialEncryptionService } from "./providers/shared/credential-encryption";
 import { RequirePermissions } from "../auth/decorators/permissions.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -30,6 +33,9 @@ export class AdminNotificationController {
     private readonly emailProviderRepository: EmailProviderRepository,
     private readonly smsProviderRepository: SmsProviderRepository,
     private readonly pushProviderRepository: PushProviderRepository,
+    private readonly queueRepository: NotificationQueueRepository,
+    private readonly queueService: QueueService,
+    private readonly metrics: NotificationMetricsService,
     private readonly encryption: CredentialEncryptionService,
   ) {}
 
@@ -100,5 +106,27 @@ export class AdminNotificationController {
       credentialsEnc: this.encryption.encrypt(body.credentials),
       createdById: user.sub,
     });
+  }
+
+  @Get("metrics")
+  @RequirePermissions("notification.admin.manage")
+  @ApiOperation({ operationId: "adminGetMetrics", summary: "In-memory delivery/queue counters for this running instance — not aggregated across multiple instances (see NotificationMetricsService's class comment)." })
+  getMetrics(): Record<string, number> {
+    return this.metrics.snapshot();
+  }
+
+  @Get("dead-letter/:queueName")
+  @RequirePermissions("notification.admin.manage")
+  @ApiOperation({ operationId: "adminListDeadLetter", summary: "List jobs that exhausted all retry attempts on a given queue." })
+  listDeadLetter(@Param("queueName") queueName: string): Promise<NotificationQueue[]> {
+    return this.queueRepository.findDeadLetter(queueName, 100);
+  }
+
+  @Post("dead-letter/:queueName/retry")
+  @RequirePermissions("notification.admin.manage")
+  @ApiOperation({ operationId: "adminRetryDeadLetter", summary: "Requeue every dead-lettered job on a queue for one more attempt." })
+  async retryDeadLetter(@Param("queueName") queueName: string): Promise<{ retried: number }> {
+    const retried = await this.queueService.retryFailed(queueName);
+    return { retried };
   }
 }

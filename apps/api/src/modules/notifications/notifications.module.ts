@@ -41,6 +41,9 @@ import { PushQueueProcessor } from "./workers/push-queue.processor";
 import { ScheduledQueueProcessor } from "./workers/scheduled-queue.processor";
 import { DigestQueueProcessor } from "./workers/digest-queue.processor";
 import { NotificationCronRegistrar } from "./workers/notification-cron.registrar";
+import { QueueEventTracker } from "./services/queue-event-tracker.service";
+import { NotificationMetricsService } from "./services/notification-metrics.service";
+import { DeliveryTrackingController } from "./delivery-tracking.controller";
 import { NotificationController } from "./notification.controller";
 import { NotificationPreferenceController } from "./notification-preference.controller";
 import { DeviceTokenController } from "./device-token.controller";
@@ -76,6 +79,7 @@ import { AdminNotificationController } from "./admin-notification.controller";
     WebhookController,
     NotificationTemplateController,
     AdminNotificationController,
+    DeliveryTrackingController,
   ],
   providers: [
     NotificationRepository,
@@ -117,6 +121,8 @@ import { AdminNotificationController } from "./admin-notification.controller";
     ScheduledQueueProcessor,
     DigestQueueProcessor,
     NotificationCronRegistrar,
+    QueueEventTracker,
+    NotificationMetricsService,
   ],
   exports: [
     NotificationRepository,
