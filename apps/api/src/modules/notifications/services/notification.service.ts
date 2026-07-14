@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { trace } from "@opentelemetry/api";
 import { ConflictError, NotFoundError, ValidationError } from "@rmsm/shared";
 import { Notification, NotificationType, NotificationChannel } from "@rmsm/database";
 import { AuditService, AuditContext } from "../../auth/services/audit.service";
@@ -167,6 +168,27 @@ export class NotificationService {
 
   /** Called directly by NotificationScheduler/DigestService (both this phase) once they've resolved what to send — not routed back through send()'s scheduling branch, since a schedule/digest firing IS the "now" moment, not a future one. */
   async dispatch(notification: Notification): Promise<void> {
+    const tracer = trace.getTracer("rmsm-notifications");
+    return tracer.startActiveSpan("notification.dispatch", async (span) => {
+      span.setAttribute("notification.id", notification.id);
+      span.setAttribute("notification.channel", notification.channel);
+      span.setAttribute("notification.type", notification.type);
+      span.setAttribute("notification.organization_id", notification.organizationId);
+
+      try {
+        await this.dispatchInner(notification);
+        span.setStatus({ code: 1 }); // OK
+      } catch (error) {
+        span.recordException(error as Error);
+        span.setStatus({ code: 2, message: error instanceof Error ? error.message : String(error) }); // ERROR
+        throw error;
+      } finally {
+        span.end();
+      }
+    });
+  }
+
+  private async dispatchInner(notification: Notification): Promise<void> {
     await this.notificationRepository.updateStatus(notification.id, "SENDING");
     try {
       switch (notification.channel) {

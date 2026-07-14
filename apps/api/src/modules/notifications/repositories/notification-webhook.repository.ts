@@ -19,6 +19,14 @@ export class NotificationWebhookRepository {
     });
   }
 
+  /** Phase 5 addition (additive) — plain "every active subscription for this org," distinct from findActiveByOrganization's event-filtered lookup (which would incorrectly return nothing for an unfiltered "list all" call — a real bug caught while wiring the controller this method supports). */
+  findByOrganization(organizationId: string, client: DbClient = prisma): Promise<NotificationWebhook[]> {
+    return client.notificationWebhook.findMany({
+      where: { organizationId, isActive: true, deletedAt: null },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
   /**
    * The dispatch-time lookup WebhookService needs: every active webhook
    * subscription for this organization whose eventTypes array contains

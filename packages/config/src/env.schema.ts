@@ -92,6 +92,16 @@ export const envSchema = z.object({
 
   // --- Module 005: Notifications ---
   NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: z.string().min(32).default("1".repeat(64)),
+
+  // --- Module 005 Phase 5: OpenTelemetry ---
+  // Read directly via process.env in tracing.ts, NOT via loadConfig() —
+  // tracing.ts must execute before any other import (including this
+  // config package), so it can't depend on loadConfig() having run yet.
+  // Declared here anyway for documentation/discoverability alongside
+  // every other configurable value, even though this specific pair is
+  // never actually read through this schema at runtime.
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional(),
+  OTEL_SERVICE_NAME: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
