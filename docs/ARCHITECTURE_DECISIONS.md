@@ -261,6 +261,20 @@ _Source: `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_2A_REPOSITORIES.md`._
 
 ---
 
+### ADR-026 — Provider resolution can be organization-aware without AI-101 being organization-scoped
+Phase 2B asked `ProviderResolver` to resolve by "organization configuration," which appears to
+conflict with ADR-021 (AI-101 has no `organizationId` anywhere). Resolved by making
+organization preference a plain parameter (`ProviderResolutionContext.organizationPreferredProviderType`)
+the resolver accepts and considers, never a column this module stores or queries itself. The
+actual preference data belongs to a future organization-scoped module, which resolves its own
+stored value and passes the result in as an ordinary value — exactly like any other resolution
+hint (asset class, exchange, environment). AI-101 gains zero new tenant coupling to satisfy this
+requirement; a service can be "aware of" an organization's preference without "storing"
+anything about organizations.
+_Source: `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_2B_PROVIDER_INFRASTRUCTURE.md`._
+
+---
+
 ## How to add to this file
 When a decision is made that a *future module* needs to know about (not an implementation
 detail scoped to one module), add an entry here with a one-paragraph summary and a link to the

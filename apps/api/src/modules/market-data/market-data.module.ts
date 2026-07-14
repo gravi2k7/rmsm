@@ -12,14 +12,22 @@ import { CorporateActionRepository } from "./repositories/corporate-action.repos
 import { DataImportJobRepository } from "./repositories/data-import-job.repository";
 import { DataQualityIssueRepository } from "./repositories/data-quality-issue.repository";
 import { DataGapRepository } from "./repositories/data-gap.repository";
+import { ProviderRegistryService } from "./providers/provider-registry.service";
+import { ProviderFactoryService } from "./providers/provider-factory.service";
+import { ProviderResolverService } from "./providers/provider-resolver.service";
+import { ProviderRegistrarService } from "./providers/provider-registrar.service";
 
 /**
- * AI-101 Phase 2A scope: 13 repositories, each returning domain models
- * (interfaces/models/) rather than Prisma-generated types — ADR-025, a
- * deliberate departure from every EP module's repository convention,
- * applied here per explicit instruction. Providers (2B), normalization/
- * validation (2C), services, synchronization, and controllers remain
- * later phases (see docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_2_PLAN.md).
+ * AI-101 Phase 2A: 13 repositories, domain-model layer (ADR-025).
+ * Phase 2B (this addition): Provider Registry, Factory, Resolver — all
+ * DI-managed NestJS services, per Phase 2B's explicit "everything must
+ * resolve through Provider Registry / Factory, no service instantiates
+ * providers directly" requirement. `ProviderRegistrarService` performs
+ * the one-time startup registration of every provider this phase has
+ * (`InternalFeedProvider` only — Binance/Polygon/etc. adapters remain
+ * deferred, "no provider SDK implementations"). Normalization/validation
+ * (2C), business services, synchronization, and controllers remain later
+ * phases.
  */
 @Module({
   providers: [
@@ -36,6 +44,10 @@ import { DataGapRepository } from "./repositories/data-gap.repository";
     DataImportJobRepository,
     DataQualityIssueRepository,
     DataGapRepository,
+    ProviderRegistryService,
+    ProviderFactoryService,
+    ProviderResolverService,
+    ProviderRegistrarService,
   ],
   exports: [
     MarketDataProviderConfigRepository,
@@ -51,6 +63,9 @@ import { DataGapRepository } from "./repositories/data-gap.repository";
     DataImportJobRepository,
     DataQualityIssueRepository,
     DataGapRepository,
+    ProviderRegistryService,
+    ProviderFactoryService,
+    ProviderResolverService,
   ],
 })
 export class MarketDataModule {}
