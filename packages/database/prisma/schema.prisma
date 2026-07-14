@@ -1794,8 +1794,13 @@ model TradingSession {
   closeTime  String
   /// 0 (Sunday) - 6 (Saturday); null = applies every trading day. Modeling
   /// day-of-week variation as a single nullable int rather than a
-  /// separate calendar/holiday table — holiday calendars are a real,
-  /// named Phase 2+ concern (see the Phase 2 plan doc), not solved here.
+  /// separate calendar/holiday table is confirmed sufficient through
+  /// Phase 2 (approved decision, see docs/rmsm-ai's Phase 2 plan and
+  /// ARCHITECTURE_DECISIONS.md ADR-023). Future TradingHoliday/
+  /// TradingCalendar/SpecialTradingDay models are each additive — a new
+  /// model with its own FK to Exchange (and optionally a reference to
+  /// which TradingSession row a special day adjusts) — and require zero
+  /// changes to this model when added; verified, not just assumed.
   dayOfWeek  Int?
   isActive   Boolean            @default(true)
   createdAt  DateTime           @default(now())

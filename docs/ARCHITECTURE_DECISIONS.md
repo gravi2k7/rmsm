@@ -223,6 +223,42 @@ append-only event/log tables) — historical financial data specifically must ne
 change under a reader who cached it.
 _Source: `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_1_ARCHITECTURE.md`._
 
+### ADR-023 — AI-101 owns all market-data ingestion, including every streaming transport
+Confirmed, not just implied: REST, WebSocket, FIX, MT5 Bridge, TradingView Bridge, and any
+future streaming adapter all belong to AI-101, not a future module and not a separate
+ingestion-owning module. None of these are implemented in AI-101 Phase 2 — streaming
+specifically is deferred to a later AI-101 phase, confirmed by approval rather than assumed —
+but the ownership boundary itself is settled now so no future module's design mistakenly
+assumes it should own its own exchange connection.
+_Source: AI-101 Phase 2 kickoff approval message; `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_2_PLAN.md`._
+
+### ADR-024 — Trading calendar: weekly-only through Phase 2, confirmed extension-safe
+`TradingSession.dayOfWeek` (weekly-recurrence-only, no holiday awareness) is confirmed
+sufficient through AI-101 Phase 2 — holiday/calendar support (`TradingHoliday`,
+`TradingCalendar`, `SpecialTradingDay`) is explicitly deferred, not implemented speculatively
+ahead of need. Verified (not just assumed) that deferring costs nothing structurally: each
+future model attaches via its own FK to `Exchange`, requiring zero changes to `TradingSession`
+itself when added.
+_Source: AI-101 Phase 2 kickoff approval message; `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_2_PLAN.md`._
+
+---
+
+### ADR-025 — AI-101 repositories return domain models, never Prisma types (a deliberate departure from EP convention)
+Every EP module (002–005) has repositories return Prisma-generated types directly to their
+service layers. AI-101's Phase 2A repositories do not — each returns a plain domain-model
+interface (`interfaces/models/`), mapped from the Prisma row by a dedicated pure function
+(`repositories/mappers/`) before the repository method returns. This was an explicit
+instruction for AI-101 specifically, not a silent reinterpretation of EP precedent, and it is
+**not** retroactively applied to any EP module's existing repositories. Concretely: `Prisma.Decimal`
+(a `decimal.js` class with its own arithmetic methods) never crosses the repository boundary —
+every Decimal-typed column becomes a plain `string` in the domain model. Enum types are reused
+directly from `@rmsm/database` (plain string-literal unions, no runtime Prisma coupling, not
+"Prisma-specific objects" in the sense this rule is about). Whether this pattern should also
+apply to any future EP module or other AI-1xx module is an open question, not decided here —
+each module's own Phase 2 planning should confirm which convention it follows, not assume
+either one by default.
+_Source: `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_2A_REPOSITORIES.md`._
+
 ---
 
 ## How to add to this file

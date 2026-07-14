@@ -1,64 +1,83 @@
-# AI-101 — Phase 2 Implementation Plan
+# AI-101 — Phase 2 Plan (Approved Structure)
 
-Proposed breakdown, following the same phased-delivery, stop-for-approval-at-each-stage
-discipline as every EP module.
+Status: Approved by product owner — awaiting explicit go-ahead to begin Phase 2A.
 
-## Phase 2a — Repositories
-One repository class per model (14: `MarketDataProviderConfig`, `Exchange`, `TradingSession`,
+This supersedes the original draft plan with the confirmed structure and decisions from the
+Phase 2 kickoff approval.
+
+## Approved Decisions (Recorded)
+
+1. **Phase structure**: three sub-phases, each a stop-for-approval checkpoint on its own —
+   2A (Repository Layer), 2B (Provider Infrastructure), 2C (Normalization & Validation). Not
+   one combined "Phase 2."
+2. **Streaming is out of scope for all of Phase 2**, not just deferred within it. AI-101 is
+   confirmed as the sole owner of every ingestion transport — REST, WebSocket, FIX, MT5 Bridge,
+   TradingView Bridge, and any future streaming adapter — but none of them are built until a
+   later, separate AI-101 phase. Recorded as ADR-023.
+3. **Trading calendar stays weekly-only** (`TradingSession.dayOfWeek`) through Phase 2.
+   `TradingHoliday`/`TradingCalendar`/`SpecialTradingDay` are confirmed future work, verified
+   as a zero-impact additive extension when they arrive (ADR-024) — not implemented now.
+4. **Architecture rule reaffirmed**: AI-101 is the sole source of market data for RMSM AI.
+   AI-102 and every later module consumes AI-101's services/contracts exclusively; none may
+   connect to an exchange or a provider SDK directly. This was already the Phase 1 design;
+   this decision confirms it as binding for every future module's own planning, not just this
+   one's.
+
+## Phase 2A — Repository Layer
+
+One repository class per model (13: `MarketDataProviderConfig`, `Exchange`, `TradingSession`,
 `SupportedTimeframe`, `Instrument`, `InstrumentAlias`, `MarketCandle`, `MarketQuote`,
-`MarketTick`, `CorporateAction`, `DataImportJob`, `DataQualityIssue`, `DataGap` — 13, matching
-the "one repository per model" convention every EP module has used, not the grouped-contract
-convention Phase 1 used for interfaces). `DbClient`-parameterized, explicit named return types
-from the start (TS2742 discipline, learned expensively across EP-002/003/004), proactive
-avoidance of the nullable-compound-key `upsert` bug this project has hit four times now — worth
-checking `InstrumentAlias`'s `[providerId, providerSymbol]` and `SupportedTimeframe`'s
-`[providerId, interval]` unique constraints specifically before reaching for `upsert()` on
-either, even though neither currently has a nullable component (both are safe today; flagged as
-the exact kind of thing to re-verify if either constraint's shape ever changes).
+`MarketTick`, `CorporateAction`, `DataImportJob`, `DataQualityIssue`, `DataGap`) — the
+established one-repository-per-model convention every EP module has used, not Phase 1's
+grouped-contract convention (which was specific to interface *declarations*, not
+implementations).
 
-## Phase 2b — Provider Adapters
-Implementations of `MarketDataProvider` for each named future provider, against real REST APIs,
-no SDK — the same rigor Module 004 (Stripe/Razorpay/PayPal) and Module 005 (11 providers)
-applied. Given the scope Module 005's Phase 2b turned out to be (11 providers in one phase was
-a lot), this may warrant splitting into per-provider or per-category checkpoints rather than one
-giant phase — flagging that sizing question now rather than assuming either answer.
+Carried-forward discipline, checked at each repository as it's built, not assumed:
+- `DbClient`-parameterized, explicit named return types from the start (TS2742 discipline).
+- Nullable-compound-key `upsert()` avoidance — this project's four-time-repeated bug class.
+  Every unique constraint in AI-101's schema is currently on non-nullable fields (verified in
+  Phase 1's data model doc), so plain `upsert()` is safe everywhere in this schema as it
+  stands today — re-verify this specifically if any constraint's shape changes before or
+  during 2A.
+- `MarketCandle`'s correction chain (`isCorrection`/`supersedesId`, ADR-022): the repository
+  layer must expose a "latest non-superseded value" read path as a first-class method, not
+  something every caller has to reconstruct with an ad-hoc filter — this is where that
+  contract gets satisfied for real.
 
-## Phase 2c — Services
-`MarketDataService` (orchestrator), `InstrumentService`, `CandleService`, `QuoteService`,
-`DataQualityService` (implementing the detection/workflow contracts from Phase 1),
-`ImportJobService`. Transaction composition where needed (e.g. writing a batch of candles +
-updating the parent `DataImportJob`'s progress counters atomically).
+## Phase 2B — Provider Infrastructure
 
-## Phase 2d — Synchronization
-BullMQ-based sync jobs (reusing EP-001's existing queue infrastructure, per this module's own
-"do not duplicate platform capabilities" instruction — no new queue system) for live polling,
-scheduled historical backfills, and corporate-action syncs. Gap detection and backfill workflow
-wiring.
+`MarketDataProvider` adapter implementations (Phase 1's interfaces) for the named REST-based
+providers — Binance, Polygon, Twelve Data, Alpha Vantage, Yahoo Finance — via raw REST calls,
+no SDK, matching every provider integration in this project since EP-002.
 
-## Phase 3 — Controllers, DTOs Refinement, Guards
-REST endpoints for instrument search, candle/quote queries (using Phase 1's DTOs as the
-starting shape), and admin provider management — `PermissionsGuard` wired in at this point (new
-`market-data.*` permission keys seeded here, not before, matching every EP module's own
-"don't seed permissions before there's an endpoint to gate" discipline).
+**Explicitly excludes** (per the approved streaming decision): WebSocket connections, FIX
+sessions, MT5 Bridge, TradingView Bridge, and any other streaming transport. 2B is
+REST-only — `HistoricalDataClient`/`QuoteClient`/`SymbolSearchClient` implementations,
+`ProviderRegistry`/`MarketDataProviderFactory` wiring, `ProviderRateLimitPolicy`/
+`ProviderErrorMapper` implementations. Streaming adapters (including broker bridges) are a
+later, separate AI-101 phase, not folded into 2B.
 
-## Phase 4 — Testing, Documentation, Release
-Repository/service unit tests (with the `jest.mock("@rmsm/database", ...)` standard EP-005
-Phase 2a established and confirmed as project-wide policy), integration tests, load testing for
-high-volume candle ingestion specifically (this subsystem's highest-throughput path), final
-verification and changelog.
+## Phase 2C — Normalization & Validation
 
-## Explicit Non-Goals, Named Rather Than Silently Assumed
+Implementations of Phase 1's data-quality contracts (`detection.contracts.ts`,
+`workflow.contracts.ts`) — `GapDetector`, `DuplicateDetector`, `OutOfOrderDetector`,
+`InvalidValueDetector`, `StaleQuoteDetector`, `SessionValidator`,
+`ProviderOutageClassifier`, `BackfillWorkflow`, `ManualCorrectionWorkflow` — plus the
+normalization layer that turns a provider's raw payload into Phase 1's `NormalizedCandle`/
+`NormalizedQuote`/`NormalizedTick`/`NormalizedSymbolSearchResult` shapes and resolves provider
+symbols through `InstrumentAlias`.
 
-- No indicators, strategies, backtesting, portfolio, or AI analysis logic anywhere in AI-101 —
-  those are AI-102 through AI-110's job, consuming AI-101's contracts.
-- No WebSocket/streaming implementation until a phase explicitly scopes it in (the prompt's own
-  "do not implement WebSockets" applies to Phase 1; whether streaming belongs in AI-101 itself
-  or a future module is a real open question worth confirming before Phase 2d assumes either
-  answer).
-- No holiday-calendar modeling this phase or the next — `TradingSession.dayOfWeek` handles
-  weekly patterns; exchange-specific holidays (Christmas, Thanksgiving, etc.) are a real,
-  named gap flagged in the schema's own comments, not silently deferred without mention.
+## Explicitly Still Deferred Beyond Phase 2 (Not Silently Dropped)
+
+- **All streaming/real-time ingestion** (WebSocket, FIX, MT5 Bridge, TradingView Bridge,
+  broker bridges) — a later, separate AI-101 phase, per ADR-023.
+- **Trading calendar/holiday support** (`TradingHoliday`, `TradingCalendar`,
+  `SpecialTradingDay`) — a later AI-101 phase, per ADR-024.
+- **Orchestration services** (`MarketDataService` and friends), **synchronization workers**
+  (BullMQ jobs), and **controllers** — not scoped into 2A/2B/2C; these come after, in a phase
+  this plan doesn't number yet since the approved structure only confirmed 2A/2B/2C. Naming
+  this explicitly rather than letting "Phase 2" implicitly seem complete once 2C ships.
 
 ---
 
-**Awaiting your approval of this plan before Phase 2a begins.**
+**Awaiting explicit go-ahead to begin Phase 2A.**
