@@ -275,6 +275,31 @@ _Source: `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_2B_PROVIDER_INFRASTRUCTURE.md`._
 
 ---
 
+### ADR-027 — AI-101's validation error hierarchy is `MarketDataValidationError`, not `ValidationError`
+`@rmsm/shared` already exports `ValidationError` (HTTP-error-oriented, thrown by services,
+caught by the global exception filter to produce a 400 response — used throughout every EP
+module). AI-101's Phase 2C normalization/validation layer needed its own error hierarchy for a
+genuinely different purpose: pure functions with no request/response context, no HTTP
+semantics, meant to be caught by a future data-quality service and turned into a
+`DataQualityIssue` row, not a 400 response. Named `MarketDataValidationError` specifically to
+avoid colliding with the existing, semantically-different `ValidationError` — any future module
+introducing its own domain-specific validation-error hierarchy should pick an equally distinct
+name, not reuse `ValidationError` for something that isn't an HTTP-layer concern.
+_Source: `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_2C_NORMALIZATION_VALIDATION.md`._
+
+### ADR-028 — Concatenated symbol pairs (e.g. "BTCUSDT") are not split by the normalization layer
+`SymbolNormalizer` canonicalizes format/casing for `EXCHANGE:SYMBOL` and `BASE/QUOTE` notation
+(both unambiguous by delimiter) but deliberately does NOT attempt to split a concatenated pair
+like `"BTCUSDT"` into `"BTC"` + `"USDT"` — doing so correctly requires a dictionary of known
+quote currencies (is it BTC/USDT or BTCU/SDT?), which is real reference data a side-effect-free
+normalizer cannot consult (Phase 2C's explicit "no database access" rule). This is a permanent
+architectural boundary, not a follow-up to fix later: `InstrumentAlias` (Phase 2A) is the actual
+mechanism for resolving any provider's arbitrary symbol string to a canonical `Instrument`, and
+remains the right tool for this specific ambiguity.
+_Source: `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_2C_NORMALIZATION_VALIDATION.md`._
+
+---
+
 ## How to add to this file
 When a decision is made that a *future module* needs to know about (not an implementation
 detail scoped to one module), add an entry here with a one-paragraph summary and a link to the

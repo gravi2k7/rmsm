@@ -1,5 +1,34 @@
 # Changelog — AI-101: Market Data Management
 
+## Phase 2C — Normalization & Validation
+
+### Added
+- `utils/normalizers/` — 10 normalizers (decimal, time, symbol, candle, quote, tick, exchange,
+  instrument, instrument-alias, corporate-action, trading-session, trading-calendar-metadata,
+  provider-metadata) plus `mapping.utils.ts`'s shared helpers
+- `validation/errors/market-data-validation.error.ts` — 8 standardized error types, one base
+  class, zero provider-specific subclasses
+- `validation/candle.validator.ts`, `tick.validator.ts`, `quote.validator.ts` — business-rule
+  correctness checks on normalized data
+- `validation/reference-data.validator.ts` — required fields, in-batch uniqueness, ISIN/CUSIP
+  format
+- `validation/provider-data.validator.ts` — capability, metadata, configuration validation
+- `validation/duplicate-detector.ts` — reusable candle/tick/quote duplicate detection
+- `validation/data-quality-rules.ts` — real implementations of Phase 1's `InvalidValueDetector`/
+  `OutOfOrderDetector` contracts, plus 6 standalone quality-rule check functions
+- 44 new unit tests across 8 spec files, all genuinely executed unconditionally (pure logic, no
+  database dependency)
+- `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_2C_NORMALIZATION_VALIDATION.md`,
+  `AI_101_VALIDATION_RULES.md`, `AI_101_MARKET_DATA_PHASE_2C_FILES_CHANGED.md`
+
+### Architecture Decisions
+- ADR-027: new error hierarchy named `MarketDataValidationError`, not `ValidationError`
+  (collision avoidance with `@rmsm/shared`'s existing HTTP-layer error class)
+- ADR-028: concatenated symbol pairs (`"BTCUSDT"`) are never split by the normalizer — a
+  permanent boundary; `InstrumentAlias` remains the real resolution mechanism
+
+---
+
 ## Phase 2B — Provider Infrastructure
 
 ### Added
