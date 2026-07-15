@@ -1,16 +1,28 @@
 import { Injectable } from "@nestjs/common";
 import { NotFoundError } from "@rmsm/shared";
-import type { ImportJobStatus } from "@rmsm/database";
+import { prisma, ImportJobStatus } from "@rmsm/database";
 import { MarketDataProviderConfigRepository } from "../repositories/market-data-provider-config.repository";
 import { DataImportJobRepository } from "../repositories/data-import-job.repository";
 import { MarketDataMetricsService } from "./market-data-metrics.service";
+import { ProviderRegistryService } from "../providers/provider-registry.service";
+import { ProviderOrchestrationService } from "./provider-orchestration.service";
 import type { MarketDataProviderConfigModel } from "../interfaces/models/reference-data.models";
 import type { DataImportJobModel } from "../interfaces/models/operational.models";
+
+export interface ProviderHealthEntry {
+  type: string;
+  enabled: boolean;
+  circuitState: "closed" | "open" | "half_open";
+}
 
 export interface SynchronizationHealth {
   status: "ok" | "degraded";
   /** All-time count, not a rolling window — DataImportJobRepository.findByStatus() (Phase 2A) has no time-bound query, and Phase 4 forbids repository changes. A genuinely "recent failures" health signal needs that repository capability; flagged as a real, deferred gap rather than mislabeling an all-time count as "recent." */
   totalFailedImportCount: number;
+  /** Phase 5 addition — provider infrastructure health (Phase 5's own named deliverable), reporting each registered provider's circuit-breaker state, not just import-job outcomes. */
+  providers: ProviderHealthEntry[];
+  /** Phase 5 addition — the database dependency this service itself needs, checked directly rather than only inferred from import-job success/failure. */
+  database: "ok" | "error";
 }
 
 /**
@@ -31,6 +43,8 @@ export class MarketDataAdminService {
     private readonly providerConfigRepository: MarketDataProviderConfigRepository,
     private readonly importJobRepository: DataImportJobRepository,
     private readonly metrics: MarketDataMetricsService,
+    private readonly providerRegistry: ProviderRegistryService,
+    private readonly providerOrchestration: ProviderOrchestrationService,
   ) {}
 
   listProviderConfigs(): Promise<MarketDataProviderConfigModel[]> {
@@ -56,15 +70,40 @@ export class MarketDataAdminService {
   /**
    * A simple, named-threshold health signal — same judgment-call-not-
    * spec'd-SLA disposition as Module 005's dead-letter health check.
-   * Uses an ALL-TIME failed-job count, not a rolling recent window (see
-   * SynchronizationHealth's own comment for why) — a real limitation
-   * that makes this a coarser signal than "is something wrong right
-   * now," worth knowing before treating `degraded` as urgent.
+   * `totalFailedImportCount` is an ALL-TIME count, not a rolling recent
+   * window (see SynchronizationHealth's own comment for why) — a real
+   * limitation that makes this a coarser signal than "is something
+   * wrong right now," worth knowing before treating `degraded` as
+   * urgent. `providers` (Phase 5 addition) is a genuinely live signal by
+   * contrast — circuit-breaker state reflects the last few minutes of
+   * actual call outcomes, not an all-time count.
    */
   async getSynchronizationHealth(): Promise<SynchronizationHealth> {
     const failedJobs = await this.importJobRepository.findByStatus("FAILED");
-    const degraded = failedJobs.length > 20;
-    return { status: degraded ? "degraded" : "ok", totalFailedImportCount: failedJobs.length };
+    const enabledProviders = this.providerRegistry.listEnabled();
+    const providers: ProviderHealthEntry[] = enabledProviders.map((type) => ({
+      type,
+      enabled: true,
+      circuitState: this.providerOrchestration.getCircuitState(type),
+    }));
+
+    let database: "ok" | "error" = "ok";
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+    } catch {
+      database = "error";
+    }
+
+    const anyCircuitOpen = providers.some((p) => p.circuitState === "open");
+    const tooManyFailedImports = failedJobs.length > 20;
+    const degraded = anyCircuitOpen || tooManyFailedImports || database === "error";
+
+    return {
+      status: degraded ? "degraded" : "ok",
+      totalFailedImportCount: failedJobs.length,
+      providers,
+      database,
+    };
   }
 
   getMetrics(): Record<string, number> {

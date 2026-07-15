@@ -45,15 +45,22 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     if (status >= 500) {
-      this.logger.error(`${request.method} ${request.url} -> ${status}`, (exception as Error)?.stack);
+      this.logger.error(`[${request.requestId ?? "no-request-id"}] ${request.method} ${request.url} -> ${status}`, (exception as Error)?.stack);
     } else {
-      this.logger.warn(`${request.method} ${request.url} -> ${status}: ${message}`);
+      this.logger.warn(`[${request.requestId ?? "no-request-id"}] ${request.method} ${request.url} -> ${status}: ${message}`);
     }
 
     const body: ApiResponse<null> = {
       success: false,
       data: null,
       error: { code, message, details },
+      // requestId surfaced in the error body itself, not just server
+      // logs — so a caller reporting a failed request can hand back
+      // the exact id to search for, without needing log access
+      // themselves (Phase 5's "Request correlation" deliverable,
+      // applied where it matters most: the one response shape every
+      // failure actually returns).
+      meta: request.requestId ? { requestId: request.requestId } : undefined,
     };
 
     response.status(status).json(body);

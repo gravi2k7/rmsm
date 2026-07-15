@@ -330,6 +330,23 @@ _Source: `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_4_REST_API.md`._
 
 ---
 
+### ADR-031 — Request correlation applied platform-wide, not AI-101-scoped; circuit breaker is real but single-instance
+Two Phase 5 (AI-101 production hardening) decisions worth any future module knowing about.
+**Request correlation** (`RequestIdMiddleware`, `apps/api/src/common/middleware/`) is wired into
+`AppModule` globally, not into `MarketDataModule` — request correlation isn't meaningful scoped
+to one module, so even though this was AI-101's own hardening phase, the fix genuinely had to
+be platform-wide; found and fixed as such rather than faked as module-scoped. **The circuit
+breaker** (`CircuitBreaker`, AI-101's `services/circuit-breaker.ts`) is a real, working state
+machine (closed/open/half-open), not a placeholder — but explicitly single-instance, in-memory,
+reset on restart. A distributed circuit breaker needs shared state across every running
+`apps/api` instance, which is a real, named follow-up if this system ever runs multi-instance,
+not solved here. Both patterns (module-scoped work sometimes needing a platform-wide fix;
+honestly-scoped-but-real infrastructure) are reusable precedent for any future module's own
+Phase 5.
+_Source: `docs/rmsm-ai/AI101_PRODUCTION_READINESS_REPORT.md`._
+
+---
+
 ## How to add to this file
 When a decision is made that a *future module* needs to know about (not an implementation
 detail scoped to one module), add an entry here with a one-paragraph summary and a link to the

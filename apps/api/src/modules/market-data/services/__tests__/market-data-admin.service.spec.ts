@@ -1,11 +1,26 @@
+jest.mock("@rmsm/database", () => ({
+  prisma: { $queryRaw: jest.fn().mockResolvedValue([{ "?column?": 1 }]) },
+}));
+
 import { MarketDataAdminService } from "../market-data-admin.service";
 import { NotFoundError } from "@rmsm/shared";
 import type { MarketDataProviderConfigRepository } from "../../repositories/market-data-provider-config.repository";
 import type { DataImportJobRepository } from "../../repositories/data-import-job.repository";
 import type { MarketDataMetricsService } from "../market-data-metrics.service";
+import type { ProviderRegistryService } from "../../providers/provider-registry.service";
+import type { ProviderOrchestrationService } from "../provider-orchestration.service";
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { prisma } = require("@rmsm/database") as { prisma: { $queryRaw: jest.Mock } };
 
 describe("MarketDataAdminService", () => {
-  function buildService(overrides: { failedJobCount?: number } = {}) {
+  beforeEach(() => {
+    prisma.$queryRaw.mockReset().mockResolvedValue([{ "?column?": 1 }]);
+  });
+
+  function buildService(
+    overrides: { failedJobCount?: number; enabledProviders?: string[]; circuitStates?: Record<string, "closed" | "open" | "half_open">; dbThrows?: boolean } = {},
+  ) {
     const providerConfigRepository = { listActive: jest.fn(), findById: jest.fn() } as unknown as MarketDataProviderConfigRepository;
     const failedJobs = Array.from({ length: overrides.failedJobCount ?? 0 }, (_, i) => ({ id: `job${i}` }));
     const importJobRepository = {
@@ -13,10 +28,16 @@ describe("MarketDataAdminService", () => {
       findByStatus: jest.fn().mockResolvedValue(failedJobs),
     } as unknown as DataImportJobRepository;
     const metrics = { snapshot: jest.fn().mockReturnValue({ "provider.POLYGON.call_failed": 3 }) } as unknown as MarketDataMetricsService;
-    return new MarketDataAdminService(providerConfigRepository, importJobRepository, metrics);
+    const providerRegistry = {
+      listEnabled: jest.fn().mockReturnValue(overrides.enabledProviders ?? []),
+    } as unknown as ProviderRegistryService;
+    const providerOrchestration = {
+      getCircuitState: jest.fn((type: string) => overrides.circuitStates?.[type] ?? "closed"),
+    } as unknown as ProviderOrchestrationService;
+    return new MarketDataAdminService(providerConfigRepository, importJobRepository, metrics, providerRegistry, providerOrchestration);
   }
 
-  it("reports ok status when failed import count is at or below the threshold", async () => {
+  it("reports ok status when failed import count is at or below the threshold and no circuits are open", async () => {
     const service = buildService({ failedJobCount: 20 });
     const health = await service.getSynchronizationHealth();
     expect(health.status).toBe("ok");
@@ -26,6 +47,34 @@ describe("MarketDataAdminService", () => {
   it("reports degraded status when failed import count exceeds the threshold", async () => {
     const service = buildService({ failedJobCount: 21 });
     const health = await service.getSynchronizationHealth();
+    expect(health.status).toBe("degraded");
+  });
+
+  it("reports degraded status when any provider's circuit is open, regardless of import count", async () => {
+    const service = buildService({ failedJobCount: 0, enabledProviders: ["POLYGON"], circuitStates: { POLYGON: "open" } });
+    const health = await service.getSynchronizationHealth();
+    expect(health.status).toBe("degraded");
+    expect(health.providers).toEqual([{ type: "POLYGON", enabled: true, circuitState: "open" }]);
+  });
+
+  it("reports each enabled provider's circuit state", async () => {
+    const service = buildService({ enabledProviders: ["POLYGON", "BINANCE"], circuitStates: { POLYGON: "closed", BINANCE: "half_open" } });
+    const health = await service.getSynchronizationHealth();
+    expect(health.providers).toHaveLength(2);
+    expect(health.providers.find((p) => p.type === "BINANCE")?.circuitState).toBe("half_open");
+  });
+
+  it("reports database: ok when the connectivity check succeeds", async () => {
+    const service = buildService();
+    const health = await service.getSynchronizationHealth();
+    expect(health.database).toBe("ok");
+  });
+
+  it("reports database: error and degraded status when the connectivity check throws", async () => {
+    prisma.$queryRaw.mockRejectedValue(new Error("connection refused"));
+    const service = buildService();
+    const health = await service.getSynchronizationHealth();
+    expect(health.database).toBe("error");
     expect(health.status).toBe("degraded");
   });
 

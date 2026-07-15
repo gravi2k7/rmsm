@@ -1,5 +1,40 @@
 # Changelog — AI-101: Market Data Management
 
+## Phase 5 — Production Hardening & Release
+
+### Added
+- `services/circuit-breaker.ts` — real closed/open/half-open circuit breaker
+- `common/middleware/request-id.middleware.ts` — request correlation, applied platform-wide
+- `types/express.d.ts` — ambient Request.requestId type declaration
+- `apps/api/test/market-data.e2e-spec.ts` — 9 integration test cases (established e2e
+  convention; requires a live database, same standing limitation as every e2e spec since
+  Module 001)
+- `apps/api/load-tests/market-data-load-test.js` — real k6 load test script
+- 15 new unit test cases (`circuit-breaker.spec.ts`, extended
+  `provider-orchestration.service.spec.ts` and `market-data-admin.service.spec.ts`)
+- `docs/rmsm-ai/AI101_PRODUCTION_READINESS_REPORT.md`, `AI_101_TEST_RESULTS.md`,
+  `AI_101_DEPLOYMENT_GUIDE.md`, `AI_101_OPERATIONS_RUNBOOK.md`, `AI_101_RELEASE_NOTES.md`,
+  `AI_101_MARKET_DATA_PHASE_5_FILES_CHANGED.md`
+
+### Changed
+- `services/provider-orchestration.service.ts` — timeout wrapping, circuit breaker integration
+- `services/market-data-admin.service.ts` — health check extended with provider circuit state
+  and direct database connectivity; constructor signature extended
+- `services/historical-import.service.ts` — validation-failure and duplicate metrics added
+- `dto/responses/synchronization-health-response.dto.ts` — new fields for the extended health
+  check
+- `apps/api/src/app.module.ts` — `RequestIdMiddleware` wired in globally
+- `apps/api/src/common/interceptors/logging.interceptor.ts` — request id included in log lines
+- `apps/api/src/common/filters/http-exception.filter.ts` — request id included in logs and
+  error response bodies
+- `docs/rmsm-ai/AI_101_API_ENDPOINTS.md` — health endpoint documentation updated
+
+### Architecture Decisions
+- ADR-031: request correlation applied platform-wide (not module-scoped); circuit breaker is
+  real but explicitly single-instance
+
+---
+
 ## Phase 4 — REST API Layer
 
 ### Added

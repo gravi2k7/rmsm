@@ -81,4 +81,47 @@ describe("ProviderOrchestrationService", () => {
     await expect(service.executeWithRetry("POLYGON", operation, { baseBackoffMs: 1 })).rejects.toThrow();
     expect(provider.rateLimitPolicy.recordCall).toHaveBeenCalledTimes(1);
   });
+
+  it("fails with a timeout error when the operation hangs past timeoutMs", async () => {
+    const provider = buildProvider({ isRetryable: jest.fn().mockReturnValue(false) });
+    const { service } = buildService(provider);
+    const operation = jest.fn().mockImplementation(() => new Promise(() => undefined)); // never resolves
+
+    await expect(service.executeWithRetry("POLYGON", operation, { timeoutMs: 20, maxRetries: 0 })).rejects.toThrow("exceeded 20ms timeout");
+  });
+
+  it("getCircuitState starts closed for a provider that has never been called", () => {
+    const provider = buildProvider();
+    const { service } = buildService(provider);
+    expect(service.getCircuitState("POLYGON")).toBe("closed");
+  });
+
+  it("opens the circuit after enough consecutive failures, independent of retry exhaustion within one call", async () => {
+    const provider = buildProvider({ isRetryable: jest.fn().mockReturnValue(false) });
+    const { service } = buildService(provider);
+    const operation = jest.fn().mockRejectedValue(new Error("down"));
+
+    // 5 separate calls, each failing once (non-retryable) — the circuit
+    // breaker's failure threshold (5) is independent of any single
+    // call's own retry count.
+    for (let i = 0; i < 5; i++) {
+      await expect(service.executeWithRetry("POLYGON", operation, { baseBackoffMs: 1 })).rejects.toThrow();
+    }
+
+    expect(service.getCircuitState("POLYGON")).toBe("open");
+  });
+
+  it("short-circuits immediately (without calling the operation) once the circuit is open", async () => {
+    const provider = buildProvider({ isRetryable: jest.fn().mockReturnValue(false) });
+    const { service } = buildService(provider);
+    const operation = jest.fn().mockRejectedValue(new Error("down"));
+
+    for (let i = 0; i < 5; i++) {
+      await expect(service.executeWithRetry("POLYGON", operation, { baseBackoffMs: 1 })).rejects.toThrow();
+    }
+    operation.mockClear();
+
+    await expect(service.executeWithRetry("POLYGON", operation, { baseBackoffMs: 1 })).rejects.toThrow("Circuit is open");
+    expect(operation).not.toHaveBeenCalled();
+  });
 });

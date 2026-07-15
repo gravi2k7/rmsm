@@ -103,6 +103,7 @@ describe("HistoricalImportService", () => {
       expect.objectContaining({ issueType: "invalid_candle", importJobId: "job1" }),
     );
     expect(deps.importJobRepository.markCompleted).toHaveBeenCalledWith("job1", 0, 1, expect.anything());
+    expect(deps.metrics.increment).toHaveBeenCalledWith("validation.candle.rejected");
   });
 
   it("deduplicates within the batch before persisting", async () => {
@@ -114,6 +115,7 @@ describe("HistoricalImportService", () => {
 
     expect(deps.candleRepository.upsert).toHaveBeenCalledTimes(1);
     expect(deps.importJobRepository.markCompleted).toHaveBeenCalledWith("job1", 1, 1, expect.anything());
+    expect(deps.metrics.increment).toHaveBeenCalledWith("validation.candle.duplicate", 1);
   });
 
   it("marks the job failed and audits when the provider call throws", async () => {

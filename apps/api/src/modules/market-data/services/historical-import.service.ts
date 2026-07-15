@@ -88,6 +88,18 @@ export class HistoricalImportService {
           validCandles.push(candle);
         } catch (error) {
           rejectedCount += 1;
+          // Phase 5's "Validation metrics" deliverable — distinct from
+          // the aggregate candles_rejected count below, since "how many
+          // rows failed Phase 2C's OHLC/volume/timestamp rules" and "how
+          // many rows were duplicates within this batch" are genuinely
+          // different operational signals (the first suggests a
+          // provider data-quality problem; the second suggests a
+          // provider redelivering the same data). Incrementing here, at
+          // the service layer, not inside the validator itself — Phase
+          // 2C's validators must stay pure functions with no side
+          // effects (its own explicit rule), so metrics can never live
+          // there.
+          this.metrics.increment(`validation.candle.rejected`);
           await this.dataQualityIssueRepository.create({
             instrumentId: instrument.id,
             importJobId: job.id,
@@ -102,6 +114,9 @@ export class HistoricalImportService {
       const duplicateIndexes = new Set(duplicateFindings.map((f) => f.index));
       const toPersist = validCandles.filter((_, index) => !duplicateIndexes.has(index));
       rejectedCount += duplicateFindings.length;
+      if (duplicateFindings.length > 0) {
+        this.metrics.increment(`validation.candle.duplicate`, duplicateFindings.length);
+      }
 
       // Transaction boundary: every candle in this batch plus the job's
       // final status update commit atomically — a partial write (some

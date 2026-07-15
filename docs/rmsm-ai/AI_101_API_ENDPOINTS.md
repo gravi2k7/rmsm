@@ -59,7 +59,7 @@ interceptor); paginated endpoints wrap `data` in `{ data, pagination }`.
 
 | Method | Path | Permission | Notes |
 |---|---|---|---|
-| GET | `/market-data/synchronizations/health` | `market-data.admin.manage` | All-time failed-import count, not a rolling window — see ADR-030 |
+| GET | `/market-data/synchronizations/health` | `market-data.admin.manage` | All-time failed-import count (see ADR-030), plus (Phase 5) per-provider circuit-breaker state and a direct database connectivity check |
 | GET | `/market-data/synchronizations/metrics` | `market-data.admin.manage` | `MarketDataMetricsService` snapshot — single-instance, in-memory |
 | GET | `/market-data/synchronizations/import-jobs?status=` | `market-data.admin.manage` | Defaults to `status=RUNNING` when omitted (no "list all" repository method — see ADR-030) |
 | GET | `/market-data/synchronizations/import-jobs/:id` | `market-data.admin.manage` | |
