@@ -17,8 +17,8 @@ export interface IndicatorContext {
   instrumentId: string;
   timeframe: import("./timeframe").IndicatorTimeframe;
   parameters: Record<string, number | string | boolean>;
-  /** Already resolved by the computation engine — ordered oldest-first, covering at least `requiredLookback` candles before the calculation's actual target range. Uses AI-101's own domain model directly (Phase 2A's `MarketCandleModel`, ADR-025) rather than a redeclared shape — the same string-Decimal, no-Prisma-object discipline applies here unchanged. */
+  /** Already resolved by the computation engine — ordered oldest-first, covering at least `minimumLookback` candles before the calculation's actual target range. Uses AI-101's own domain model directly (Phase 2A's `MarketCandleModel`, ADR-025) rather than a redeclared shape — the same string-Decimal, no-Prisma-object discipline applies here unchanged. */
   candles: MarketCandleModel[];
-  /** Results from every indicator this one's `IndicatorMetadata.dependencies` names, already computed — resolved and ordered by the dependency graph (dependency-graph contracts) before this indicator's own calculation ever runs, so a dependent indicator's calculation code is never responsible for triggering its own dependencies. */
+  /** Results from every indicator this one's `IndicatorDefinition.dependencies` names, already computed — resolved and ordered by the dependency graph (dependency-graph contracts) before this indicator's own calculation ever runs, so a dependent indicator's calculation code is never responsible for triggering its own dependencies. */
   dependencyResults: Record<string, IndicatorResult>;
 }

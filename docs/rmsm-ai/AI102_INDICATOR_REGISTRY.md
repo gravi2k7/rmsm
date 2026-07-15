@@ -80,3 +80,26 @@ const trendIndicators = registry.listByCategory("TREND");
 // → every registered Moving-Average-family, ADX, SuperTrend, Ichimoku, Parabolic SAR entry,
 //   built-in and proprietary alike, indistinguishable by this query alone
 ```
+
+---
+
+## Phase 2A Update — Real Implementation
+
+Everything above described the design. Phase 2A built it for real — see
+`docs/rmsm-ai/AI102_PHASE2A.md` for the full account, including two real bugs the test suite
+itself caught (a registration-order dependency bug across category-file boundaries, and a
+dropped `incrementalSupport` field during the `IndicatorMetadata`/`IndicatorDefinition` split).
+
+**One structural change from what's described above**: `IndicatorMetadata` (this doc's Section
+"Registry Design" table) is now narrower than originally shown — split into
+`IndicatorDefinition` (the full, immutable, top-level object) and a narrower embedded
+`IndicatorMetadata` (just `documentation`/`calculationType`/`deterministic`/`cacheable`/
+`incrementalSupport`). `IndicatorRegistry.get()` now returns `IndicatorDefinition`, not
+`IndicatorMetadata`, everywhere.
+
+**All 28 named indicators are registered for real** — `IndicatorDefinitionRegistrarService`,
+verified by a real end-to-end test (not mocked) confirming all 28 register successfully,
+including RDSE at all 3 named versions (item 7's own worked example) and every real dependency
+chain (SuperTrend→ATR, MACD→EMA, Keltner→ATR+EMA, Institutional Structure's 4-way proprietary
+chain).
+

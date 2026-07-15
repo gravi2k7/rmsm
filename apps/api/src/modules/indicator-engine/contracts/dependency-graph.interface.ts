@@ -1,7 +1,7 @@
 /**
  * Dependency resolution and circular-dependency prevention (item 7).
- * Built from `IndicatorMetadata.dependencies` (identifier references,
- * IndicatorMetadata's own field) — this graph is derived from registry
+ * Built from `IndicatorDefinition.dependencies` (identifier references,
+ * IndicatorDefinition's own field, Phase 2A) — this graph is derived from registry
  * data, not a separate thing a caller constructs by hand.
  */
 

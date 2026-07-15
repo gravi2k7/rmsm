@@ -17,6 +17,7 @@ import { OrganizationsModule } from "./modules/organizations/organizations.modul
 import { BillingModule } from "./modules/billing/billing.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { MarketDataModule } from "./modules/market-data/market-data.module";
+import { IndicatorEngineModule } from "./modules/indicator-engine/indicator-engine.module";
 import { JwtAuthGuard } from "./modules/auth/guards/jwt-auth.guard";
 
 const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
@@ -42,6 +43,7 @@ const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
     BillingModule,
     NotificationsModule,
     MarketDataModule,
+    IndicatorEngineModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

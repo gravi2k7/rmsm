@@ -16,7 +16,7 @@ export interface IndicatorExecutionRequest {
   instrumentId: string;
   timeframe: IndicatorTimeframe;
   parameters: Record<string, number | string | boolean>;
-  /** The range the caller actually wants results for — the engine internally fetches further back to cover `requiredLookback` before this, per IndicatorContext's own comment; the caller never has to calculate that extra range itself. */
+  /** The range the caller actually wants results for — the engine internally fetches further back to cover `minimumLookback` before this, per IndicatorContext's own comment; the caller never has to calculate that extra range itself. */
   from: Date;
   to: Date;
   /** Explicit opt-in to incremental calculation (item 9) — false forces a full recalculation over the entire requested range even if the indicator supports incremental updates, useful for a caller that suspects its cached state is stale (e.g. after a historical correction, AI-101's ADR-022). */

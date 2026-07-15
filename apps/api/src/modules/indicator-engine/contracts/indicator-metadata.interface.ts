@@ -1,43 +1,38 @@
-import type { IndicatorCategory } from "./indicator-category.enum";
-import type { IndicatorTimeframe } from "./timeframe";
-
-/** One named input parameter an indicator accepts (e.g. EMA's "period"). Distinct from a data dependency (another indicator's output) — see IndicatorMetadata.dependencies for that. */
-export interface IndicatorInputSpec {
-  name: string;
-  type: "number" | "string" | "boolean";
-  required: boolean;
-  defaultValue?: number | string | boolean;
-  /** e.g. { min: 1, max: 500 } for a period parameter — validation.interface.ts's contracts consume this, not a separate parallel spec. */
-  constraints?: { min?: number; max?: number; enum?: (string | number)[] };
-}
-
-/** One named output series an indicator produces — most indicators produce exactly one (e.g. RSI's single line), but composite indicators (Bollinger Bands: upper/middle/lower; MACD: macd/signal/histogram) produce several, each named. */
-export interface IndicatorOutputSpec {
-  name: string;
-  /** "line" | "histogram" | "band" | "discrete_signal" — a rendering/interpretation hint for future consumers (AI-103+), not something this engine itself interprets. */
-  kind: "line" | "histogram" | "band" | "discrete_signal";
-}
-
 /**
- * Every field named in this phase's own spec (item 3), exactly:
- * identifier, display name, version, category, inputs, outputs,
- * dependencies, supported timeframes, required lookback, incremental
- * support.
+ * Phase 2A restructuring, flagged explicitly (not a silent breaking
+ * change): Phase 1's `IndicatorMetadata` held every field an indicator
+ * needs — identity, category, inputs/outputs, dependencies, timeframes,
+ * lookback, incremental support. Phase 2A's own spec lists two
+ * *separate* contracts with overlapping-but-different field sets:
+ * "Indicator Definition" (item 2 — identifier, displayName, version,
+ * description, category, inputs, outputs, defaultParameters,
+ * supportedTimeframes, minimumLookback, dependencies, tags, author,
+ * stabilityLevel) and "Indicator Metadata" (item 6 — version, author,
+ * documentation, required/optional inputs, calculationType,
+ * deterministic flag, incremental support, cacheable flag,
+ * dependencies).
+ *
+ * Resolved by splitting cleanly: `IndicatorDefinition`
+ * (`indicator-definition.interface.ts`) is now the full, immutable,
+ * top-level registered object — item 2's fields, directly. This file's
+ * `IndicatorMetadata` is narrowed to hold only item 6's fields that
+ * *aren't* already structural fields on `IndicatorDefinition`
+ * (`documentation`, `calculationType`, `deterministic`, `cacheable`) —
+ * embedded as `IndicatorDefinition.metadata`, not duplicating
+ * `version`/`author`/`dependencies`/`incrementalSupport`, which already
+ * exist once, at the definition's own top level. One fact, one place —
+ * not the same field declared twice under two names.
  */
+export type IndicatorCalculationType = "single_pass" | "iterative" | "windowed";
+
 export interface IndicatorMetadata {
-  /** Globally unique, stable across versions — e.g. "ema", "macd", "rdse". Used as the registry key (IndicatorRegistry contracts) and as the identifier another indicator's `dependencies` array references. */
-  identifier: string;
-  displayName: string;
-  /** Semver — a breaking change to an indicator's calculation (not just a bugfix) must bump this, since IndicatorResult.metadata (below) records which version produced a given result; a future recalculation-audit or golden-dataset-test comparison depends on this being trustworthy. */
-  version: string;
-  category: IndicatorCategory;
-  inputs: IndicatorInputSpec[];
-  outputs: IndicatorOutputSpec[];
-  /** Other indicators' `identifier`s this indicator's calculation consumes as input (MACD depending on two EMAs, per this phase's own dependency-graph example). Empty for an indicator that only consumes raw candles. */
-  dependencies: string[];
-  supportedTimeframes: IndicatorTimeframe[];
-  /** How many prior candles this indicator needs before it can produce its first valid value (e.g. a 200-period SMA needs 200 prior candles) — the concrete input `dependency-graph`/`computation` contracts use to determine how far back a calculation must reach. */
-  requiredLookback: number;
-  /** Whether this indicator can update its latest value from just the newest candle plus its own previously-cached state, rather than needing to recompute over `requiredLookback` candles again (item 9's "avoid recalculating entire history") — a capability flag the computation engine contracts check before choosing a full-recalculation vs. incremental-update execution path. */
-  supportsIncrementalCalculation: boolean;
+  /** Longer-form documentation (a URL, or extended explanatory text) — distinct from IndicatorDefinition.description's short summary. */
+  documentation?: string;
+  calculationType: IndicatorCalculationType;
+  /** Should always be true per this module's own Core Principles (Phase 1) — modeled as an explicit, checkable flag (not just an assumption) specifically so RegistryValidatorService can reject a definition that declares itself non-deterministic at registration time, a real validation case item 8 names ("malformed metadata"). */
+  deterministic: boolean;
+  /** Whether this indicator's result is safe to cache — almost always true given `deterministic: true`, but modeled as its own flag since the two are conceptually distinct (a deterministic calculation could still be deliberately marked non-cacheable, e.g. one intentionally sensitive to a "as-of" wall-clock parameter that isn't part of its declared parameter set). */
+  cacheable: boolean;
+  /** Item 6's own explicit field, carried forward from Phase 1's `IndicatorMetadata.supportsIncrementalCalculation` (renamed here, same concept) — whether this indicator can update its latest value from just the newest candle plus its own previously-cached state, rather than recomputing over the full lookback window (Phase 1's `IncrementalIndicator` contract is what a definition declaring this true must actually implement). */
+  incrementalSupport: boolean;
 }

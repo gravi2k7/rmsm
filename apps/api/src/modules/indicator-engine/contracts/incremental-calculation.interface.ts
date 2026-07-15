@@ -17,7 +17,7 @@ export type IncrementalUpdateEvent =
 
 /**
  * What an indicator capable of incremental calculation
- * (`IndicatorMetadata.supportsIncrementalCalculation`) must implement
+ * (`IndicatorDefinition.metadata` — see that interface's own header comment for the Phase 2A field restructuring) must implement
  * IN ADDITION TO `Indicator.calculate()` — a separate, optional
  * interface rather than folding this into the base `Indicator`
  * interface, since not every indicator can support it (a genuinely
