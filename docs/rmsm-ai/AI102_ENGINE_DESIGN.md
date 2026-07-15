@@ -167,4 +167,17 @@ real, exactly as described — `TopologicalSorterService.sort()` produces exactl
 including real verification against this project's actual 28 registered indicators (institutional_structure's
 real 4-way proprietary chain, MACD's real EMA dependency, SuperTrend's real ATR dependency).
 
+---
+
+## Phase 3 Update — The Full Pipeline Connects, For Real
+
+Every layer described in this document — registry, dependency graph, computation engine — is
+now wired together end to end by `IndicatorExecutionServiceImpl`
+(`docs/rmsm-ai/AI102_PHASE3_SERVICES.md`). The Phase 2C prerequisite this project's own docs
+named ("wire ComputationEngineService to actually consume an ExecutionPlan") is done: a real
+test proves a MACD-shaped dependency-bearing indicator executes end to end, genuinely receiving
+its EMA dependency's real computed result. `IndicatorEngineServiceImpl` is now the single public
+entry point every future module should use — see `AI102_SERVICE_ARCHITECTURE.md`.
+
+
 

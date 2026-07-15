@@ -1,5 +1,39 @@
 # Changelog — AI-102: Indicator Engine
 
+## Phase 3 — Indicator Services & Engine Orchestration
+
+### Added
+- `contracts/service-models.interface.ts` — request models (`ExecuteIndicatorRequest`, `QueryIndicatorRequest`, `IndicatorValidationRequest`) and response models (`IndicatorExecutionResponse`, `IndicatorMetadataResponse`, `IndicatorListResponse`, `ValidationResponse`, `ExecutionSummary`) — items 8-9
+- `contracts/service-contracts.interface.ts` — all 6 service contracts (item 7), with `ExecutionFacade` resolved as an alias for `IndicatorEngineService`
+- `contracts/service-event.interface.ts` — 6 named events (item 10), no event bus
+- `contracts/service-metrics.interface.ts` — `ServiceMetricsSnapshot` (item 11)
+- `contracts/service.errors.ts` — `ServiceError` and 5 named subclasses (item 12)
+- `contracts/service-extension-points.interface.ts` — 6 transport/consumer extension points (item 13)
+- `services/indicator-query.service.ts` — real `IndicatorQueryServiceImpl` (item 2)
+- `services/indicator-validation.service.ts` — real `IndicatorValidationServiceImpl` (item 4)
+- `services/indicator-lifecycle.service.ts` — real `IndicatorLifecycleServiceImpl` (item 5)
+- `services/indicator-execution.service.ts` — real `IndicatorExecutionServiceImpl` (item 3) — walks a real `ExecutionPlan`, resolving each step's own dependencies
+- `services/indicator-engine.service.ts` — real `IndicatorEngineServiceImpl`, **the single public entry point**
+- `services/service-metrics.service.ts` — real `ServiceMetricsService`, wired into both execution and validation
+- 35 new tests across 6 spec files, all genuinely executed — including a real end-to-end test proving a MACD-shaped dependency-bearing indicator executes correctly, receiving its EMA dependency's real computed result
+
+### Changed
+- `engine/computation-engine.service.ts` — `execute()` extended with an optional `resolvedDependencyResults` parameter, closing the exact Phase 2C prerequisite this project's own docs named
+- `engine/__tests__/computation-engine.service.spec.ts` — updated/added tests for the new parameter, including a genuine success case for a dependency-bearing indicator
+- `contracts/computation-engine-orchestrator.interface.ts` — updated to match
+- `indicator-engine.module.ts` — 6 new Phase 3 providers wired in; `IndicatorEngineServiceImpl` now exported as the primary surface
+- `docs/rmsm-ai/AI102_ENGINE_DESIGN.md`, `AI102_COMPUTATION_PIPELINE.md` — Phase 3 updates appended
+
+### Bugs Found and Fixed During This Phase's Own Verification
+1. Two real test bugs in the ComputationEngineService integration test (a grammar mismatch in
+   an assertion, and a missing required parameter on a test fixture) — both caught by actually
+   running the tests, not just writing them.
+2. A real TypeScript strictness error (chained optional access on a doubly-optional field) in a
+   new test file — caught by `tsc`.
+3. A real unused-import lint error.
+
+---
+
 ## Phase 2C — Dependency Graph & Execution Planning
 
 ### Added

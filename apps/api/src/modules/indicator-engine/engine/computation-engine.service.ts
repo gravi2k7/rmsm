@@ -11,6 +11,7 @@ import type { ComputationEngine as ComputationEngineContract } from "../contract
 import type { ExecutionRequest } from "../contracts/execution-request.interface";
 import type { ExecutionResult } from "../contracts/execution-result.interface";
 import type { ExecutionContext } from "../contracts/execution-context.interface";
+import type { IndicatorResult } from "../contracts/indicator-result.interface";
 
 /**
  * Real implementation of `contracts/computation-engine-orchestrator.interface.ts`
@@ -22,21 +23,26 @@ import type { ExecutionContext } from "../contracts/execution-context.interface"
  * integration point per this phase's own "AI-102 consumes only AI-101
  * services/contracts" rule (a service, not a repository).
  *
- * **A real, named limitation, not silently glossed over**: an
- * indicator with any `dependencies` cannot execute through this engine
- * yet — dependency resolution/execution is explicitly Phase 2C's job.
- * Attempting to execute MACD (which depends on EMA) or any of the
- * proprietary composite indicators throws `CalculationWindowException`
- * with a clear message, rather than silently proceeding with an empty
- * `dependencyResults` and producing a wrong answer.
+ * **Phase 3 update**: `execute()` now accepts an optional
+ * `resolvedDependencyResults` map — the exact integration point named
+ * as a Phase 3 prerequisite in AI102_PHASE2C.md. A dependency-bearing
+ * indicator (MACD, Keltner Channel, every composite proprietary
+ * indicator) can now execute for real, PROVIDED its caller
+ * (`IndicatorEngineService`, this phase) has already computed every
+ * dependency's own result and supplies them here — this method itself
+ * still does no dependency resolution or ordering of its own (that
+ * remains `DependencyResolverService`/`ExecutionPlannerService`'s job,
+ * Phase 2C); it only accepts what's already been resolved. Calling
+ * `execute()` directly for a dependency-bearing indicator WITHOUT
+ * supplying `resolvedDependencyResults` still fails clearly — this
+ * method never silently proceeds with an incomplete dependency set.
  *
- * **Equally real**: every one of the 28 definitions Phase 2A registered
- * will fail at the `IndicatorFactoryService.create()` step with
+ * **Equally real, unchanged from Phase 2B**: every one of the 28
+ * definitions Phase 2A registered will still fail at the
+ * `IndicatorFactoryService.create()` step with
  * `IndicatorNotFoundException`, because no real `calculate()`
- * implementation exists for any of them yet. This engine's own
- * pipeline — lifecycle tracking, context construction, all 4 validation
- * layers, metrics — is genuinely complete and real; what it invokes at
- * the very end is not, and this phase does not pretend otherwise.
+ * implementation exists for any of them yet. This phase does not add
+ * one — "no indicator calculations" remains true.
  */
 @Injectable()
 export class ComputationEngineService implements ComputationEngineContract {
@@ -50,7 +56,7 @@ export class ComputationEngineService implements ComputationEngineContract {
     private readonly metrics: ExecutionMetricsService,
   ) {}
 
-  async execute(request: ExecutionRequest): Promise<ExecutionResult> {
+  async execute(request: ExecutionRequest, resolvedDependencyResults: Record<string, IndicatorResult> = {}): Promise<ExecutionResult> {
     const executionId = randomUUID();
     const tracker = new ExecutionLifecycleTracker();
     const overallStart = Date.now();
@@ -69,10 +75,11 @@ export class ComputationEngineService implements ComputationEngineContract {
       const initStart = Date.now();
       const definition = this.registry.getVersion(request.indicatorInstance.definitionIdentifier, request.indicatorInstance.definitionVersion);
 
-      if (definition.dependencies.length > 0) {
+      const missingDependencies = definition.dependencies.filter((depId) => !(depId in resolvedDependencyResults));
+      if (missingDependencies.length > 0) {
         throw new CalculationWindowException(
-          `"${definition.identifier}" depends on [${definition.dependencies.join(", ")}] — real dependency-graph infrastructure exists (AI-102 Phase 2C: DependencyResolverService, ExecutionPlannerService), but this engine isn't wired to consume it yet, and no real Indicator.calculate() implementations exist regardless. Wiring this engine to Phase 2C's services is a Phase 3+ integration task, not done as part of Phase 2B or 2C.`,
-          { definition },
+          `"${definition.identifier}" depends on [${definition.dependencies.join(", ")}], and [${missingDependencies.join(", ")}] ${missingDependencies.length === 1 ? "was" : "were"} not supplied in resolvedDependencyResults. Direct callers of ComputationEngineService.execute() must resolve and pass every dependency's own result first (IndicatorEngineService, Phase 3, does this via ExecutionPlannerService's ordered plan) — this method does not resolve dependencies itself.`,
+          { definition, missingDependencies },
         );
       }
 
@@ -93,7 +100,7 @@ export class ComputationEngineService implements ComputationEngineContract {
         calculationWindow: request.calculationWindow,
         executionTimestamp: new Date(),
         metadata: {},
-        dependencyResults: {},
+        dependencyResults: resolvedDependencyResults,
       });
 
       this.validator.validateContext(context);

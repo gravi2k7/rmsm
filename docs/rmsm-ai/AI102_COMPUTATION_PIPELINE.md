@@ -120,4 +120,14 @@ infrastructure exists, that message was stale and has been corrected to describe
 remaining gap (the infrastructure exists; it isn't wired into the engine yet, a genuine Phase
 3+ task).
 
+---
+
+## Phase 3 Update — The Gap Is Closed
+
+The "genuine Phase 3+ task" the update above named is done. `ComputationEngineService.execute()`
+(Phase 2B) now accepts an optional `resolvedDependencyResults` parameter, and
+`IndicatorExecutionServiceImpl` (Phase 3) supplies it by walking a real `ExecutionPlan` step by
+step. See `docs/rmsm-ai/AI102_PHASE3_SERVICES.md` for the full account.
+
+
 

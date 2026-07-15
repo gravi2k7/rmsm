@@ -16,19 +16,29 @@ import { GraphValidatorService } from "./dependency-graph/graph-validator.servic
 import { DependencyResolverService } from "./dependency-graph/dependency-resolver.service";
 import { GraphMetricsService } from "./dependency-graph/graph-metrics.service";
 import { ExecutionPlannerService } from "./dependency-graph/execution-planner.service";
+import { IndicatorQueryServiceImpl } from "./services/indicator-query.service";
+import { IndicatorValidationServiceImpl } from "./services/indicator-validation.service";
+import { IndicatorLifecycleServiceImpl } from "./services/indicator-lifecycle.service";
+import { IndicatorExecutionServiceImpl } from "./services/indicator-execution.service";
+import { IndicatorEngineServiceImpl } from "./services/indicator-engine.service";
+import { ServiceMetricsService } from "./services/service-metrics.service";
 
 /**
- * AI-102 Phase 2A: the registry layer (real). Phase 2B: the
- * computation/execution layer (real). Phase 2C (this addition): the
- * dependency graph layer (real) — `DependencyGraphBuilderService`
- * (builds an immutable graph from the registry), `CycleDetectorService`/
- * `TopologicalSorterService` (the two core algorithms), `GraphValidatorService`
- * (item 6), `DependencyResolverService` (item 2), `GraphMetricsService`
- * (item 10), `ExecutionPlannerService` (item 3, including the real
- * Execution Complexity Estimator). Imports `MarketDataModule` for
- * `MarketDataService` — the first real AI-101 integration point in this
- * engine. No real indicator calculations, no caching, no controllers —
- * exactly this phase's scope.
+ * AI-102 Phase 2A: the registry layer. Phase 2B: the computation/
+ * execution layer. Phase 2C: the dependency graph layer. Phase 3 (this
+ * addition): **the service layer — the module's own public surface**.
+ *
+ * `IndicatorEngineServiceImpl` is the single class every future module
+ * (AI-103+) should ever import from this one — this phase's own
+ * explicit recommendation, implemented literally (see that class's own
+ * header comment). Everything else exported below (the Phase 2A/2B/2C
+ * primitives) remains exported for THIS project's own internal
+ * flexibility during development, not because a future module is meant
+ * to reach for them — item 6's own architecture rule ("future modules
+ * should never interact directly with Registry/Planner/DependencyGraph/
+ * ComputationEngine") is a calling-convention discipline this module
+ * documents and recommends, not something a `providers`/`exports` array
+ * can mechanically enforce on its own.
  */
 @Module({
   imports: [MarketDataModule],
@@ -49,8 +59,15 @@ import { ExecutionPlannerService } from "./dependency-graph/execution-planner.se
     DependencyResolverService,
     GraphMetricsService,
     ExecutionPlannerService,
+    IndicatorQueryServiceImpl,
+    IndicatorValidationServiceImpl,
+    IndicatorLifecycleServiceImpl,
+    IndicatorExecutionServiceImpl,
+    IndicatorEngineServiceImpl,
+    ServiceMetricsService,
   ],
   exports: [
+    IndicatorEngineServiceImpl,
     IndicatorRegistryService,
     RegistryValidatorService,
     RegistryQueryService,

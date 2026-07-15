@@ -62,16 +62,37 @@ describe("ComputationEngineService", () => {
     expect(result.errors[0]).toContain("No calculation implementation is registered");
   });
 
-  it("fails fast with a clear message for a definition with dependencies, WITHOUT calling AI-101 at all — real dependency-graph infrastructure exists (Phase 2C) but isn't wired into this engine yet", async () => {
+  it("fails with a clear message for a definition with dependencies when resolvedDependencyResults isn't supplied, WITHOUT calling AI-101 at all", async () => {
     const { engine, registry, marketDataService } = buildEngine();
     registry.register(buildDefinition({ identifier: "ema" }));
     registry.register(buildDefinition({ identifier: "macd", dependencies: ["ema"] }));
 
-    const result = await engine.execute(buildRequest({ indicatorInstance: { instanceId: "macd_1", definitionIdentifier: "macd", definitionVersion: "1.0.0", parameters: {}, updateParameters: jest.fn() } }));
+    const result = await engine.execute(buildRequest({ indicatorInstance: { instanceId: "macd_1", definitionIdentifier: "macd", definitionVersion: "1.0.0", parameters: { period: 20 }, updateParameters: jest.fn() } }));
 
     expect(result.lifecycleStatus).toBe("FAILED");
-    expect(result.errors[0]).toContain("isn't wired to consume it yet");
+    expect(result.errors[0]).toContain("was not supplied in resolvedDependencyResults");
     expect(marketDataService.getCandles).not.toHaveBeenCalled();
+  });
+
+  it("succeeds for a dependency-bearing definition when resolvedDependencyResults IS supplied (Phase 3's own integration point)", async () => {
+    const { engine, registry, factory } = buildEngine();
+    registry.register(buildDefinition({ identifier: "ema" }));
+    registry.register(buildDefinition({ identifier: "macd", dependencies: ["ema"] }));
+    factory.registerBuilder("macd", () => ({
+      definition: buildDefinition({ identifier: "macd", dependencies: ["ema"] }),
+      calculate: (context) => {
+        expect(context.dependencyResults.ema).toBeDefined();
+        return { indicatorIdentifier: "macd", indicatorVersion: "1.0.0", instrumentId: "inst1", timeframe: "ONE_DAY", parameters: {}, series: {}, computedAt: new Date() };
+      },
+    }));
+
+    const emaResult = { indicatorIdentifier: "ema", indicatorVersion: "1.0.0", instrumentId: "inst1", timeframe: "ONE_DAY" as const, parameters: {}, series: {}, computedAt: new Date() };
+    const result = await engine.execute(
+      buildRequest({ indicatorInstance: { instanceId: "macd_1", definitionIdentifier: "macd", definitionVersion: "1.0.0", parameters: { period: 20 }, updateParameters: jest.fn() } }),
+      { ema: emaResult },
+    );
+
+    expect(result.lifecycleStatus).toBe("COMPLETED");
   });
 
   it("fails when AI-101 returns insufficient candle history", async () => {
