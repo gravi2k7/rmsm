@@ -156,3 +156,15 @@ dependency-graph-aware at all (that remains Phase 2C's `ComputationScheduler`, d
 this phase's simpler `ExecutionScheduler`). See `docs/rmsm-ai/AI102_PHASE2B.md` for the full
 account, including a real lifecycle-transition-table bug caught while building this engine.
 
+---
+
+## Phase 2C Update — Real Dependency Graph
+
+The "Dependency Graph — Worked Example" section above (EMA → MACD → Strategy Indicator) is now
+real, exactly as described — `TopologicalSorterService.sort()` produces exactly that order, and
+`ExecutionPlannerService`'s own `parallelizableGroups` computation is real too. See
+`docs/rmsm-ai/AI102_DEPENDENCY_GRAPH.md` and `AI102_EXECUTION_PLAN.md` for the full account,
+including real verification against this project's actual 28 registered indicators (institutional_structure's
+real 4-way proprietary chain, MACD's real EMA dependency, SuperTrend's real ATR dependency).
+
+

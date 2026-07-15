@@ -22,7 +22,7 @@ import type { IndicatorExecutionRequest } from "./indicator-execution.interface"
  */
 
 export interface ComputationPlan {
-  /** The dependency-graph-resolved order (DependencyGraph.resolveExecutionOrder) this plan will execute indicators in. */
+  /** The dependency-graph-resolved order (Phase 2C's real `TopologicalSorterService`) this plan will execute indicators in. */
   executionOrder: string[];
   /** Which steps in executionOrder have no dependency relationship to each other and could, in principle, run concurrently — a real opportunity the scheduler MAY exploit, not a guarantee that it does (Phase 2+'s own implementation decision, not fixed by this contract). */
   parallelizableGroups: string[][];

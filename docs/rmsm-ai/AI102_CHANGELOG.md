@@ -1,5 +1,48 @@
 # Changelog — AI-102: Indicator Engine
 
+## Phase 2C — Dependency Graph & Execution Planning
+
+### Added
+- `contracts/dependency-node.interface.ts` — `DependencyNode`
+- `contracts/dependency-edge.interface.ts` — `DependencyEdge`, `DependencyType`
+- `contracts/dependency-resolver.interface.ts` — `DependencyResolver`, `DependencyTreeNode`
+- `contracts/execution-plan.interface.ts` — `ExecutionPlan`, `ExecutionComplexityEstimate` (the recommended Execution Complexity Estimator)
+- `contracts/execution-planner.interface.ts` — `ExecutionPlanner`, `IndicatorRequest`
+- `contracts/graph-validator.interface.ts` — `GraphValidator` (item 6, 7 checks)
+- `contracts/graph-metrics.interface.ts` — `GraphMetrics` (item 10)
+- `contracts/graph-event.interface.ts` — 6 named events (item 11), no event bus
+- `contracts/graph.errors.ts` — `GraphError` and 6 named subclasses (item 12)
+- `contracts/graph-extension-points.interface.ts` — 3 new graph-specific extension points (item 13)
+- `dependency-graph/dependency-graph-builder.service.ts` — real, builds an immutable graph from the registry
+- `dependency-graph/cycle-detector.service.ts` — real DFS-based cycle detection
+- `dependency-graph/topological-sorter.service.ts` — real Kahn's-algorithm topological sort
+- `dependency-graph/graph-validator.service.ts` — real implementation of all applicable checks
+- `dependency-graph/dependency-resolver.service.ts` — real implementation of all 5 responsibilities
+- `dependency-graph/graph-metrics.service.ts` — real metrics computation
+- `dependency-graph/execution-planner.service.ts` — real plan generation with real complexity estimation
+- 48 new tests across 7 spec files, all genuinely executed — including a real end-to-end test
+  building a graph from Phase 2A's actual 28 registered definitions and verifying every real
+  dependency chain (SuperTrend→ATR, MACD→EMA, Keltner→ATR+EMA, Institutional Structure's 4-way
+  proprietary chain) sorts correctly
+
+### Changed
+- `contracts/dependency-graph.interface.ts` — rewritten: immutable graph with real nodes/edges/metadata, superseding Phase 1's simple identifier-string model
+- `indicator-engine.module.ts` — 7 new Phase 2C providers wired in
+- `engine/computation-engine.service.ts` — stale "Phase 2C's job" error message corrected now that Phase 2C's real infrastructure exists
+- `engine/__tests__/computation-engine.service.spec.ts` — updated assertion to match the corrected message
+- `docs/rmsm-ai/AI102_ENGINE_DESIGN.md`, `AI102_COMPUTATION_PIPELINE.md` — Phase 2C updates appended
+
+### Bugs / Inaccuracies Found and Fixed During This Phase's Own Verification
+1. `ComputationEngineService`'s own error message became stale the moment Phase 2C's real
+   infrastructure was built — caught and corrected during this same phase's verification, not
+   left for a later cleanup pass.
+2. An unused `placed` variable (written but never read) in `ExecutionPlannerService`'s
+   parallelization-grouping logic — removed.
+3. A `void` hack silencing an unused-constant lint error in `GraphValidatorService`'s first
+   draft — removed in favor of simply not declaring the unused constant.
+
+---
+
 ## Phase 2B — Computation Infrastructure
 
 ### Added

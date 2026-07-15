@@ -71,7 +71,7 @@ export class ComputationEngineService implements ComputationEngineContract {
 
       if (definition.dependencies.length > 0) {
         throw new CalculationWindowException(
-          `"${definition.identifier}" depends on [${definition.dependencies.join(", ")}] — dependency execution is Phase 2C's job, not available in this engine yet.`,
+          `"${definition.identifier}" depends on [${definition.dependencies.join(", ")}] — real dependency-graph infrastructure exists (AI-102 Phase 2C: DependencyResolverService, ExecutionPlannerService), but this engine isn't wired to consume it yet, and no real Indicator.calculate() implementations exist regardless. Wiring this engine to Phase 2C's services is a Phase 3+ integration task, not done as part of Phase 2B or 2C.`,
           { definition },
         );
       }

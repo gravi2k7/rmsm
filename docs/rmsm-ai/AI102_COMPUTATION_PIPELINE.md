@@ -106,3 +106,18 @@ reference, timeframe, parameters, calculation window, execution timestamp, metad
 carrying `candles`/`dependencyResults` in the same shape as before, just within a larger
 container. `Indicator.calculate()`'s signature changed to match.
 
+---
+
+## Phase 2C Update — Real Dependency Resolution & Execution Planning
+
+`DependencyResolverService` (item 2) and `ExecutionPlannerService` (item 3) are now real —
+genuine transitive resolution, missing-dependency detection, and immutable `ExecutionPlan`
+generation with a real, computed Execution Complexity Estimate. See `docs/rmsm-ai/AI102_PHASE2C.md`
+for the full account, including a cross-phase inaccuracy this phase caught and fixed:
+`ComputationEngineService`'s (Phase 2B) own error message for a dependency-bearing indicator
+said dependency execution was "Phase 2C's job, not available yet" — now that Phase 2C's real
+infrastructure exists, that message was stale and has been corrected to describe the actual
+remaining gap (the infrastructure exists; it isn't wired into the engine yet, a genuine Phase
+3+ task).
+
+

@@ -62,7 +62,7 @@ describe("ComputationEngineService", () => {
     expect(result.errors[0]).toContain("No calculation implementation is registered");
   });
 
-  it("fails fast with a clear message for a definition with dependencies, WITHOUT calling AI-101 at all — dependency execution is Phase 2C's job", async () => {
+  it("fails fast with a clear message for a definition with dependencies, WITHOUT calling AI-101 at all — real dependency-graph infrastructure exists (Phase 2C) but isn't wired into this engine yet", async () => {
     const { engine, registry, marketDataService } = buildEngine();
     registry.register(buildDefinition({ identifier: "ema" }));
     registry.register(buildDefinition({ identifier: "macd", dependencies: ["ema"] }));
@@ -70,7 +70,7 @@ describe("ComputationEngineService", () => {
     const result = await engine.execute(buildRequest({ indicatorInstance: { instanceId: "macd_1", definitionIdentifier: "macd", definitionVersion: "1.0.0", parameters: {}, updateParameters: jest.fn() } }));
 
     expect(result.lifecycleStatus).toBe("FAILED");
-    expect(result.errors[0]).toContain("dependency execution is Phase 2C's job");
+    expect(result.errors[0]).toContain("isn't wired to consume it yet");
     expect(marketDataService.getCandles).not.toHaveBeenCalled();
   });
 

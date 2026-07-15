@@ -108,7 +108,7 @@ export class RegistryValidatorService implements RegistryValidatorContract {
     }
   }
 
-  /** Every dependency identifier must already be registered — a definition cannot depend on something that doesn't exist yet, which also structurally prevents a definition from ever naming itself (directly) as its own dependency, since it isn't registered yet at the moment this check runs. Full transitive-cycle detection (A depends on B depends on A) belongs to the dependency graph (Phase 1's own contract, DependencyGraph.detectCycle — dependency EXECUTION, correctly out of this phase's scope) — this check is registration-time and narrower by design. */
+  /** Every dependency identifier must already be registered — a definition cannot depend on something that doesn't exist yet, which also structurally prevents a definition from ever naming itself (directly) as its own dependency, since it isn't registered yet at the moment this check runs. Full transitive-cycle detection (A depends on B depends on A) belongs to Phase 2C's real `CycleDetectorService` — dependency graph EXECUTION planning, correctly out of this (Phase 2A) phase's scope — this check is registration-time and narrower by design. */
   private validateDependencies(definition: IndicatorDefinition, registry: IndicatorRegistry): void {
     for (const dependencyId of definition.dependencies) {
       const exists = registry.tryGet(dependencyId) !== null;
