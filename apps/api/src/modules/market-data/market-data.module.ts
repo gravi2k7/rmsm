@@ -20,26 +20,45 @@ import { ProviderRegistrarService } from "./providers/provider-registrar.service
 import { ProviderOrchestrationService } from "./services/provider-orchestration.service";
 import { MarketDataMetricsService } from "./services/market-data-metrics.service";
 import { MarketDataService } from "./services/market-data.service";
+import { MarketDataAdminService } from "./services/market-data-admin.service";
 import { HistoricalImportService } from "./services/historical-import.service";
 import { SynchronizationService } from "./services/synchronization.service";
+import { ExchangeController } from "./controllers/exchange.controller";
+import { InstrumentController } from "./controllers/instrument.controller";
+import { MarketCandleController } from "./controllers/market-candle.controller";
+import { MarketQuoteController } from "./controllers/market-quote.controller";
+import { MarketTickController } from "./controllers/market-tick.controller";
+import { CorporateActionController } from "./controllers/corporate-action.controller";
+import { ProviderConfigController } from "./controllers/provider-config.controller";
+import { SynchronizationController } from "./controllers/synchronization.controller";
 
 /**
  * AI-101 Phase 2A: 13 repositories, domain-model layer (ADR-025).
  * Phase 2B: Provider Registry, Factory, Resolver. Phase 2C:
- * normalization/validation (pure functions, not NestJS providers — no
- * module wiring needed for them). Phase 3 (this addition): the service
- * layer — `MarketDataService` (read-side), `HistoricalImportService`
- * (write-side orchestration: fetch → validate → deduplicate → persist,
- * transactionally), `SynchronizationService` (sync decision logic, no
- * scheduler), plus `ProviderOrchestrationService` (retry/rate-limit
- * policy application) and `MarketDataMetricsService` (metrics hooks)
- * that both depend on. Imports `AuthModule` for `AuditService` — the
- * first phase with real service-layer mutations to audit.
- * Controllers, GraphQL, WebSockets, and actual scheduler/queue
- * registration remain explicitly out of scope this phase.
+ * normalization/validation (pure functions, no module wiring needed).
+ * Phase 3: the service layer (MarketDataService, HistoricalImportService,
+ * SynchronizationService, ProviderOrchestrationService,
+ * MarketDataMetricsService). Phase 4 (this addition): 8 REST
+ * controllers, plus `MarketDataAdminService` — a small new service
+ * exposing provider-config/import-job data no Phase 3 service read-side
+ * ever needed until controllers existed to expose it (same "necessary
+ * plumbing, not new business logic" category as MarketDataService's new
+ * exchange/tick pass-through methods this phase). No repository,
+ * provider, or synchronization-design changes this phase, per Phase 4's
+ * explicit scope.
  */
 @Module({
   imports: [AuthModule],
+  controllers: [
+    ExchangeController,
+    InstrumentController,
+    MarketCandleController,
+    MarketQuoteController,
+    MarketTickController,
+    CorporateActionController,
+    ProviderConfigController,
+    SynchronizationController,
+  ],
   providers: [
     MarketDataProviderConfigRepository,
     ExchangeRepository,
@@ -61,6 +80,7 @@ import { SynchronizationService } from "./services/synchronization.service";
     ProviderOrchestrationService,
     MarketDataMetricsService,
     MarketDataService,
+    MarketDataAdminService,
     HistoricalImportService,
     SynchronizationService,
   ],
@@ -84,6 +104,7 @@ import { SynchronizationService } from "./services/synchronization.service";
     ProviderOrchestrationService,
     MarketDataMetricsService,
     MarketDataService,
+    MarketDataAdminService,
     HistoricalImportService,
     SynchronizationService,
   ],

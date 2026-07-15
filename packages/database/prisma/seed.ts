@@ -66,6 +66,12 @@ const DEFAULT_PERMISSIONS: { key: string; group: string; description: string }[]
   { key: "notification.send", group: "notification", description: "Send, bulk-send, or schedule notifications within an organization." },
   { key: "notification.template.manage", group: "notification", description: "Create and update notification templates." },
   { key: "notification.admin.manage", group: "notification", description: "Manage platform-wide notification provider configuration." },
+
+  // ── AI-101, Phase 4 additions (additive) — platform-level, not
+  // organization-scoped (AI-101 has no organizationId anywhere, ADR-021)
+  // ──
+  { key: "market-data.read", group: "market-data", description: "Read exchanges, instruments, candles, quotes, ticks, and corporate actions." },
+  { key: "market-data.admin.manage", group: "market-data", description: "View platform-wide provider configuration and synchronization/import status." },
 ];
 
 // Role -> permission key grants for the roles that should have elevated
@@ -108,6 +114,14 @@ const BILLING_MANAGE_PERMISSIONS = ["billing.subscription.manage", "billing.acco
 // as billing.admin.manage.
 const NOTIFICATION_MANAGE_PERMISSIONS = ["notification.send", "notification.template.manage"];
 
+// AI-101, Phase 4: market-data.read is granted as broadly as
+// notification.read (even FREE_USER) — browsing exchanges/instruments/
+// candles is a core, low-stakes product feature, not a management
+// action. market-data.admin.manage (provider configuration and
+// synchronization/import status) is ADMIN/SUPER_ADMIN only, same tier as
+// notification.admin.manage and billing.admin.manage — platform
+// operational visibility, not something every account should see.
+
 const ROLE_GRANTS: Record<string, string[]> = {
   SUPER_ADMIN: DEFAULT_PERMISSIONS.map((p) => p.key),
   ADMIN: [
@@ -125,9 +139,11 @@ const ROLE_GRANTS: Record<string, string[]> = {
     "notification.read",
     ...NOTIFICATION_MANAGE_PERMISSIONS,
     "notification.admin.manage",
+    "market-data.read",
+    "market-data.admin.manage",
   ],
   SUPPORT: ["users.read", "sessions.read", "sessions.revoke"],
-  ANALYST: ["users.read", "audit.read", ...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read"],
+  ANALYST: ["users.read", "audit.read", ...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read"],
   // Judgment call, flagged explicitly (no product spec supplied a tier
   // matrix): every account can create and view organizations; only
   // SUBSCRIBER-tier and above can perform organization *management*
@@ -143,8 +159,9 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...BILLING_MANAGE_PERMISSIONS,
     "notification.read",
     ...NOTIFICATION_MANAGE_PERMISSIONS,
+    "market-data.read",
   ],
-  FREE_USER: [...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read"],
+  FREE_USER: [...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read"],
 };
 
 // ─────────────────────────────────────────────────────────────────────────

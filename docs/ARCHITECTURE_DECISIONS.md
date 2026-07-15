@@ -313,6 +313,23 @@ _Source: `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_3_SERVICE_LAYER.md`._
 
 ---
 
+### ADR-030 — Phase 4's REST layer surfaced 5 real capability gaps, none silently worked around
+Building the REST layer strictly on top of Phase 2A's existing repositories (Phase 4 explicitly
+forbids repository changes) surfaced 5 places where a requested endpoint capability has no
+backing repository method: **historical quotes** (`MarketQuoteRepository` has no date-range
+query — endpoint not built), **instrument-by-exchange filtering** (`InstrumentRepository.search()`
+has no exchangeId filter — in-memory post-filtering was rejected because it would corrupt the
+pagination contract), **corporate-action filtering/search beyond instrumentId**
+(`CorporateActionRepository` has only `findByInstrument()`), **cursor pagination** (every list
+method is offset/skip-based, no keyset support), and **"recent" failed-import health** (`DataImportJobRepository.findByStatus()`
+has no time bound — the health check reports an all-time count, not a rolling window). Every
+one of these is documented at its exact call site, not just here — this entry exists so a
+reader planning the repository layer's next revision has one place listing all 5 candidates at
+once, rather than discovering them one at a time across five different files.
+_Source: `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_4_REST_API.md`._
+
+---
+
 ## How to add to this file
 When a decision is made that a *future module* needs to know about (not an implementation
 detail scoped to one module), add an entry here with a one-paragraph summary and a link to the

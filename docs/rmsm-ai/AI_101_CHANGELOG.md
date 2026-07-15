@@ -1,5 +1,38 @@
 # Changelog — AI-101: Market Data Management
 
+## Phase 4 — REST API Layer
+
+### Added
+- 8 controllers, 24 endpoints (`controllers/`) — full list in `AI_101_API_ENDPOINTS.md`
+- `services/market-data-admin.service.ts` — provider-config + import-job + health + metrics
+  read access
+- 9 response DTOs (`dto/responses/`), `dto/pagination-query.dto.ts`, `dto/tick-query.dto.ts`,
+  `dto/corporate-action-query.dto.ts`
+- `utils/pagination.util.ts` — offset pagination (cursor pagination flagged as a deferred gap,
+  ADR-030)
+- 2 new permission keys (`market-data.read`, `market-data.admin.manage`) in the platform seed
+- 4 new test spec files, 21 new test cases, all genuinely executed
+- `docs/rmsm-ai/AI_101_MARKET_DATA_PHASE_4_REST_API.md`, `AI_101_API_ENDPOINTS.md`,
+  `AI_101_API_TEST_MATRIX.md`, `AI_101_MARKET_DATA_PHASE_4_FILES_CHANGED.md`
+
+### Changed
+- `services/market-data.service.ts` — added `getExchange*`/`listExchanges`/`searchExchanges`/
+  `getTicks` (necessary service-layer plumbing, not new business logic); constructor signature
+  extended (`ExchangeRepository`, `MarketTickRepository` added)
+- `dto/candle-query.dto.ts` — `instrumentId` now optional, with an `exchangeId`+`symbol`
+  alternative
+- `dto/instrument-search.dto.ts` — added `status` filter
+- `market-data.module.ts` — 8 controllers registered; `MarketDataAdminService` wired in
+- `packages/database/prisma/seed.ts` — market-data permissions added to `DEFAULT_PERMISSIONS`
+  and every relevant `ROLE_GRANTS` tier
+
+### Architecture Decisions
+- ADR-030: 5 real capability gaps surfaced by the no-repository-changes constraint, consolidated
+  in one place (historical quotes, instrument-by-exchange filtering, corporate-action
+  filtering, cursor pagination, "recent" health window)
+
+---
+
 ## Phase 3 — Service Layer & Synchronization Orchestration
 
 ### Added
