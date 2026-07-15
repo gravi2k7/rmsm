@@ -72,6 +72,12 @@ const DEFAULT_PERMISSIONS: { key: string; group: string; description: string }[]
   // ──
   { key: "market-data.read", group: "market-data", description: "Read exchanges, instruments, candles, quotes, ticks, and corporate actions." },
   { key: "market-data.admin.manage", group: "market-data", description: "View platform-wide provider configuration and synchronization/import status." },
+
+  // ── AI-102, Phase 4 addition (additive) — no organizationId on
+  // AI-102 either (ADR-021's own reasoning applies unchanged: indicator
+  // metadata/execution is global product data, not per-tenant) ──
+  { key: "indicator-engine.read", group: "indicator-engine", description: "List/lookup indicators, validate requests, check health." },
+  { key: "indicator-engine.execute", group: "indicator-engine", description: "Execute indicator calculations." },
 ];
 
 // Role -> permission key grants for the roles that should have elevated
@@ -122,6 +128,15 @@ const NOTIFICATION_MANAGE_PERMISSIONS = ["notification.send", "notification.temp
 // notification.admin.manage and billing.admin.manage — platform
 // operational visibility, not something every account should see.
 
+// AI-102, Phase 4: indicator-engine.read (list/lookup/validate/health)
+// is granted as broadly as market-data.read — pure discovery, no
+// compute cost. indicator-engine.execute (actually running a
+// calculation) is SUBSCRIBER-tier and above only — a real compute cost
+// each call incurs (even though no real Indicator.calculate()
+// implementation exists yet to actually spend that cost on), the same
+// "compute/send-cost-bearing action needs a paid tier" reasoning
+// notification.send and billing.subscription.manage already established.
+
 const ROLE_GRANTS: Record<string, string[]> = {
   SUPER_ADMIN: DEFAULT_PERMISSIONS.map((p) => p.key),
   ADMIN: [
@@ -141,9 +156,11 @@ const ROLE_GRANTS: Record<string, string[]> = {
     "notification.admin.manage",
     "market-data.read",
     "market-data.admin.manage",
+    "indicator-engine.read",
+    "indicator-engine.execute",
   ],
   SUPPORT: ["users.read", "sessions.read", "sessions.revoke"],
-  ANALYST: ["users.read", "audit.read", ...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read"],
+  ANALYST: ["users.read", "audit.read", ...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read", "indicator-engine.read", "indicator-engine.execute"],
   // Judgment call, flagged explicitly (no product spec supplied a tier
   // matrix): every account can create and view organizations; only
   // SUBSCRIBER-tier and above can perform organization *management*
@@ -160,8 +177,10 @@ const ROLE_GRANTS: Record<string, string[]> = {
     "notification.read",
     ...NOTIFICATION_MANAGE_PERMISSIONS,
     "market-data.read",
+    "indicator-engine.read",
+    "indicator-engine.execute",
   ],
-  FREE_USER: [...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read"],
+  FREE_USER: [...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read", "indicator-engine.read"],
 };
 
 // ─────────────────────────────────────────────────────────────────────────

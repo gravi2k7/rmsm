@@ -1,5 +1,57 @@
 # Changelog — AI-102: Indicator Engine
 
+## Phase 4 — REST API & External Interfaces
+
+### Added
+- `rest/indicator.controller.ts` — the only controller in this module, communicating exclusively with `IndicatorEngineServiceImpl`
+- `rest/filters/indicator-exception.filter.ts` — real error-code-based mapping for all 5 internal error hierarchies to HTTP statuses
+- `rest/dto/execute-indicator.dto.ts`, `query-indicator.dto.ts`, `validate-indicator.dto.ts` — validated request DTOs
+- `rest/dto/indicator-metadata.dto.ts`, `indicator-list.dto.ts`, `validation-response.dto.ts`, `execution-status.dto.ts`, `execution-response.dto.ts`, `health-response.dto.ts` — response DTOs, never exposing internal engine models directly
+- `rest/api-event.interface.ts` — 5 named API event contracts (item 11), no event bus
+- `services/indicator-health.service.ts` — real, functional health checks (item 8)
+- 2 new permission keys (`indicator-engine.read`, `indicator-engine.execute`) in the platform seed
+- 24 new unit test cases across 3 spec files (23 original + 1 regression test added after
+  finding the routing bug below), all genuinely executed
+- `apps/api/test/indicator-engine.e2e-spec.ts` — 11 integration test cases (established e2e convention; requires a live database, same standing limitation as every e2e spec since Module 001)
+- `docs/rmsm-ai/AI102_REST_API.md`, `AI102_PHASE4.md`, `AI102_OPENAPI.md`, `AI102_PHASE4_FILES_CHANGED.md`
+
+### Changed
+- `contracts/indicator-category.enum.ts` — added `"EXPERIMENTAL"`, fixing a real latent
+  type/runtime mismatch dating to Phase 2A
+- `rest/indicator.controller.ts` — reordered so `health` precedes `:identifier` (see Real
+  Findings below)
+- `indicator-engine.module.ts` — `IndicatorController` and `IndicatorHealthService` wired in
+- `docs/rmsm-ai/AI102_ENGINE_DESIGN.md`, `AI102_SERVICE_API.md` — Phase 4 updates appended
+- `packages/database/prisma/seed.ts` — indicator-engine permissions added to `DEFAULT_PERMISSIONS` and 4 role-grant tiers (5 counting SUPER_ADMIN's automatic grant)
+
+### Real Findings This Phase
+1. **A real, serious routing bug — the most important finding this phase, caught by neither
+   lint nor typecheck**: `@Get("health")` was originally declared AFTER `@Get(":identifier")`.
+   Since NestJS/Express match routes in registration order and `"health"` is a syntactically
+   valid `:identifier` value, `GET /indicators/health` would have been silently swallowed by the
+   metadata-lookup route in production — the health check would never have actually run. Found
+   by manually tracing the controller's own route order while writing documentation, not by any
+   automated check. Fixed, and a permanent regression test now asserts the correct ordering so
+   this exact bug class can't silently return. The stale `/indicators/system/health` path this
+   same review found in the e2e spec and 2 other docs was corrected at the same time.
+2. **A latent type/runtime mismatch from Phase 2A**: `RegistryValidatorService` has accepted
+   `"EXPERIMENTAL"` as a valid category at runtime since Phase 2A, but `IndicatorCategory`'s own
+   type never declared it — invisible until this phase's `QueryIndicatorDto` tried to use the
+   full union in a type-checked position. Fixed by extending the type, not by hiding
+   `"EXPERIMENTAL"` from the DTO (the easier, wrong fix).
+3. **A platform-wide inconsistency, found and documented, not silently deviated from**: no
+   global response-wrapping interceptor exists anywhere in this codebase — every existing
+   controller returns raw data on success, only errors get the standard envelope. AI-102 follows
+   this same convention rather than unilaterally introducing a different one, and names the
+   asymmetry explicitly (`AI102_PHASE4.md`).
+4. A stray test calling a controller method by the wrong name (`get()` instead of the real
+   `getMetadata()`) — caught by `tsc`, fixed to match the real method.
+5. Two OpenAPI completeness gaps (worked examples, exhaustive per-status `@ApiResponse`)
+   identified while writing `AI102_OPENAPI.md` — partially closed immediately (the 2 endpoints
+   most likely to need them) rather than only documented as missing.
+
+---
+
 ## Phase 3 — Indicator Services & Engine Orchestration
 
 ### Added

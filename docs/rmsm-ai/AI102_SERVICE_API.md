@@ -106,3 +106,13 @@ still exports them for this project's own internal testing/composition needs, no
 - `DependencyGraphBuilderService`/`GraphValidatorService` (Phase 2C) — raw graph construction
 - `ExecutionPlannerService` (Phase 2C) — raw plan generation
 - `ComputationEngineService` (Phase 2B) — single-step execution directly, bypassing planning
+
+---
+
+## Phase 4 Update — Now Reachable Over REST
+
+Every method on this page is now callable over HTTP through `IndicatorController` — see
+`docs/rmsm-ai/AI102_REST_API.md` for the endpoint catalog and `AI102_PHASE4.md` for the error-
+mapping and architecture decisions this phase made. The service-layer contract itself is
+unchanged; this is a new transport, not a new API.
+

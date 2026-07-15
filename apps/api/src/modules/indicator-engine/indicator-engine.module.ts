@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { MarketDataModule } from "../market-data/market-data.module";
+import { AuthModule } from "../auth/auth.module";
 import { IndicatorRegistryService } from "./registry/indicator-registry.service";
 import { RegistryValidatorService } from "./registry/registry-validator.service";
 import { RegistryQueryService } from "./registry/registry-query.service";
@@ -22,11 +23,18 @@ import { IndicatorLifecycleServiceImpl } from "./services/indicator-lifecycle.se
 import { IndicatorExecutionServiceImpl } from "./services/indicator-execution.service";
 import { IndicatorEngineServiceImpl } from "./services/indicator-engine.service";
 import { ServiceMetricsService } from "./services/service-metrics.service";
+import { IndicatorHealthService } from "./services/indicator-health.service";
+import { IndicatorController } from "./rest/indicator.controller";
 
 /**
  * AI-102 Phase 2A: the registry layer. Phase 2B: the computation/
- * execution layer. Phase 2C: the dependency graph layer. Phase 3 (this
- * addition): **the service layer — the module's own public surface**.
+ * execution layer. Phase 2C: the dependency graph layer. Phase 3: the
+ * service layer. Phase 4 (this addition): **the REST API layer** —
+ * `IndicatorController`, the only controller in this module,
+ * communicating exclusively with `IndicatorEngineServiceImpl` (this
+ * phase's own mandatory architecture rule — see that controller's own
+ * header comment). `IndicatorHealthService` is the health endpoint's
+ * own real, functional dependency.
  *
  * `IndicatorEngineServiceImpl` is the single class every future module
  * (AI-103+) should ever import from this one — this phase's own
@@ -41,7 +49,8 @@ import { ServiceMetricsService } from "./services/service-metrics.service";
  * can mechanically enforce on its own.
  */
 @Module({
-  imports: [MarketDataModule],
+  imports: [MarketDataModule, AuthModule],
+  controllers: [IndicatorController],
   providers: [
     IndicatorRegistryService,
     RegistryValidatorService,
@@ -65,6 +74,7 @@ import { ServiceMetricsService } from "./services/service-metrics.service";
     IndicatorExecutionServiceImpl,
     IndicatorEngineServiceImpl,
     ServiceMetricsService,
+    IndicatorHealthService,
   ],
   exports: [
     IndicatorEngineServiceImpl,

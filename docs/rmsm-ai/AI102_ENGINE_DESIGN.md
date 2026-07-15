@@ -179,5 +179,16 @@ test proves a MACD-shaped dependency-bearing indicator executes end to end, genu
 its EMA dependency's real computed result. `IndicatorEngineServiceImpl` is now the single public
 entry point every future module should use — see `AI102_SERVICE_ARCHITECTURE.md`.
 
+---
+
+## Phase 4 Update — Reachable Over HTTP
+
+`IndicatorController` (`docs/rmsm-ai/AI102_REST_API.md`) is the first REST surface for
+everything this document describes — communicating exclusively with `IndicatorEngineServiceImpl`,
+never any layer beneath it, verified by a real test that reads the controller's own source file.
+No engine-layer design changed this phase; this is purely a new transport on top of what Phase
+3 already made real.
+
+
 
 
