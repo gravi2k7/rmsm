@@ -140,3 +140,19 @@ change at time T propagate" logic — real, indicator-specific complexity (a 200
 propagates much further than a single-candle oscillator) that this phase's contracts don't
 attempt to model, in favor of a safe, coarse default a real Phase 2 implementation can refine
 later if the coarse invalidation proves too expensive in practice.
+
+---
+
+## Phase 2B Update — Real Implementation
+
+`ComputationEngineService` (`engine/computation-engine.service.ts`) is the real implementation
+of this document's "Execution Flow" section — genuinely calling AI-101's `MarketDataService`,
+genuinely tracking lifecycle state via `ExecutionLifecycleTracker` (a real state machine
+consulting `LIFECYCLE_TRANSITIONS`, not just a documented intent), genuinely producing a frozen
+`ExecutionResult`. `ExecutionSchedulerService` is the real sequential implementation of the
+"Dependency Graph — Worked Example" section's own note about `parallelizableGroups` being "a
+real opportunity the scheduler MAY exploit" — this phase's scheduler doesn't yet, since it isn't
+dependency-graph-aware at all (that remains Phase 2C's `ComputationScheduler`, distinct from
+this phase's simpler `ExecutionScheduler`). See `docs/rmsm-ai/AI102_PHASE2B.md` for the full
+account, including a real lifecycle-transition-table bug caught while building this engine.
+

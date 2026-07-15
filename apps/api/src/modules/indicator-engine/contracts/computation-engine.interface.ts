@@ -8,6 +8,17 @@ import type { IndicatorExecutionRequest } from "./indicator-execution.interface"
  * `executeBatch()` methods. Not itself a public entry point (no future
  * AI-10x module calls this directly — `IndicatorEngine` is the only
  * public surface, per that interface's own comment).
+ *
+ * **Scope note (AI-102 Phase 2B)**: this contract is DEPENDENCY-GRAPH-
+ * AWARE batch scheduling (`buildPlan` resolves execution order via the
+ * dependency graph) — explicitly Phase 2C's job ("Dependency Graph
+ * execution" is named as out of scope for Phase 2B). Phase 2B's own,
+ * simpler single-execution concerns (item 1's `ComputationEngine`
+ * orchestrating ONE request through its full lifecycle; item 5's
+ * `ExecutionScheduler` sequencing multiple independent, non-dependent
+ * requests) live in `computation-engine-orchestrator.interface.ts` and
+ * `execution-scheduler.interface.ts` instead — deliberately NOT this
+ * file, which remains reserved for Phase 2C.
  */
 
 export interface ComputationPlan {

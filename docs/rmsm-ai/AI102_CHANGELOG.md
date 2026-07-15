@@ -1,5 +1,46 @@
 # Changelog — AI-102: Indicator Engine
 
+## Phase 2B — Computation Infrastructure
+
+### Added
+- `contracts/calculation-window.interface.ts` — `CalculationMode` (6-variant enum, the
+  recommended addition), `CalculationWindow`
+- `contracts/execution-context.interface.ts` — `ExecutionContext` (supersedes `IndicatorContext`)
+- `contracts/execution-request.interface.ts` — `ExecutionRequest`, `ExecutionOptions`
+- `contracts/indicator-lifecycle.interface.ts` — `IndicatorLifecycleState`, real `LIFECYCLE_TRANSITIONS` table
+- `contracts/execution-result.interface.ts` — `ExecutionResult` (distinct from `IndicatorResult`)
+- `contracts/execution-metrics.interface.ts` — `ExecutionMetrics`
+- `contracts/execution.errors.ts` — `ExecutionError` and 7 named subclasses (item 10)
+- `contracts/execution-event.interface.ts` — 5 named events (item 11), no event bus
+- `contracts/execution-validator.interface.ts` — `ExecutionValidator` (item 8, 7 checks)
+- `contracts/computation-engine-orchestrator.interface.ts` — `ComputationEngine` (item 1)
+- `contracts/execution-scheduler.interface.ts` — `ExecutionScheduler` (item 5)
+- `contracts/extension-points.interface.ts` — 6 future extension point interfaces (item 12)
+- `registry/indicator-factory.service.ts` — real `IndicatorFactoryService`, genuinely empty of calculation builders
+- `engine/execution-lifecycle-tracker.ts` — real state machine
+- `engine/execution-metrics.service.ts` — real timing/aggregate collector
+- `engine/execution-validator.service.ts` — real implementation of all 7 checks
+- `engine/computation-engine.service.ts` — real orchestrator, first real AI-101 integration point
+- `engine/execution-scheduler.service.ts` — real sequential scheduler
+- 33 new tests across 5 spec files, all genuinely executed — including a real end-to-end test
+  proving every current indicator fails cleanly and honestly at the calculation-factory step
+
+### Changed
+- `contracts/indicator.interface.ts` — `calculate()` parameter type changed from
+  `IndicatorContext` to `ExecutionContext`
+- `contracts/computation-engine.interface.ts` — scope note added distinguishing it (Phase 2C,
+  dependency-graph-aware batch scheduling) from this phase's new, simpler contracts
+- `indicator-engine.module.ts` — imports `MarketDataModule`; all Phase 2B services wired in
+- `docs/rmsm-ai/AI102_COMPUTATION_PIPELINE.md`, `AI102_ENGINE_DESIGN.md` — Phase 2B updates appended
+
+### Bugs Found and Fixed During This Phase's Own Verification
+1. `LIFECYCLE_TRANSITIONS` didn't allow `READY → FAILED`, even though the real engine's own
+   control flow can fail in exactly that gap — caught while writing the engine's error-handling
+   path, not in a separate review.
+2. A real unused-import lint error in the computation engine's own test file.
+
+---
+
 ## Phase 2A — Indicator Registry & Definitions
 
 ### Added

@@ -89,3 +89,20 @@ changes to v1.1.0, even for the identical instrument/timeframe/parameters. **Inv
 two granularities: single-key (`invalidate`, for a version bump or a narrowly-scoped
 correction) and by-instrument (`invalidateByInstrument`, the coarse default for historical
 corrections, per the Incremental Calculation section above).
+
+---
+
+## Phase 2B Update — Real Execution Pipeline
+
+The execution flow described throughout this document is now real — see
+`docs/rmsm-ai/AI102_PHASE2B.md` for the full account, including the real end-to-end execution
+flow diagram and the honest, tested outcome that no real indicator can execute successfully yet
+(every one fails cleanly at the calculation-factory step, by design).
+
+**One structural change from what's described above**: `IndicatorContext` (referenced
+throughout this doc's caching/incremental-calculation sections) is now `ExecutionContext` — a
+richer, 9-field object (execution id, indicator instance, indicator definition, market data
+reference, timeframe, parameters, calculation window, execution timestamp, metadata), still
+carrying `candles`/`dependencyResults` in the same shape as before, just within a larger
+container. `Indicator.calculate()`'s signature changed to match.
+
