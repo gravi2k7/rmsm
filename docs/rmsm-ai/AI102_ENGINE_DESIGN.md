@@ -192,3 +192,14 @@ No engine-layer design changed this phase; this is purely a new transport on top
 
 
 
+
+## Phase 5 Update — Production Hardening
+
+No engine design changed this phase (its own explicit rule: "do not redesign"). Real hardening
+added on top: `IndicatorStartupValidatorService` runs the same functional checks
+`IndicatorHealthService` already had, but at boot, failing fast (crashing the process) if the
+registry or dependency graph is genuinely broken, rather than only reporting `degraded` on
+demand. `DependencyGraphBuilderService` now caches its own output — the graph is immutable and
+deterministic, so rebuilding it identically on every single execution was genuinely wasted work,
+fixed without changing any observable behavior. See `AI102_PRODUCTION_READINESS_REPORT.md` for
+the full account.

@@ -78,4 +78,24 @@ describe("IndicatorHealthService (real functional checks)", () => {
     expect(result.dependencyGraphStatus).toBe("ok");
     expect(result.plannerStatus).toBe("ok");
   });
+
+  it("Phase 5: apiReadiness is 'ready' only when status is ok AND serviceReadiness is READY", () => {
+    const { service, registry } = buildService();
+    registry.register(buildDefinition());
+    expect(service.check().apiReadiness).toBe("ready");
+  });
+
+  it("Phase 5: apiReadiness is 'not_ready' when the registry is empty, even if serviceReadiness is READY", () => {
+    const { service } = buildService();
+    expect(service.check().apiReadiness).toBe("not_ready");
+  });
+
+  it("Phase 5: apiReadiness is 'not_ready' when serviceReadiness is not READY, even if every functional check passes", () => {
+    const { service, registry, lifecycle } = buildService();
+    registry.register(buildDefinition());
+    lifecycle.markExecuting();
+    const result = service.check();
+    expect(result.status).toBe("ok");
+    expect(result.apiReadiness).toBe("not_ready");
+  });
 });

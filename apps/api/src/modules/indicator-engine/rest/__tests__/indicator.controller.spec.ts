@@ -1,5 +1,6 @@
 import { readFileSync } from "fs";
 import { join } from "path";
+import type { Request } from "express";
 import { IndicatorController } from "../indicator.controller";
 import type { IndicatorEngineServiceImpl } from "../../services/indicator-engine.service";
 import type { IndicatorHealthService } from "../../services/indicator-health.service";
@@ -75,7 +76,7 @@ describe("IndicatorController (thin — communicates only with IndicatorEngineSe
     expect(engine.validate).toHaveBeenCalledWith({ indicatorIdentifier: "ema", version: undefined, parameters: {}, timeframe: "ONE_DAY" });
   });
 
-  it("execute() delegates to engine.execute() with the full request shape", async () => {
+  it("execute() delegates to engine.execute() with the full request shape, including the platform's own requestId for structured-logging correlation (Phase 5)", async () => {
     const { controller, engine } = buildController();
     const body: ExecuteIndicatorDto = {
       indicatorIdentifier: "ema",
@@ -85,8 +86,9 @@ describe("IndicatorController (thin — communicates only with IndicatorEngineSe
       from: "2026-01-01T00:00:00Z",
       to: "2026-02-01T00:00:00Z",
     };
-    const result = await controller.execute(body);
-    expect(engine.execute).toHaveBeenCalled();
+    const mockRequest = { requestId: "correlation-xyz" } as Request;
+    const result = await controller.execute(body, mockRequest);
+    expect(engine.execute).toHaveBeenCalledWith(expect.objectContaining({ requestId: "correlation-xyz" }));
     expect(result.summary.status).toBe("COMPLETED");
   });
 

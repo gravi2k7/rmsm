@@ -145,4 +145,37 @@ describe("IndicatorExecutionServiceImpl (real end-to-end plan-walking integratio
     expect(snapshot.requestCount).toBe(1);
     expect(snapshot.successfulExecutions).toBe(1);
   });
+
+  it("Phase 5: emits a structured log line on SUCCESS including requestId, executionId, graphId, indicatorId, durationMs, and status — not just on failure (the original implementation's own real gap)", async () => {
+    const { service, registry, factory } = buildService();
+    registry.register(buildDefinition());
+    factory.registerBuilder("ema", () => ({
+      definition: buildDefinition(),
+      calculate: () => ({ indicatorIdentifier: "ema", indicatorVersion: "1.0.0", instrumentId: "inst1", timeframe: "ONE_DAY", parameters: {}, series: {}, computedAt: new Date() }),
+    }));
+    const logSpy = jest.spyOn((service as unknown as { logger: { log: (msg: string) => void } }).logger, "log");
+
+    await service.execute(buildRequest({ requestId: "correlation-abc-123" }));
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("requestId=correlation-abc-123"));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringMatching(/executionId=[\w-]+/));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringMatching(/graphId=[\w-]+/));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("indicatorId=ema"));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringMatching(/durationMs=\d+/));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("status=COMPLETED"));
+  });
+
+  it("Phase 5: falls back to requestId=none, not a crash or an empty string, when no requestId was supplied", async () => {
+    const { service, registry, factory } = buildService();
+    registry.register(buildDefinition());
+    factory.registerBuilder("ema", () => ({
+      definition: buildDefinition(),
+      calculate: () => ({ indicatorIdentifier: "ema", indicatorVersion: "1.0.0", instrumentId: "inst1", timeframe: "ONE_DAY", parameters: {}, series: {}, computedAt: new Date() }),
+    }));
+    const logSpy = jest.spyOn((service as unknown as { logger: { log: (msg: string) => void } }).logger, "log");
+
+    await service.execute(buildRequest());
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("requestId=none"));
+  });
 });

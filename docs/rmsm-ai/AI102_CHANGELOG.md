@@ -1,5 +1,47 @@
 # Changelog — AI-102: Indicator Engine
 
+## Phase 5 — Production Hardening & Release
+
+### Added
+- `services/indicator-startup-validator.service.ts` — real fail-fast `OnModuleInit` boot validation, reusing `IndicatorHealthService`'s own real functional checks
+- `contracts/observability-extension-points.interface.ts` — 4 real extension-point interfaces (metrics, tracing, monitoring alerts, distributed trace propagation), no implementation, per this phase's own "architecture only" instruction
+- `docs/rmsm-ai/AI102_PRODUCTION_READINESS_REPORT.md`, `AI102_RELEASE_NOTES.md`, `AI102_PHASE5_FILES_CHANGED.md`
+- New tests: `indicator-startup-validator.service.spec.ts`, plus new cases in `indicator-health.service.spec.ts`, `indicator-execution.service.spec.ts`, `dependency-graph-builder.service.spec.ts`, `indicator.controller.spec.ts`
+
+### Changed
+- `contracts/service-models.interface.ts` — `ExecuteIndicatorRequest` gained an optional `requestId` field for structured-logging correlation
+- `rest/indicator.controller.ts` — `execute()` now extracts `req.requestId` and threads it through
+- `services/indicator-execution.service.ts` — real structured logging (`requestId`/`executionId`/`graphId`/`indicatorId`/`durationMs`/`status`) on both success AND failure, a real gap the original implementation had (failure-only, unstructured)
+- `dependency-graph/dependency-graph-builder.service.ts` — real caching, a genuine performance fix (the immutable, deterministic graph was being rebuilt from scratch on every single call)
+- `rest/dto/execute-indicator.dto.ts` — `timeoutMs` gained real type/range validation (security review finding)
+- `rest/dto/query-indicator.dto.ts` — `page`/`pageSize` gained real type/range validation (security review finding)
+- `rest/dto/health-response.dto.ts`, `services/indicator-health.service.ts` — added `apiReadiness`, a direct Kubernetes-readiness-probe-shaped field
+- `indicator-engine.module.ts` — `IndicatorStartupValidatorService` wired in
+- `docs/rmsm-ai/AI102_ENGINE_DESIGN.md`, `AI102_SERVICE_API.md`, `AI102_DEPENDENCY_GRAPH.md`, `AI102_COMPUTATION_PIPELINE.md` — Phase 5 updates appended
+
+### Real Findings This Phase
+1. **Structured logging had a real, comprehensive gap**: `requestId` was never threaded through
+   the execution chain at all, and the 3 existing log statements were unstructured, free-form
+   strings that only fired on failure — success executions produced no log line whatsoever.
+   Closed for real, verified by a test asserting on the actual log line's content.
+2. **A genuine performance issue**: `DependencyGraphBuilderService.build()` rebuilt the entire
+   graph from scratch on every single call, even though the registry never changes after
+   startup — fixed with a safe cache, verified by a test proving cache hits return the same
+   object reference and cache invalidation correctly detects a real registry change.
+3. **Two real DTO security gaps**: `timeoutMs`, `page`, and `pageSize` had no type/range
+   validation at the request boundary, relying entirely on (in the pagination case, nonexistent)
+   downstream checks. Closed to match `class-validator`'s own "reject early" convention.
+4. **A critical ordering dependency, made structurally explicit rather than left to
+   declaration-order luck**: `IndicatorStartupValidatorService` must run its own `onModuleInit`
+   strictly after `IndicatorDefinitionRegistrarService`'s (which populates the registry) — an
+   explicit, otherwise-unused constructor dependency forces NestJS's own real ordering
+   guarantee, rather than relying on module-file provider-array order being correct by
+   coincidence (the same class of subtle bug Phase 2A's own registration-order incident, and
+   Phase 4's own route-ordering incident, both already proved can happen silently in this
+   project).
+
+---
+
 ## Phase 4 — REST API & External Interfaces
 
 ### Added

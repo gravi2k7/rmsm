@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, UseFilters, NotImplementedException } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, Query, Req, UseGuards, UseFilters, NotImplementedException } from "@nestjs/common";
+import type { Request } from "express";
 import { ApiBearerAuth, ApiOperation, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { IndicatorEngineServiceImpl } from "../services/indicator-engine.service";
 import { IndicatorHealthService } from "../services/indicator-health.service";
@@ -126,13 +127,14 @@ export class IndicatorController {
     description: "Every one of AI-102's 28 registered definitions currently fails at the calculation step — no real Indicator.calculate() implementation exists yet for any of them (deferred past this phase). This endpoint's own orchestration (dependency resolution, execution planning) is real and complete; the arithmetic behind it is not.",
   })
   @ApiOkResponse({ type: ExecutionResponseDto })
-  async execute(@Body() body: ExecuteIndicatorDto): Promise<ExecutionResponseDto> {
+  async execute(@Body() body: ExecuteIndicatorDto, @Req() req: Request): Promise<ExecutionResponseDto> {
     const response = await this.engine.execute({
       indicatorIdentifier: body.indicatorIdentifier,
       version: body.version,
       instrumentId: body.instrumentId,
       timeframe: body.timeframe,
       parameters: body.parameters ?? {},
+      requestId: req.requestId,
       calculationMode: body.calculationMode as CalculationMode,
       from: body.from,
       to: body.to,

@@ -24,6 +24,7 @@ import { IndicatorExecutionServiceImpl } from "./services/indicator-execution.se
 import { IndicatorEngineServiceImpl } from "./services/indicator-engine.service";
 import { ServiceMetricsService } from "./services/service-metrics.service";
 import { IndicatorHealthService } from "./services/indicator-health.service";
+import { IndicatorStartupValidatorService } from "./services/indicator-startup-validator.service";
 import { IndicatorController } from "./rest/indicator.controller";
 
 /**
@@ -75,6 +76,7 @@ import { IndicatorController } from "./rest/indicator.controller";
     IndicatorEngineServiceImpl,
     ServiceMetricsService,
     IndicatorHealthService,
+    IndicatorStartupValidatorService,
   ],
   exports: [
     IndicatorEngineServiceImpl,

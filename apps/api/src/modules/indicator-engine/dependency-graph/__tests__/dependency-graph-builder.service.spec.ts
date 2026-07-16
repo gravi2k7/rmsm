@@ -88,4 +88,58 @@ describe("DependencyGraphBuilderService (real end-to-end against Phase 2A's actu
     expect(metrics.graphDepth).toBeGreaterThanOrEqual(4);
     expect(metrics.longestDependencyChain).toContain("institutional_structure");
   });
+
+  it("Phase 5 performance fix: consecutive build() calls return the SAME cached graph (same graphId) when the registry hasn't changed, not a fresh rebuild every time", () => {
+    const registry = buildRealRegistry();
+    const builder = new DependencyGraphBuilderService(registry);
+    const first = builder.build();
+    const second = builder.build();
+    expect(second.graphId).toBe(first.graphId);
+    expect(second).toBe(first); // same object reference — no rebuild work happened at all
+  });
+
+  it("Phase 5 performance fix: the cache correctly invalidates and rebuilds if the registry's own definition count actually changes", () => {
+    const registry = new IndicatorRegistryService(new RegistryValidatorService());
+    const builder = new DependencyGraphBuilderService(registry);
+    registry.register({
+      identifier: "leaf_a",
+      displayName: "Leaf A",
+      version: "1.0.0",
+      description: "Test",
+      category: "TREND",
+      inputs: [],
+      outputs: [{ name: "value", kind: "line" }],
+      defaultParameters: {},
+      supportedTimeframes: ["ONE_DAY"],
+      minimumLookback: 1,
+      dependencies: [],
+      tags: [],
+      author: "Test",
+      stabilityLevel: "stable",
+      metadata: { calculationType: "windowed", deterministic: true, cacheable: true, incrementalSupport: false },
+    });
+    const first = builder.build();
+    expect(first.nodes).toHaveLength(1);
+
+    registry.register({
+      identifier: "leaf_b",
+      displayName: "Leaf B",
+      version: "1.0.0",
+      description: "Test",
+      category: "TREND",
+      inputs: [],
+      outputs: [{ name: "value", kind: "line" }],
+      defaultParameters: {},
+      supportedTimeframes: ["ONE_DAY"],
+      minimumLookback: 1,
+      dependencies: [],
+      tags: [],
+      author: "Test",
+      stabilityLevel: "stable",
+      metadata: { calculationType: "windowed", deterministic: true, cacheable: true, incrementalSupport: false },
+    });
+    const second = builder.build();
+    expect(second.nodes).toHaveLength(2);
+    expect(second.graphId).not.toBe(first.graphId);
+  });
 });

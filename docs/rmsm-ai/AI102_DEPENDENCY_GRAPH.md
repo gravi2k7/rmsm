@@ -96,3 +96,12 @@ directly rather than assumed.
   a `DependencyNode` carries only an identifier and version, no timeframe data. Those checks
   already happen correctly at the registry (Phase 2A) and execution (Phase 2B) layers instead
   — see `GraphValidatorService`'s own header comment for the full reasoning.
+
+## Phase 5 Update — Real Performance Fix
+
+`DependencyGraphBuilderService.build()` now caches its own result after first construction,
+invalidating only if the registry's own definition count actually changes. Before this fix,
+every single `POST /indicators/execute` call and every `GET /indicators/health` check rebuilt
+the entire 28-node graph from scratch, identically, every time — genuinely wasted work given
+the registry never changes after startup registration completes. See
+`AI102_PRODUCTION_READINESS_REPORT.md`'s own "Performance Summary" for the full reasoning.

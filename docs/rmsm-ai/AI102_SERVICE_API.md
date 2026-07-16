@@ -116,3 +116,12 @@ Every method on this page is now callable over HTTP through `IndicatorController
 mapping and architecture decisions this phase made. The service-layer contract itself is
 unchanged; this is a new transport, not a new API.
 
+
+## Phase 5 Update — Structured Logging & Correlation
+
+`ExecuteIndicatorRequest` gained an optional `requestId` field — the platform's own correlation
+id (AI-101 Phase 5's `RequestIdMiddleware`), threaded from `IndicatorController`'s own `@Req()`
+access through to `IndicatorExecutionServiceImpl`'s real structured log line on every execution
+(`requestId=... executionId=... graphId=... indicatorId=... durationMs=... status=...`), on
+both success and failure — a real gap the original implementation had (only failures were
+logged at all). The service contract itself is otherwise unchanged this phase.

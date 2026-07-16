@@ -81,7 +81,9 @@ export class IndicatorExecutionServiceImpl implements IndicatorExecutionServiceC
       this.metrics.recordPlanningDuration(Date.now() - planningStart);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.metrics.recordExecutionOutcome(false, Date.now() - startTime);
+      const durationMs = Date.now() - startTime;
+      this.logger.warn(`requestId=${request.requestId ?? "none"} indicatorId=${request.indicatorIdentifier} durationMs=${durationMs} status=PLANNING_FAILED — ${message}`);
+      this.metrics.recordExecutionOutcome(false, durationMs);
       throw new ExecutionServiceException(`Planning failed for "${request.indicatorIdentifier}": ${message}`, { request });
     }
 
@@ -110,14 +112,23 @@ export class IndicatorExecutionServiceImpl implements IndicatorExecutionServiceC
       stepResults[step.identifier] = result;
 
       if (result.lifecycleStatus !== "COMPLETED") {
-        this.logger.warn(`Execution plan ${plan.planId} aborted at step "${step.identifier}": ${result.errors.join("; ")}`);
-        this.metrics.recordExecutionOutcome(false, Date.now() - startTime);
+        const durationMs = Date.now() - startTime;
+        this.logExecutionOutcome({
+          requestId: request.requestId,
+          executionId: result.executionId,
+          graphId: graph.graphId,
+          indicatorId: request.indicatorIdentifier,
+          durationMs,
+          status: result.lifecycleStatus,
+          extra: `aborted at step "${step.identifier}": ${result.errors.join("; ")}`,
+        });
+        this.metrics.recordExecutionOutcome(false, durationMs);
         return {
           summary: {
             executionId: result.executionId,
             indicatorIdentifier: request.indicatorIdentifier,
             status: result.lifecycleStatus === "CANCELLED" ? "CANCELLED" : "FAILED",
-            durationMs: Date.now() - startTime,
+            durationMs,
             stepCount: Object.keys(stepResults).length,
           },
           stepResults,
@@ -138,18 +149,55 @@ export class IndicatorExecutionServiceImpl implements IndicatorExecutionServiceC
       throw new ExecutionServiceException(`Execution plan ${plan.planId} completed without producing a result for its own root "${request.indicatorIdentifier}".`, { plan });
     }
 
-    this.metrics.recordExecutionOutcome(true, Date.now() - startTime);
+    const totalDurationMs = Date.now() - startTime;
+    this.logExecutionOutcome({
+      requestId: request.requestId,
+      executionId: rootResult.executionId,
+      graphId: graph.graphId,
+      indicatorId: request.indicatorIdentifier,
+      durationMs: totalDurationMs,
+      status: "COMPLETED",
+    });
+    this.metrics.recordExecutionOutcome(true, totalDurationMs);
     return {
       summary: {
         executionId: rootResult.executionId,
         indicatorIdentifier: request.indicatorIdentifier,
         status: "COMPLETED",
-        durationMs: Date.now() - startTime,
+        durationMs: totalDurationMs,
         stepCount: Object.keys(stepResults).length,
       },
       result: rootResult,
       stepResults,
       errors: [],
     };
+  }
+
+  /**
+   * Item 4's own field list, exactly, on EVERY execution — success or
+   * failure, not just failures (the original implementation only ever
+   * logged on the abort path; a real, named gap this phase fixes,
+   * since "every execution should include..." plainly means both
+   * outcomes, not just the interesting-looking one). A single
+   * structured, greppable line — `key=value` pairs, not a free-form
+   * sentence — so a real log aggregator (Observability Hooks, item 5)
+   * can parse and index every field without regex-scraping a prose
+   * message.
+   */
+  private logExecutionOutcome(fields: {
+    requestId?: string;
+    executionId: string;
+    graphId: string;
+    indicatorId: string;
+    durationMs: number;
+    status: string;
+    extra?: string;
+  }): void {
+    const line = `requestId=${fields.requestId ?? "none"} executionId=${fields.executionId} graphId=${fields.graphId} indicatorId=${fields.indicatorId} durationMs=${fields.durationMs} status=${fields.status}${fields.extra ? ` — ${fields.extra}` : ""}`;
+    if (fields.status === "COMPLETED") {
+      this.logger.log(line);
+    } else {
+      this.logger.warn(line);
+    }
   }
 }

@@ -26,6 +26,18 @@ export interface ExecuteIndicatorRequest {
   from: string;
   to: string;
   executionOptions?: { timeoutMs?: number; cancellable?: boolean };
+  /**
+   * Phase 5 addition — the platform's own correlation id
+   * (`Request.requestId`, AI-101 Phase 5's `RequestIdMiddleware`,
+   * applied globally). Optional because this interface is also used
+   * internally/in tests where no real HTTP request exists — but every
+   * REAL call through `IndicatorController` supplies it, satisfying
+   * item 4's own explicit "every execution should include: request
+   * id..." requirement. Threaded through to every structured log line
+   * this execution produces (`IndicatorExecutionServiceImpl`'s own
+   * summary log, `ComputationEngineService`'s own per-step logs).
+   */
+  requestId?: string;
 }
 
 export interface QueryIndicatorRequest {

@@ -42,14 +42,17 @@ export class IndicatorHealthService {
     const computationEngineStatus: "ok" | "error" = "ok";
 
     const anyError = [registryStatus, dependencyGraphStatus, plannerStatus, computationEngineStatus].includes("error");
+    const status: "ok" | "degraded" = anyError ? "degraded" : "ok";
+    const serviceReadiness = this.lifecycle.getState();
 
     return {
-      status: anyError ? "degraded" : "ok",
+      status,
       registryStatus,
       plannerStatus,
       computationEngineStatus,
       dependencyGraphStatus,
-      serviceReadiness: this.lifecycle.getState(),
+      serviceReadiness,
+      apiReadiness: status === "ok" && serviceReadiness === "READY" ? "ready" : "not_ready",
     };
   }
 

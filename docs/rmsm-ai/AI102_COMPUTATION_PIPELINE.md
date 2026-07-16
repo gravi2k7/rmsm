@@ -131,3 +131,13 @@ step. See `docs/rmsm-ai/AI102_PHASE3_SERVICES.md` for the full account.
 
 
 
+
+## Phase 5 Update — Structured Logging Closes a Real Gap
+
+`IndicatorExecutionServiceImpl`'s own execution flow now logs a single structured line
+(`requestId`/`executionId`/`graphId`/`indicatorId`/`durationMs`/`status`) at every real exit
+point — the planning-failure catch block, the step-abort return, and the success return. The
+original implementation only logged on the step-abort path; success executions produced no log
+line at all, and none of the 3 log statements that did exist carried `requestId` or `graphId`.
+Fixed for real, verified by a test asserting on the actual emitted log line's content, not just
+that a log call happened.

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsBoolean, IsISO8601, IsObject, IsOptional, IsString, IsUUID } from "class-validator";
+import { IsBoolean, IsISO8601, IsInt, IsObject, IsOptional, IsPositive, IsString, IsUUID } from "class-validator";
+import { Type } from "class-transformer";
 
 /** Item 3's own validated fields: parameters, indicator ids, versions, calculation mode, timeframe, request format. Mirrors Phase 3's plain `ExecuteIndicatorRequest` field-for-field — this is that same shape with class-validator decorations, the identical relationship AI-101's own Phase 4 DTOs had to their Phase 1-3 plain request models. */
 export class ExecuteIndicatorDto {
@@ -37,8 +38,11 @@ export class ExecuteIndicatorDto {
   @IsISO8601()
   to!: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: "Phase 5 security review finding: this field previously had no type/range validation at the DTO layer, relying entirely on ExecutionValidatorService's own downstream check — closed here so a malformed value is rejected at the boundary, not several layers deeper." })
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
   timeoutMs?: number;
 
   @ApiPropertyOptional({ default: true })
