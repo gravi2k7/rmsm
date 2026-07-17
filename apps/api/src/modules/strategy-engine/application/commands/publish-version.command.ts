@@ -1,17 +1,20 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { StrategyPublication } from "../../domain/entities/strategy-publication.entity";
+import type { StrategyPublishedEvent, StrategyVersionPublishedEvent } from "../../domain/events/strategy-domain-events.interface";
 import { StrategyRepository } from "../../infrastructure/repositories/strategy.repository";
 import { StrategyVersionRepository } from "../../infrastructure/repositories/strategy-version.repository";
 import { StrategyPublicationRepository } from "../../infrastructure/repositories/strategy-publication.repository";
 import { HistoryRecorderService } from "../services/history-recorder.service";
 import { StrategyNotFoundException, StrategyVersionNotFoundException, VersionNotApprovedException } from "../errors/application.errors";
+import { EVENT_PUBLISHER, type EventPublisher } from "../events/event-publisher.interface";
 
 export class PublishVersionCommand {
   constructor(
     public readonly organizationId: string,
     public readonly strategyVersionId: string,
     public readonly publishedByUserId: string,
+    public readonly correlationId?: string,
   ) {}
 }
 
@@ -28,7 +31,12 @@ export class PublishVersionCommand {
  * `currentPublishedVersionId` pointer — plus, if a prior version was
  * published, that OLDER version transitions PUBLISHED -> SUPERSEDED,
  * so at most one version is ever `PUBLISHED` for a given strategy at
- * once.
+ * once. Milestone 4: publishes BOTH `StrategyPublishedEvent` (the
+ * strategy-level view) and `StrategyVersionPublishedEvent` (the
+ * version-level view) from the same real publish operation — "support
+ * multiple events within a transaction" (this milestone's own rule),
+ * the identical dual-view precedent Milestone 3 already established
+ * for the dual REST endpoints.
  */
 @Injectable()
 export class PublishVersionHandler {
@@ -37,6 +45,7 @@ export class PublishVersionHandler {
     private readonly versionRepository: StrategyVersionRepository,
     private readonly publicationRepository: StrategyPublicationRepository,
     private readonly historyRecorder: HistoryRecorderService,
+    @Inject(EVENT_PUBLISHER) private readonly eventPublisher: EventPublisher,
   ) {}
 
   async execute(command: PublishVersionCommand): Promise<StrategyPublication> {
@@ -71,6 +80,12 @@ export class PublishVersionHandler {
     const publication = new StrategyPublication(randomUUID(), version.id, command.publishedByUserId, new Date(), previouslyPublishedVersionId);
     await this.publicationRepository.save(publication);
     await this.historyRecorder.record(strategy.id, "VERSION_PUBLISHED", command.publishedByUserId, { versionId: version.id, versionNumber: version.versionNumber, supersedesVersionId: previouslyPublishedVersionId });
+
+    const correlationId = command.correlationId ?? randomUUID();
+    const now = new Date();
+    const strategyEvent: StrategyPublishedEvent = { kind: "StrategyPublished", organizationId: strategy.organizationId, strategyId: strategy.id, actorId: command.publishedByUserId, occurredAt: now, strategyVersionId: version.id, versionNumber: version.versionNumber, supersedesVersionId: previouslyPublishedVersionId };
+    const versionEvent: StrategyVersionPublishedEvent = { kind: "StrategyVersionPublished", organizationId: strategy.organizationId, strategyId: strategy.id, actorId: command.publishedByUserId, occurredAt: now, strategyVersionId: version.id, versionNumber: version.versionNumber, supersedesVersionId: previouslyPublishedVersionId };
+    await this.eventPublisher.publish([strategyEvent, versionEvent], correlationId, correlationId);
 
     return publication;
   }

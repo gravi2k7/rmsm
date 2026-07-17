@@ -41,20 +41,35 @@ import { ListTagsHandler } from "./application/queries/list-tags.query";
 import { StrategyController } from "./rest/strategy.controller";
 import { StrategyVersionController } from "./rest/version.controller";
 
+// Events & Integration (Milestone 4)
+import { StrategyOutboxRepository } from "./infrastructure/repositories/strategy-outbox.repository";
+import { OutboxEventPublisher } from "./infrastructure/events/outbox-event-publisher.service";
+import { OutboxPublisherService } from "./infrastructure/events/outbox-publisher.service";
+import { EVENT_PUBLISHER } from "./application/events/event-publisher.interface";
+import { EventDispatcherService } from "./integration/dispatcher/event-dispatcher.service";
+import { AuditEventHandler } from "./integration/handlers/audit-event.handler";
+import { MetricsEventHandler } from "./integration/handlers/metrics-event.handler";
+import { SearchIndexingHandler } from "./integration/handlers/search-indexing.handler";
+import { AnalyticsHandler } from "./integration/handlers/analytics.handler";
+import { NotificationPlaceholderHandler } from "./integration/handlers/notification-placeholder.handler";
+import { StrategyEventMetricsService } from "./integration/services/strategy-event-metrics.service";
+import { StrategyStructuredLogger } from "./integration/services/strategy-structured-logger.service";
+
 /**
- * AI-103 Milestone 1: domain (aggregates/entities/value-objects/
- * contracts — no NestJS providers at all, pure TypeScript). Milestone
- * 2: persistence (9 real repositories, this module's own first set of
- * registered providers). Milestone 3 (this file, genuinely new): the
- * application layer and REST API — hand-rolled CQRS command/query
- * handlers (see `create-strategy.command.ts`'s own header comment for
- * why not `@nestjs/cqrs`), 2 controllers.
+ * AI-103 Milestone 1: domain. Milestone 2: persistence. Milestone 3:
+ * application layer and REST API. Milestone 4 (this update): events
+ * and integration — a real outbox-pattern publisher
+ * (`OutboxEventPublisher`, bound to `EVENT_PUBLISHER`, the interface
+ * every command handler depends on — "Application publishes events.
+ * Infrastructure delivers events," this milestone's own words), a
+ * real background polling worker (`OutboxPublisherService`), a real
+ * event dispatcher fanning out to 5 real handlers (Audit — reusing the
+ * platform's own existing `AuditService`; Metrics; and 3 honest
+ * placeholders: SearchIndexing, Analytics, Notification).
  *
- * Imports `AuthModule` (PermissionsGuard/CurrentUser) and
- * `OrganizationsModule` (OrganizationRoleGuard, which itself depends
- * on `OrganizationMembershipRepository`) — the two-guard organization-
- * scoping pattern this milestone's own controllers use throughout, per
- * this milestone's own "integrate existing Organization Context" rule.
+ * Imports `AuthModule` (PermissionsGuard/CurrentUser/AuditService) and
+ * `OrganizationsModule` (OrganizationRoleGuard) — unchanged since
+ * Milestone 3.
  */
 @Module({
   imports: [AuthModule, OrganizationsModule],
@@ -70,6 +85,7 @@ import { StrategyVersionController } from "./rest/version.controller";
     StrategyHistoryRepository,
     CategoryRepository,
     TagRepository,
+    StrategyOutboxRepository,
     // Application services
     HistoryRecorderService,
     RuleTreeClonerService,
@@ -92,6 +108,17 @@ import { StrategyVersionController } from "./rest/version.controller";
     ListVersionsHandler,
     ListCategoriesHandler,
     ListTagsHandler,
+    // Events & integration (Milestone 4)
+    { provide: EVENT_PUBLISHER, useClass: OutboxEventPublisher },
+    OutboxPublisherService,
+    EventDispatcherService,
+    AuditEventHandler,
+    MetricsEventHandler,
+    SearchIndexingHandler,
+    AnalyticsHandler,
+    NotificationPlaceholderHandler,
+    StrategyEventMetricsService,
+    StrategyStructuredLogger,
   ],
   exports: [StrategyRepository, StrategyVersionRepository],
 })

@@ -495,6 +495,7 @@ model Organization {
   strategyApprovals       StrategyApproval[]
   strategyPublications    StrategyPublication[]
   strategyHistoryEntries  StrategyHistory[]
+  strategyOutboxEvents    StrategyOutboxEvent[]
 
   // ── Module 004 additions ──────────────────────────────────────────────
   subscription      OrganizationSubscription?
@@ -2619,4 +2620,53 @@ model StrategyHistory {
   @@index([strategyId, occurredAt])
   @@index([organizationId, occurredAt])
   @@map("strategy_history")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// AI-103 — Milestone 4: Events & Integration Layer
+//
+// StrategyOutboxEvent — a real, working transactional-outbox TABLE, with
+// one honest, named gap: the event row is written immediately AFTER the
+// triggering aggregate's own save() succeeds, not inside the SAME
+// database transaction as that save. True same-transaction atomicity
+// would require every Milestone 2 repository to accept an externally-
+// supplied `DbClient` (a real, structural change to those now-frozen
+// repositories) — explicitly out of this milestone's own scope ("do NOT
+// redesign any completed milestone"). What IS real here: a genuine
+// outbox table, a genuine polling background publisher, genuine retry
+// counting and poison-event quarantine — this is "at-least-once,
+// near-transactional," not a fake stand-in for the real pattern.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum OutboxEventStatus {
+  PENDING
+  PROCESSING
+  PUBLISHED
+  FAILED
+  POISON
+}
+
+model StrategyOutboxEvent {
+  id             String            @id @default(uuid())
+  organizationId String
+  aggregateId    String
+  aggregateType  String
+  eventType      String
+  payload        Json
+  correlationId  String
+  causationId    String?
+  userId         String?
+  occurredAt     DateTime          @default(now())
+  status         OutboxEventStatus @default(PENDING)
+  retryCount     Int               @default(0)
+  lastError      String?
+  processedAt    DateTime?
+  createdAt      DateTime          @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([organizationId, aggregateId])
+  @@index([correlationId])
+  @@map("strategy_outbox_events")
 }

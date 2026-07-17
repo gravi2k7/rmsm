@@ -6,6 +6,7 @@ import { StrategyVersionNotFoundException, NoPendingApprovalException } from "..
 import type { StrategyVersionRepository } from "../../infrastructure/repositories/strategy-version.repository";
 import type { StrategyApprovalRepository } from "../../infrastructure/repositories/strategy-approval.repository";
 import type { HistoryRecorderService } from "../services/history-recorder.service";
+import type { EventPublisher } from "../events/event-publisher.interface";
 
 function buildVersion(): StrategyVersion {
   const empty = new RuleGroup("g", "AND", []);
@@ -16,12 +17,13 @@ function buildHandler() {
   const versionRepository = { findById: jest.fn(), save: jest.fn() } as unknown as StrategyVersionRepository;
   const approvalRepository = { findPendingByStrategyVersion: jest.fn(), save: jest.fn() } as unknown as StrategyApprovalRepository;
   const historyRecorder = { record: jest.fn() } as unknown as HistoryRecorderService;
-  return { handler: new DecideApprovalHandler(versionRepository, approvalRepository, historyRecorder), versionRepository, approvalRepository, historyRecorder };
+  const eventPublisher: EventPublisher = { publish: jest.fn() };
+  return { handler: new DecideApprovalHandler(versionRepository, approvalRepository, historyRecorder, eventPublisher), versionRepository, approvalRepository, historyRecorder, eventPublisher };
 }
 
 describe("DecideApprovalHandler — one handler covering both Approve and Reject", () => {
   it("APPROVED decision transitions the version to APPROVED and records the real decision", async () => {
-    const { handler, versionRepository, approvalRepository } = buildHandler();
+    const { handler, versionRepository, approvalRepository, eventPublisher } = buildHandler();
     const version = buildVersion();
     (versionRepository.findById as jest.Mock).mockResolvedValue(version);
     (approvalRepository.findPendingByStrategyVersion as jest.Mock).mockResolvedValue(new StrategyApproval("appr1", "ver1", "requester1", new Date(), "PENDING"));
@@ -32,10 +34,11 @@ describe("DecideApprovalHandler — one handler covering both Approve and Reject
     expect(decided.decision).toBe("APPROVED");
     expect(decided.decidedByUserId).toBe("approver1");
     expect(decided.comments).toBe("Looks good");
+    expect(eventPublisher.publish).toHaveBeenCalledWith([expect.objectContaining({ kind: "StrategyApproved" })], expect.any(String), expect.any(String));
   });
 
   it("REJECTED decision transitions the version to REJECTED — the SAME handler, a different outcome, not a different code path", async () => {
-    const { handler, versionRepository, approvalRepository } = buildHandler();
+    const { handler, versionRepository, approvalRepository, eventPublisher } = buildHandler();
     const version = buildVersion();
     (versionRepository.findById as jest.Mock).mockResolvedValue(version);
     (approvalRepository.findPendingByStrategyVersion as jest.Mock).mockResolvedValue(new StrategyApproval("appr1", "ver1", "requester1", new Date(), "PENDING"));
@@ -44,6 +47,7 @@ describe("DecideApprovalHandler — one handler covering both Approve and Reject
 
     expect(version.status).toBe("REJECTED");
     expect(decided.decision).toBe("REJECTED");
+    expect(eventPublisher.publish).toHaveBeenCalledWith([expect.objectContaining({ kind: "StrategyRejected" })], expect.any(String), expect.any(String));
   });
 
   it("throws NoPendingApprovalException when there's no pending approval to decide", async () => {

@@ -7,6 +7,7 @@ import type { StrategyRepository } from "../../infrastructure/repositories/strat
 import type { StrategyVersionRepository } from "../../infrastructure/repositories/strategy-version.repository";
 import type { StrategyPublicationRepository } from "../../infrastructure/repositories/strategy-publication.repository";
 import type { HistoryRecorderService } from "../services/history-recorder.service";
+import type { EventPublisher } from "../events/event-publisher.interface";
 
 function buildVersion(id: string, status: StrategyVersion["status"]): StrategyVersion {
   const empty = new RuleGroup("g", "AND", []);
@@ -22,7 +23,8 @@ function buildHandler() {
   const strategyRepository = { findById: jest.fn(), save: jest.fn() } as unknown as StrategyRepository;
   const publicationRepository = { save: jest.fn() } as unknown as StrategyPublicationRepository;
   const historyRecorder = { record: jest.fn() } as unknown as HistoryRecorderService;
-  return { handler: new PublishVersionHandler(strategyRepository, versionRepository, publicationRepository, historyRecorder), versionRepository, strategyRepository, publicationRepository, historyRecorder };
+  const eventPublisher: EventPublisher = { publish: jest.fn() };
+  return { handler: new PublishVersionHandler(strategyRepository, versionRepository, publicationRepository, historyRecorder, eventPublisher), versionRepository, strategyRepository, publicationRepository, historyRecorder, eventPublisher };
 }
 
 describe("PublishVersionHandler — real coordination across version, strategy, and publication", () => {
@@ -38,6 +40,17 @@ describe("PublishVersionHandler — real coordination across version, strategy, 
     expect(publication.supersedesVersionId).toBeNull();
     expect(strategyRepository.save).toHaveBeenCalledWith(expect.objectContaining({ currentPublishedVersionId: "ver1" }));
     expect(publicationRepository.save).toHaveBeenCalledWith(publication);
+  });
+
+  it("publishes BOTH a real StrategyPublishedEvent AND a real StrategyVersionPublishedEvent from the same call — 'support multiple events within a transaction' (this milestone's own rule)", async () => {
+    const { handler, versionRepository, strategyRepository, eventPublisher } = buildHandler();
+    const version = buildVersion("ver1", "APPROVED");
+    (versionRepository.findById as jest.Mock).mockResolvedValue(version);
+    (strategyRepository.findById as jest.Mock).mockResolvedValue(buildStrategy(null));
+
+    await handler.execute(new PublishVersionCommand("org1", "ver1", "user1"));
+
+    expect(eventPublisher.publish).toHaveBeenCalledWith([expect.objectContaining({ kind: "StrategyPublished" }), expect.objectContaining({ kind: "StrategyVersionPublished" })], expect.any(String), expect.any(String));
   });
 
   it("supersedes the PREVIOUSLY published version — the old version transitions PUBLISHED -> SUPERSEDED, and the new publication names it", async () => {

@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Body, Param, UseGuards, UseFilters, ParseUUIDPipe } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, Req, UseGuards, UseFilters, ParseUUIDPipe } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiOkResponse, ApiTags } from "@nestjs/swagger";
+import type { Request } from "express";
 import { ValidateVersionHandler, ValidateVersionCommand } from "../application/commands/validate-version.command";
 import { RequestApprovalHandler, RequestApprovalCommand } from "../application/commands/request-approval.command";
 import { DecideApprovalHandler, DecideApprovalCommand } from "../application/commands/decide-approval.command";
@@ -68,8 +69,8 @@ export class StrategyVersionController {
     description: "Real, structural-only validation. Indicator-reference cross-checks against AI-102's own registry are not yet implemented — see StructuralValidationService's own header comment. Every validation response includes an explicit AI102_CROSS_CHECK_DEFERRED warning finding naming this gap.",
   })
   @ApiOkResponse({ type: ValidationResponseDto })
-  async validate(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("versionId", ParseUUIDPipe) versionId: string, @CurrentUser() user: AccessTokenPayload): Promise<ValidationResponseDto> {
-    const validation = await this.validateVersion.execute(new ValidateVersionCommand(organizationId, versionId, user.sub));
+  async validate(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("versionId", ParseUUIDPipe) versionId: string, @CurrentUser() user: AccessTokenPayload, @Req() req: Request): Promise<ValidationResponseDto> {
+    const validation = await this.validateVersion.execute(new ValidateVersionCommand(organizationId, versionId, user.sub, req.requestId));
     return toValidationResponseDto(validation);
   }
 
@@ -88,8 +89,8 @@ export class StrategyVersionController {
   @RequireOrgRole(...APPROVE_ROLES)
   @ApiOperation({ operationId: "decideVersionApproval", summary: "Approve or reject this version's own pending approval request. Covers both 'ApproveStrategy' and 'RejectStrategy' — see DecideApprovalCommand's own comment." })
   @ApiOkResponse({ type: ApprovalResponseDto })
-  async decide(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("versionId", ParseUUIDPipe) versionId: string, @Body() body: DecideApprovalDto, @CurrentUser() user: AccessTokenPayload): Promise<ApprovalResponseDto> {
-    const approval = await this.decideApproval.execute(new DecideApprovalCommand(organizationId, versionId, body.decision, user.sub, body.comments));
+  async decide(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("versionId", ParseUUIDPipe) versionId: string, @Body() body: DecideApprovalDto, @CurrentUser() user: AccessTokenPayload, @Req() req: Request): Promise<ApprovalResponseDto> {
+    const approval = await this.decideApproval.execute(new DecideApprovalCommand(organizationId, versionId, body.decision, user.sub, body.comments, req.requestId));
     return toApprovalResponseDto(approval);
   }
 
@@ -98,8 +99,8 @@ export class StrategyVersionController {
   @RequireOrgRole(...APPROVE_ROLES)
   @ApiOperation({ operationId: "publishStrategyVersion", summary: "Publish this specific version directly (must be APPROVED)." })
   @ApiOkResponse({ type: PublicationResponseDto })
-  async publish(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("versionId", ParseUUIDPipe) versionId: string, @CurrentUser() user: AccessTokenPayload): Promise<PublicationResponseDto> {
-    const publication = await this.publishVersion.execute(new PublishVersionCommand(organizationId, versionId, user.sub));
+  async publish(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("versionId", ParseUUIDPipe) versionId: string, @CurrentUser() user: AccessTokenPayload, @Req() req: Request): Promise<PublicationResponseDto> {
+    const publication = await this.publishVersion.execute(new PublishVersionCommand(organizationId, versionId, user.sub, req.requestId));
     return toPublicationResponseDto(publication);
   }
 
@@ -112,9 +113,9 @@ export class StrategyVersionController {
     description: "Does not resurrect the target version's own row — a published/superseded version is permanently immutable. See RollbackVersionCommand's own comment for the full reasoning.",
   })
   @ApiOkResponse({ type: VersionResponseDto })
-  async rollback(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("versionId", ParseUUIDPipe) versionId: string, @CurrentUser() user: AccessTokenPayload): Promise<VersionResponseDto> {
+  async rollback(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("versionId", ParseUUIDPipe) versionId: string, @CurrentUser() user: AccessTokenPayload, @Req() req: Request): Promise<VersionResponseDto> {
     const target = await this.getVersion.execute(new GetVersionQuery(organizationId, versionId));
-    const rolledBack = await this.rollbackVersion.execute(new RollbackVersionCommand(organizationId, target.strategyId, versionId, user.sub));
+    const rolledBack = await this.rollbackVersion.execute(new RollbackVersionCommand(organizationId, target.strategyId, versionId, user.sub, req.requestId));
     return toVersionResponseDto(rolledBack);
   }
 }

@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, UseFilters, ParseUUIDPipe } from "@nestjs/common";
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards, UseFilters, ParseUUIDPipe } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiOkResponse, ApiTags } from "@nestjs/swagger";
+import type { Request } from "express";
 import { CreateStrategyHandler, CreateStrategyCommand } from "../application/commands/create-strategy.command";
 import { UpdateStrategyHandler, UpdateStrategyCommand } from "../application/commands/update-strategy.command";
 import { ArchiveStrategyHandler, ArchiveStrategyCommand } from "../application/commands/archive-strategy.command";
@@ -127,8 +128,8 @@ export class StrategyController {
   @RequireOrgRole(...WRITE_ROLES)
   @ApiOperation({ operationId: "createStrategy", summary: "Create a new strategy." })
   @ApiOkResponse({ type: StrategyResponseDto })
-  async create(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Body() body: CreateStrategyDto, @CurrentUser() user: AccessTokenPayload): Promise<StrategyResponseDto> {
-    const strategy = await this.createStrategy.execute(new CreateStrategyCommand(organizationId, body.name, body.description, body.category, user.sub));
+  async create(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Body() body: CreateStrategyDto, @CurrentUser() user: AccessTokenPayload, @Req() req: Request): Promise<StrategyResponseDto> {
+    const strategy = await this.createStrategy.execute(new CreateStrategyCommand(organizationId, body.name, body.description, body.category, user.sub, req.requestId));
     return toStrategyResponseDto(strategy);
   }
 
@@ -137,8 +138,8 @@ export class StrategyController {
   @RequireOrgRole(...WRITE_ROLES)
   @ApiOperation({ operationId: "updateStrategy", summary: "Update a strategy's own name/description/tags. Covers 'AssignTags' — see UpdateStrategyCommand's own comment." })
   @ApiOkResponse({ type: StrategyResponseDto })
-  async update(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("strategyId", ParseUUIDPipe) strategyId: string, @Body() body: UpdateStrategyDto, @CurrentUser() user: AccessTokenPayload): Promise<StrategyResponseDto> {
-    const strategy = await this.updateStrategy.execute(new UpdateStrategyCommand(organizationId, strategyId, user.sub, body.name, body.description, body.addTags, body.removeTags));
+  async update(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("strategyId", ParseUUIDPipe) strategyId: string, @Body() body: UpdateStrategyDto, @CurrentUser() user: AccessTokenPayload, @Req() req: Request): Promise<StrategyResponseDto> {
+    const strategy = await this.updateStrategy.execute(new UpdateStrategyCommand(organizationId, strategyId, user.sub, body.name, body.description, body.addTags, body.removeTags, req.requestId));
     return toStrategyResponseDto(strategy);
   }
 
@@ -147,8 +148,8 @@ export class StrategyController {
   @RequireOrgRole(...WRITE_ROLES)
   @ApiOperation({ operationId: "deleteStrategy", summary: "Archives the strategy — the domain has no hard delete. See ArchiveStrategyCommand's own comment." })
   @ApiOkResponse({ type: StrategyResponseDto })
-  async remove(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("strategyId", ParseUUIDPipe) strategyId: string, @CurrentUser() user: AccessTokenPayload): Promise<StrategyResponseDto> {
-    const strategy = await this.archiveStrategy.execute(new ArchiveStrategyCommand(organizationId, strategyId, user.sub));
+  async remove(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("strategyId", ParseUUIDPipe) strategyId: string, @CurrentUser() user: AccessTokenPayload, @Req() req: Request): Promise<StrategyResponseDto> {
+    const strategy = await this.archiveStrategy.execute(new ArchiveStrategyCommand(organizationId, strategyId, user.sub, req.requestId));
     return toStrategyResponseDto(strategy);
   }
 
@@ -157,8 +158,8 @@ export class StrategyController {
   @RequireOrgRole(...WRITE_ROLES)
   @ApiOperation({ operationId: "cloneStrategy", summary: "Clone a strategy's own metadata and latest version into a new strategy." })
   @ApiOkResponse({ type: StrategyResponseDto })
-  async clone(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("strategyId", ParseUUIDPipe) strategyId: string, @Body() body: CloneStrategyDto, @CurrentUser() user: AccessTokenPayload): Promise<StrategyResponseDto> {
-    const strategy = await this.cloneStrategy.execute(new CloneStrategyCommand(organizationId, strategyId, body.newName, user.sub));
+  async clone(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("strategyId", ParseUUIDPipe) strategyId: string, @Body() body: CloneStrategyDto, @CurrentUser() user: AccessTokenPayload, @Req() req: Request): Promise<StrategyResponseDto> {
+    const strategy = await this.cloneStrategy.execute(new CloneStrategyCommand(organizationId, strategyId, body.newName, user.sub, req.requestId));
     return toStrategyResponseDto(strategy);
   }
 
@@ -171,13 +172,13 @@ export class StrategyController {
     description: "Resolves 'latest approved version' by scanning this strategy's own versions for the most recent one with status APPROVED, then calls the exact same PublishVersionHandler that POST /strategy-versions/:versionId/publish uses directly — one real operation, two entry points, per this milestone's own route list naming both.",
   })
   @ApiOkResponse({ type: PublicationResponseDto })
-  async publishLatestApproved(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("strategyId", ParseUUIDPipe) strategyId: string, @CurrentUser() user: AccessTokenPayload): Promise<PublicationResponseDto> {
+  async publishLatestApproved(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("strategyId", ParseUUIDPipe) strategyId: string, @CurrentUser() user: AccessTokenPayload, @Req() req: Request): Promise<PublicationResponseDto> {
     const versions = await this.listVersions.execute(new ListVersionsQuery(organizationId, strategyId));
     const latestApproved = versions.find((v) => v.status === "APPROVED");
     if (!latestApproved) {
       throw new VersionNotApprovedException(`Strategy "${strategyId}" has no version currently in APPROVED status to publish.`, { strategyId });
     }
-    const publication = await this.publishVersion.execute(new PublishVersionCommand(organizationId, latestApproved.id, user.sub));
+    const publication = await this.publishVersion.execute(new PublishVersionCommand(organizationId, latestApproved.id, user.sub, req.requestId));
     return toPublicationResponseDto(publication);
   }
 
@@ -196,10 +197,10 @@ export class StrategyController {
   @RequireOrgRole(...WRITE_ROLES)
   @ApiOperation({ operationId: "createStrategyVersion", summary: "Create a new DRAFT version with its own entry/exit rule trees and parameters." })
   @ApiOkResponse({ type: VersionResponseDto })
-  async createNewVersion(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("strategyId", ParseUUIDPipe) strategyId: string, @Body() body: CreateVersionDto, @CurrentUser() user: AccessTokenPayload): Promise<VersionResponseDto> {
+  async createNewVersion(@Param("organizationId", ParseUUIDPipe) organizationId: string, @Param("strategyId", ParseUUIDPipe) strategyId: string, @Body() body: CreateVersionDto, @CurrentUser() user: AccessTokenPayload, @Req() req: Request): Promise<VersionResponseDto> {
     const entryRules = toRuleGroupDomain(body.entryRules);
     const exitRules = toRuleGroupDomain(body.exitRules);
-    const version = await this.createVersion.execute(new CreateVersionCommand(organizationId, strategyId, entryRules, exitRules, body.parameters as never, user.sub));
+    const version = await this.createVersion.execute(new CreateVersionCommand(organizationId, strategyId, entryRules, exitRules, body.parameters as never, user.sub, req.requestId));
     return toVersionResponseDto(version);
   }
 }

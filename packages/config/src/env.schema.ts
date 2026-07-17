@@ -102,6 +102,20 @@ export const envSchema = z.object({
   // never actually read through this schema at runtime.
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional(),
   OTEL_SERVICE_NAME: z.string().optional(),
+
+  // --- AI-103 Milestone 4: Strategy Engine outbox publisher ---
+  // Centralized, validated config — no hardcoded values in the outbox
+  // publisher itself (this milestone's own explicit "Configuration"
+  // rule). A real feature flag (STRATEGY_OUTBOX_PUBLISHER_ENABLED)
+  // lets an operator disable background publishing entirely (e.g.
+  // during a maintenance window) without a code change or redeploy.
+  STRATEGY_OUTBOX_PUBLISHER_ENABLED: z
+    .string()
+    .default("true")
+    .transform((v) => v === "true"),
+  STRATEGY_OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
+  STRATEGY_OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().default(20),
+  STRATEGY_OUTBOX_MAX_RETRIES: z.coerce.number().int().positive().default(5),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,11 +1,13 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { Strategy } from "../../domain/aggregates/strategy.aggregate";
 import type { StrategyCategory } from "../../domain/value-objects/strategy-category.value-object";
+import type { StrategyCreatedEvent } from "../../domain/events/strategy-domain-events.interface";
 import { StrategyRepository } from "../../infrastructure/repositories/strategy.repository";
 import { HistoryRecorderService } from "../services/history-recorder.service";
 import { DuplicateSlugException } from "../errors/application.errors";
 import { slugify } from "../../infrastructure/mappers/slug.util";
+import { EVENT_PUBLISHER, type EventPublisher } from "../events/event-publisher.interface";
 
 export class CreateStrategyCommand {
   constructor(
@@ -14,6 +16,8 @@ export class CreateStrategyCommand {
     public readonly description: string,
     public readonly category: StrategyCategory,
     public readonly createdByUserId: string,
+    /** The platform's own request correlation id (AI-101 Phase 5's `RequestIdMiddleware`, threaded from the controller — the same pattern AI-102 Phase 5 established for `ExecuteIndicatorRequest.requestId`). Falls back to a fresh id when absent (a direct handler call outside an HTTP request, e.g. a future background job). */
+    public readonly correlationId?: string,
   ) {}
 }
 
@@ -28,12 +32,20 @@ export class CreateStrategyCommand {
  * CQRS is asked for here — separated read/write logic, one handler per
  * use case, easy to test in isolation — without a new dependency or a
  * new dispatch mechanism the rest of the platform doesn't share.
+ *
+ * Milestone 4 addition: publishes a real `StrategyCreatedEvent` AFTER
+ * `strategyRepository.save()` succeeds — "Publish events only after
+ * successful transactions... never publish failed operations" (this
+ * milestone's own explicit rule), verified structurally here: the
+ * `publish()` call is the LAST statement, after every operation that
+ * could throw has already succeeded.
  */
 @Injectable()
 export class CreateStrategyHandler {
   constructor(
     private readonly strategyRepository: StrategyRepository,
     private readonly historyRecorder: HistoryRecorderService,
+    @Inject(EVENT_PUBLISHER) private readonly eventPublisher: EventPublisher,
   ) {}
 
   async execute(command: CreateStrategyCommand): Promise<Strategy> {
@@ -46,6 +58,11 @@ export class CreateStrategyHandler {
     const strategy = new Strategy(randomUUID(), command.organizationId, command.name, command.description, command.category, [], "ACTIVE", null, command.createdByUserId, new Date());
     await this.strategyRepository.save(strategy);
     await this.historyRecorder.record(strategy.id, "STRATEGY_CREATED", command.createdByUserId, { name: command.name, category: command.category });
+
+    const correlationId = command.correlationId ?? randomUUID();
+    const event: StrategyCreatedEvent = { kind: "StrategyCreated", organizationId: strategy.organizationId, strategyId: strategy.id, actorId: command.createdByUserId, occurredAt: new Date(), name: strategy.name, category: strategy.category };
+    await this.eventPublisher.publish([event], correlationId, correlationId);
+
     return strategy;
   }
 }

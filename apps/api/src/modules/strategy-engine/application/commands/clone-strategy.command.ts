@@ -1,13 +1,15 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { Strategy } from "../../domain/aggregates/strategy.aggregate";
 import { StrategyVersion } from "../../domain/aggregates/strategy-version.aggregate";
+import type { StrategyClonedEvent, StrategyVersionCreatedEvent } from "../../domain/events/strategy-domain-events.interface";
 import { StrategyRepository } from "../../infrastructure/repositories/strategy.repository";
 import { StrategyVersionRepository } from "../../infrastructure/repositories/strategy-version.repository";
 import { HistoryRecorderService } from "../services/history-recorder.service";
 import { RuleTreeClonerService } from "../services/rule-tree-cloner.service";
 import { StrategyNotFoundException, DuplicateSlugException } from "../errors/application.errors";
 import { slugify } from "../../infrastructure/mappers/slug.util";
+import { EVENT_PUBLISHER, type EventPublisher } from "../events/event-publisher.interface";
 
 export class CloneStrategyCommand {
   constructor(
@@ -15,10 +17,11 @@ export class CloneStrategyCommand {
     public readonly sourceStrategyId: string,
     public readonly newName: string,
     public readonly actorId: string,
+    public readonly correlationId?: string,
   ) {}
 }
 
-/** Clones a Strategy's own top-level metadata (name/description/category — tags are deliberately NOT copied, a real choice: tags like "backtested-2026" describe the SOURCE strategy's own history, not the clone's) plus its LATEST version's own rule tree and parameters, via a fresh DRAFT version — never the published version's own row itself, preserving the domain's own "a version's identity is tied to one strategy" invariant. */
+/** Clones a Strategy's own top-level metadata (name/description/category — tags are deliberately NOT copied, a real choice: tags like "backtested-2026" describe the SOURCE strategy's own history, not the clone's) plus its LATEST version's own rule tree and parameters, via a fresh DRAFT version — never the published version's own row itself, preserving the domain's own "a version's identity is tied to one strategy" invariant. Publishes both a real StrategyClonedEvent and (when a version was actually cloned too) a real StrategyVersionCreatedEvent, from the same correlationId — "support multiple events within a transaction" (this milestone's own rule). */
 @Injectable()
 export class CloneStrategyHandler {
   constructor(
@@ -26,6 +29,7 @@ export class CloneStrategyHandler {
     private readonly versionRepository: StrategyVersionRepository,
     private readonly historyRecorder: HistoryRecorderService,
     private readonly treeCloner: RuleTreeClonerService,
+    @Inject(EVENT_PUBLISHER) private readonly eventPublisher: EventPublisher,
   ) {}
 
   async execute(command: CloneStrategyCommand): Promise<Strategy> {
@@ -43,6 +47,10 @@ export class CloneStrategyHandler {
     await this.strategyRepository.save(clone);
     await this.historyRecorder.record(clone.id, "STRATEGY_CREATED", command.actorId, { clonedFrom: source.id });
 
+    const correlationId = command.correlationId ?? randomUUID();
+    const clonedEvent: StrategyClonedEvent = { kind: "StrategyCloned", organizationId: clone.organizationId, strategyId: clone.id, actorId: command.actorId, occurredAt: new Date(), sourceStrategyId: source.id };
+    const eventsToPublish: (StrategyClonedEvent | StrategyVersionCreatedEvent)[] = [clonedEvent];
+
     const sourceVersions = await this.versionRepository.listByStrategy(source.id, command.organizationId);
     const latestSourceVersion = sourceVersions[0];
     if (latestSourceVersion) {
@@ -59,8 +67,12 @@ export class CloneStrategyHandler {
       );
       await this.versionRepository.save(clonedVersion);
       await this.historyRecorder.record(clone.id, "VERSION_DRAFTED", command.actorId, { versionId: clonedVersion.id, clonedFromVersionId: latestSourceVersion.id });
+
+      const versionCreatedEvent: StrategyVersionCreatedEvent = { kind: "StrategyVersionCreated", organizationId: clone.organizationId, strategyId: clone.id, actorId: command.actorId, occurredAt: new Date(), strategyVersionId: clonedVersion.id, versionNumber: clonedVersion.versionNumber };
+      eventsToPublish.push(versionCreatedEvent);
     }
 
+    await this.eventPublisher.publish(eventsToPublish, correlationId, correlationId);
     return clone;
   }
 }
