@@ -297,6 +297,8 @@ export function toPrismaHistoryAction(action: StrategyHistoryAction): StrategyHi
   switch (action) {
     case "STRATEGY_CREATED":
       return StrategyHistoryActionType.STRATEGY_CREATED;
+    case "STRATEGY_UPDATED":
+      return StrategyHistoryActionType.STRATEGY_UPDATED;
     case "VERSION_DRAFTED":
       return StrategyHistoryActionType.VERSION_DRAFTED;
     case "VERSION_VALIDATED":
@@ -322,6 +324,8 @@ export function toDomainHistoryAction(action: StrategyHistoryActionType): Strate
   switch (action) {
     case StrategyHistoryActionType.STRATEGY_CREATED:
       return "STRATEGY_CREATED";
+    case StrategyHistoryActionType.STRATEGY_UPDATED:
+      return "STRATEGY_UPDATED";
     case StrategyHistoryActionType.VERSION_DRAFTED:
       return "VERSION_DRAFTED";
     case StrategyHistoryActionType.VERSION_VALIDATED:

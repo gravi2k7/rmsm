@@ -1,6 +1,7 @@
 import type { StrategyWithTags } from "@rmsm/database";
 import { Strategy } from "../../domain/aggregates/strategy.aggregate";
 import { toPrismaCategoryCode, toDomainCategoryCode, toPrismaStrategyStatus, toDomainStrategyStatus } from "./enum-mappers.util";
+import { slugify } from "./slug.util";
 
 /** Milestone 2 fix applied — categoryCode/status now go through the exhaustive enum-mappers.util.ts translation instead of blind `as` casts. */
 export function toStrategyDomain(row: StrategyWithTags): Strategy {
@@ -21,13 +22,4 @@ export function toStrategyPersistence(strategy: Strategy, updatedById: string | 
     currentPublishedVersionId: strategy.currentPublishedVersionId,
     updatedById,
   };
-}
-
-/** A real, deliberately simple slugify — lowercase, non-alphanumerics collapsed to single hyphens, trimmed. Not exposed as a domain concern (the `Strategy` aggregate has no `slug` field at all — a pure persistence/URL concern, generated here at the mapping boundary rather than forcing the domain to know about URL-safety). */
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }

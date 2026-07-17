@@ -78,6 +78,11 @@ const DEFAULT_PERMISSIONS: { key: string; group: string; description: string }[]
   // metadata/execution is global product data, not per-tenant) ──
   { key: "indicator-engine.read", group: "indicator-engine", description: "List/lookup indicators, validate requests, check health." },
   { key: "indicator-engine.execute", group: "indicator-engine", description: "Execute indicator calculations." },
+
+  // ── AI-103, Milestone 3 addition ──────────────────────────────────
+  { key: "strategy-engine.read", group: "strategy-engine", description: "List/view strategies, versions, and their own history." },
+  { key: "strategy-engine.write", group: "strategy-engine", description: "Create/update/clone/archive strategies and versions; request approval." },
+  { key: "strategy-engine.approve", group: "strategy-engine", description: "Approve/reject/publish strategy versions." },
 ];
 
 // Role -> permission key grants for the roles that should have elevated
@@ -158,9 +163,12 @@ const ROLE_GRANTS: Record<string, string[]> = {
     "market-data.admin.manage",
     "indicator-engine.read",
     "indicator-engine.execute",
+    "strategy-engine.read",
+    "strategy-engine.write",
+    "strategy-engine.approve",
   ],
   SUPPORT: ["users.read", "sessions.read", "sessions.revoke"],
-  ANALYST: ["users.read", "audit.read", ...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read", "indicator-engine.read", "indicator-engine.execute"],
+  ANALYST: ["users.read", "audit.read", ...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read", "indicator-engine.read", "indicator-engine.execute", "strategy-engine.read", "strategy-engine.write"],
   // Judgment call, flagged explicitly (no product spec supplied a tier
   // matrix): every account can create and view organizations; only
   // SUBSCRIBER-tier and above can perform organization *management*
@@ -179,8 +187,11 @@ const ROLE_GRANTS: Record<string, string[]> = {
     "market-data.read",
     "indicator-engine.read",
     "indicator-engine.execute",
+    "strategy-engine.read",
+    "strategy-engine.write",
+    "strategy-engine.approve",
   ],
-  FREE_USER: [...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read", "indicator-engine.read"],
+  FREE_USER: [...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read", "indicator-engine.read", "strategy-engine.read"],
 };
 
 // ─────────────────────────────────────────────────────────────────────────
