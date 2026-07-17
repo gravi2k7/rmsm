@@ -101,6 +101,27 @@ model User {
   notificationDigests     NotificationDigest[]
   deviceTokens            DeviceToken[]
 
+  // ── AI-103 additions (Milestone 2) ──────────────────────────────────
+  strategiesCreated             Strategy[]             @relation("StrategyCreatedBy")
+  strategiesUpdated             Strategy[]             @relation("StrategyUpdatedBy")
+  strategyVersionsCreated       StrategyVersion[]      @relation("StrategyVersionCreatedBy")
+  strategyVersionsUpdated       StrategyVersion[]      @relation("StrategyVersionUpdatedBy")
+  ruleGroupsCreated              RuleGroup[]            @relation("RuleGroupCreatedBy")
+  ruleGroupsUpdated              RuleGroup[]            @relation("RuleGroupUpdatedBy")
+  rulesCreated                   Rule[]                 @relation("RuleCreatedBy")
+  rulesUpdated                   Rule[]                 @relation("RuleUpdatedBy")
+  conditionsCreated              Condition[]            @relation("ConditionCreatedBy")
+  conditionsUpdated              Condition[]            @relation("ConditionUpdatedBy")
+  strategyParametersCreated      StrategyParameter[]    @relation("StrategyParameterCreatedBy")
+  strategyParametersUpdated      StrategyParameter[]    @relation("StrategyParameterUpdatedBy")
+  executionProfilesCreated       ExecutionProfile[]     @relation("ExecutionProfileCreatedBy")
+  executionProfilesUpdated       ExecutionProfile[]     @relation("ExecutionProfileUpdatedBy")
+  strategyValidationsCreated     StrategyValidation[]   @relation("StrategyValidationCreatedBy")
+  strategyApprovalsRequested     StrategyApproval[]     @relation("StrategyApprovalRequestedBy")
+  strategyApprovalsDecided       StrategyApproval[]     @relation("StrategyApprovalDecidedBy")
+  strategyPublicationsPublished  StrategyPublication[]  @relation("StrategyPublicationPublishedBy")
+  strategyHistoryActedOn         StrategyHistory[]      @relation("StrategyHistoryActor")
+
   @@index([status])
   @@map("users")
 }
@@ -461,6 +482,19 @@ model Organization {
   invitations              OrganizationInvitation[]
   membershipEvents         OrganizationMembershipEvent[]
   profilesDefaultingHere   Profile[]                 @relation("ProfileDefaultOrganization")
+
+  // ── AI-103 additions (Milestone 2) ──────────────────────────────────
+  strategies              Strategy[]
+  strategyVersions        StrategyVersion[]
+  ruleGroups              RuleGroup[]
+  rules                   Rule[]
+  conditions              Condition[]
+  strategyParameters      StrategyParameter[]
+  executionProfiles       ExecutionProfile[]
+  strategyValidations     StrategyValidation[]
+  strategyApprovals       StrategyApproval[]
+  strategyPublications    StrategyPublication[]
+  strategyHistoryEntries  StrategyHistory[]
 
   // ── Module 004 additions ──────────────────────────────────────────────
   subscription      OrganizationSubscription?
@@ -2110,4 +2144,478 @@ model DataGap {
   @@index([instrumentId, interval, status])
   @@index([status])
   @@map("data_gaps")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// AI-103 — Strategy Engine (Milestone 2: persistence layer)
+//
+// Design notes:
+// - Every table carries organizationId directly, even tables always
+//   reachable via a parent's own organizationId (Rule, Condition,
+//   StrategyParameter, ...) — denormalized on purpose, per this
+//   milestone's own explicit requirement, so org-scoped queries never
+//   need a deep join chain just to filter by tenant.
+// - Genuine reversal of AI-101/AI-102's own "no organizationId" design:
+//   a user-authored strategy is private, org-owned business data, the
+//   same kind as EP-003's own entities — not global product data.
+// - `version` (Int, optimistic concurrency) sits alongside `updatedAt`
+//   on every mutable table per this milestone's own explicit
+//   requirement — a real optimistic-lock column a repository's own
+//   `save()` increments and checks, not decorative.
+// - RuleGroup is a self-referencing tree (parentGroupId) carrying
+//   `treeRole` (ENTRY/EXIT) only on its own root nodes — the entry and
+//   exit rule trees named in the domain model's own StrategyVersion
+//   aggregate comment, both living in the same table rather than two
+//   near-identical ones.
+// - Condition.leftOperand/rightOperand are JSON — the domain's own
+//   `Operand` discriminated union (indicator reference vs. raw market
+//   field vs. constant) has genuinely different shapes per variant;
+//   modeling each variant as its own nullable-column set or as 3
+//   separate operand tables would multiply real complexity for a
+//   value that's read as one unit and never queried by its own
+//   sub-fields directly.
+// - StrategyCategory is a small reference/lookup table for DISPLAY
+//   metadata only (name, description, sort order) — the actual set of
+//   valid categories remains the domain's own closed `StrategyCategory`
+//   string union; this table doesn't let anyone add a 10th category
+//   without also updating that union, since Strategy.categoryCode is
+//   still constrained by the StrategyCategoryCode enum below, not by
+//   which rows exist in this table.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum StrategyStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum StrategyVersionStatus {
+  DRAFT
+  PENDING_VALIDATION
+  VALIDATED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PUBLISHED
+  SUPERSEDED
+}
+
+enum StrategyCategoryCode {
+  TREND_FOLLOWING
+  MEAN_REVERSION
+  MOMENTUM
+  BREAKOUT
+  SCALPING
+  SWING
+  ARBITRAGE
+  MARKET_MAKING
+  CUSTOM
+}
+
+enum RuleTreeRole {
+  ENTRY
+  EXIT
+}
+
+enum LogicalOperatorType {
+  AND
+  OR
+  NOT
+}
+
+enum ComparisonOperatorType {
+  GREATER_THAN
+  GREATER_THAN_OR_EQUAL
+  LESS_THAN
+  LESS_THAN_OR_EQUAL
+  EQUAL
+  NOT_EQUAL
+  CROSSES_ABOVE
+  CROSSES_BELOW
+  BETWEEN
+}
+
+enum StrategyParameterType {
+  INTEGER
+  DECIMAL
+  BOOLEAN
+  ENUM
+  STRING
+}
+
+enum ApprovalDecision {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum StrategyHistoryActionType {
+  STRATEGY_CREATED
+  VERSION_DRAFTED
+  VERSION_VALIDATED
+  VERSION_APPROVAL_REQUESTED
+  VERSION_APPROVED
+  VERSION_REJECTED
+  VERSION_PUBLISHED
+  STRATEGY_ARCHIVED
+}
+
+/// Display metadata for the domain's own closed StrategyCategory set —
+/// seeded once (see seed.ts), never created dynamically. See this
+/// section's own header comment for why Strategy.categoryCode is still
+/// enum-constrained independent of this table's rows.
+model StrategyCategory {
+  code        StrategyCategoryCode @id
+  displayName String
+  description String?
+  sortOrder   Int                  @default(0)
+  createdAt   DateTime             @default(now())
+
+  strategies Strategy[]
+
+  @@map("strategy_categories")
+}
+
+/// A dynamic, author-defined tag dictionary — genuinely open, unlike
+/// StrategyCategory above. One row per distinct tag TEXT ever used,
+/// shared across the whole platform (not per-organization) since a tag
+/// like "backtested-2026" has no organization-specific meaning of its
+/// own; StrategyTagAssignment (below) is where organization scoping
+/// actually lives, via the Strategy it's assigned to.
+model StrategyTag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  assignments StrategyTagAssignment[]
+
+  @@map("strategy_tags")
+}
+
+/// The real junction table this milestone's own "create junction
+/// tables where appropriate" asks for.
+model StrategyTagAssignment {
+  strategyId String
+  tagId      String
+  assignedAt DateTime @default(now())
+
+  strategy Strategy    @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  tag      StrategyTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([strategyId, tagId])
+  @@index([tagId])
+  @@map("strategy_tag_assignments")
+}
+
+model Strategy {
+  id             String               @id @default(uuid())
+  organizationId String
+  name           String
+  slug           String
+  description    String
+  categoryCode   StrategyCategoryCode
+  status         StrategyStatus       @default(ACTIVE)
+  /// Nullable — a brand-new Strategy has no published version yet.
+  /// Deliberately a separate FK from StrategyVersion.strategyId (below)
+  /// rather than "the version with the highest versionNumber" computed
+  /// on read — publication is a real event (StrategyPublication,
+  /// below), not simply "the latest one."
+  currentPublishedVersionId String? @unique
+  version                   Int     @default(1)
+
+  createdById String?
+  updatedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  organization            Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category                StrategyCategory  @relation(fields: [categoryCode], references: [code])
+  createdBy               User?             @relation("StrategyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy               User?             @relation("StrategyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  currentPublishedVersion StrategyVersion?  @relation("StrategyCurrentPublishedVersion", fields: [currentPublishedVersionId], references: [id], onDelete: SetNull)
+  versions                StrategyVersion[] @relation("StrategyToVersions")
+  tagAssignments          StrategyTagAssignment[]
+  historyEntries          StrategyHistory[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+  @@index([organizationId, categoryCode])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, updatedAt])
+  @@index([organizationId, name])
+  @@map("strategies")
+}
+
+model StrategyVersion {
+  id             String                 @id @default(uuid())
+  organizationId String
+  strategyId     String
+  versionNumber  Int
+  status         StrategyVersionStatus  @default(DRAFT)
+  version        Int                    @default(1)
+
+  createdById String?
+  updatedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  strategy     Strategy     @relation("StrategyToVersions", fields: [strategyId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("StrategyVersionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?        @relation("StrategyVersionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  currentlyPublishedFor  Strategy?             @relation("StrategyCurrentPublishedVersion")
+  ruleGroups             RuleGroup[]
+  parameters             StrategyParameter[]
+  executionProfiles      ExecutionProfile[]
+  validations            StrategyValidation[]
+  approvals              StrategyApproval[]
+  publications           StrategyPublication[] @relation("PublicationForVersion")
+  supersededPublications StrategyPublication[] @relation("PublicationSupersedes")
+
+  @@unique([strategyId, versionNumber])
+  @@index([organizationId, status])
+  @@index([strategyId, status])
+  @@index([organizationId, createdAt])
+  @@map("strategy_versions")
+}
+
+/// Self-referencing tree. `treeRole` is set only on root nodes
+/// (parentGroupId null) — see this section's own header comment.
+model RuleGroup {
+  id                String              @id @default(uuid())
+  organizationId    String
+  strategyVersionId String
+  parentGroupId     String?
+  treeRole          RuleTreeRole?
+  operator          LogicalOperatorType
+  sortOrder         Int                 @default(0)
+  version           Int                 @default(1)
+
+  createdById String?
+  updatedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  strategyVersion StrategyVersion @relation(fields: [strategyVersionId], references: [id], onDelete: Cascade)
+  parentGroup     RuleGroup?      @relation("RuleGroupToChildren", fields: [parentGroupId], references: [id], onDelete: Cascade)
+  createdBy       User?           @relation("RuleGroupCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy       User?           @relation("RuleGroupUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  childGroups RuleGroup[] @relation("RuleGroupToChildren")
+  rules       Rule[]
+
+  @@index([strategyVersionId, parentGroupId])
+  @@index([organizationId])
+  @@map("rule_groups")
+}
+
+model Rule {
+  id             String  @id @default(uuid())
+  organizationId String
+  ruleGroupId    String
+  label          String
+  enabled        Boolean @default(true)
+  sortOrder      Int     @default(0)
+  version        Int     @default(1)
+
+  createdById String?
+  updatedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ruleGroup    RuleGroup    @relation(fields: [ruleGroupId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("RuleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?        @relation("RuleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  condition    Condition?
+
+  @@index([ruleGroupId])
+  @@index([organizationId])
+  @@map("rules")
+}
+
+/// leftOperand/rightOperand/rightOperandUpper are JSON — see this
+/// section's own header comment for why.
+model Condition {
+  id                String                 @id @default(uuid())
+  organizationId    String
+  ruleId            String                 @unique
+  leftOperand       Json
+  operator          ComparisonOperatorType
+  rightOperand      Json
+  /// Populated iff operator = BETWEEN — the domain's own Condition
+  /// entity comment explains why this is a plain optional field rather
+  /// than a per-operator discriminated type.
+  rightOperandUpper Json?
+  version           Int                    @default(1)
+
+  createdById String?
+  updatedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rule         Rule         @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("ConditionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?        @relation("ConditionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@map("conditions")
+}
+
+/// One row per StrategyParameterDefinition (the domain's own 5-variant
+/// discriminated union) — defaultValue/min/max stored as text and
+/// interpreted per `type` by the mapper, the same "flexible value as
+/// text, typed interpretation at the mapping boundary" approach this
+/// platform's own Decimal-precision fields have used since AI-101.
+model StrategyParameter {
+  id                String                @id @default(uuid())
+  organizationId    String
+  strategyVersionId String
+  name              String
+  type              StrategyParameterType
+  required          Boolean               @default(false)
+  defaultValueText  String?
+  minText           String?
+  maxText           String?
+  /// string[] — only meaningful when type = ENUM.
+  allowedValues     Json?
+  maxLength         Int?
+  sortOrder         Int                   @default(0)
+  version           Int                   @default(1)
+
+  createdById String?
+  updatedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  strategyVersion StrategyVersion @relation(fields: [strategyVersionId], references: [id], onDelete: Cascade)
+  createdBy       User?           @relation("StrategyParameterCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy       User?           @relation("StrategyParameterUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([strategyVersionId, name])
+  @@index([organizationId])
+  @@map("strategy_parameters")
+}
+
+model ExecutionProfile {
+  id                String   @id @default(uuid())
+  organizationId    String
+  strategyVersionId String
+  name              String
+  parameters        Json     @default("{}")
+  version           Int      @default(1)
+
+  createdById String?
+  updatedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  strategyVersion StrategyVersion @relation(fields: [strategyVersionId], references: [id], onDelete: Cascade)
+  createdBy       User?           @relation("ExecutionProfileCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy       User?           @relation("ExecutionProfileUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([strategyVersionId, name])
+  @@index([organizationId])
+  @@map("execution_profiles")
+}
+
+model StrategyValidation {
+  id                String   @id @default(uuid())
+  organizationId    String
+  strategyVersionId String
+  ranAt             DateTime @default(now())
+  passed            Boolean
+  findings          Json     @default("[]")
+
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  strategyVersion StrategyVersion @relation(fields: [strategyVersionId], references: [id], onDelete: Cascade)
+  createdBy       User?           @relation("StrategyValidationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([strategyVersionId, ranAt])
+  @@index([organizationId])
+  @@map("strategy_validations")
+}
+
+model StrategyApproval {
+  id                String           @id @default(uuid())
+  organizationId    String
+  strategyVersionId String
+  requestedByUserId String
+  requestedAt       DateTime         @default(now())
+  decision          ApprovalDecision @default(PENDING)
+  decidedByUserId   String?
+  decidedAt         DateTime?
+  comments          String?
+  version           Int              @default(1)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  strategyVersion StrategyVersion @relation(fields: [strategyVersionId], references: [id], onDelete: Cascade)
+  requestedBy     User            @relation("StrategyApprovalRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Cascade)
+  decidedBy       User?           @relation("StrategyApprovalDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([strategyVersionId, decision])
+  @@index([organizationId, decision])
+  @@map("strategy_approvals")
+}
+
+model StrategyPublication {
+  id                  String   @id @default(uuid())
+  organizationId      String
+  strategyVersionId   String
+  publishedByUserId   String
+  publishedAt         DateTime @default(now())
+  /// Lineage — which prior version this publication replaced. Null for
+  /// a strategy's very first publication.
+  supersedesVersionId String?
+
+  createdAt DateTime @default(now())
+
+  organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  strategyVersion   StrategyVersion  @relation("PublicationForVersion", fields: [strategyVersionId], references: [id], onDelete: Cascade)
+  supersedesVersion StrategyVersion? @relation("PublicationSupersedes", fields: [supersedesVersionId], references: [id], onDelete: SetNull)
+  publishedBy       User             @relation("StrategyPublicationPublishedBy", fields: [publishedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([strategyVersionId])
+  @@index([organizationId, publishedAt])
+  @@map("strategy_publications")
+}
+
+model StrategyHistory {
+  id             String                    @id @default(uuid())
+  organizationId String
+  strategyId     String
+  action         StrategyHistoryActionType
+  actorId        String?
+  occurredAt     DateTime                  @default(now())
+  metadata       Json                      @default("{}")
+
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  strategy     Strategy     @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  actor        User?        @relation("StrategyHistoryActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([strategyId, occurredAt])
+  @@index([organizationId, occurredAt])
+  @@map("strategy_history")
 }

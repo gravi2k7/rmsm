@@ -119,3 +119,25 @@ export type NotificationTemplateWithLayout = Prisma.NotificationTemplateGetPaylo
 export type NotificationWithDeliveries = Prisma.NotificationGetPayload<{
   include: { deliveries: true };
 }>;
+
+// ─────────────────────────────────────────────────────────────────────────
+// AI-103 additions (Milestone 2) — StrategyVersion owns a RuleGroup tree
+// of UNBOUNDED depth (the domain model imposes no depth limit). Prisma's
+// own `include` nesting can only express a FIXED depth at the type
+// level — there is no way to type "arbitrarily deep" nested includes.
+// Rather than hardcode a max depth (which would silently truncate a
+// genuinely deep tree), the repository fetches 3 FLAT queries (every
+// RuleGroup for a version, every Rule for those groups, every Condition
+// for those rules) and reconstructs the tree in application code by
+// grouping on parentGroupId — correct for any depth, not just the depth
+// a hardcoded include happened to cover. These payload types are the
+// flat per-row shapes that in-memory reconstruction consumes.
+// ─────────────────────────────────────────────────────────────────────────
+
+export type RuleWithCondition = Prisma.RuleGetPayload<{ include: { condition: true } }>;
+
+export type StrategyTagAssignmentWithTag = Prisma.StrategyTagAssignmentGetPayload<{ include: { tag: true } }>;
+
+export type StrategyWithTags = Prisma.StrategyGetPayload<{
+  include: { tagAssignments: { include: { tag: true } } };
+}>;

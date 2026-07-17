@@ -386,10 +386,37 @@ async function main() {
     }
   }
 
+  // ── AI-103, Milestone 2: StrategyCategory display metadata ───────────
+  // The actual set of valid categories is the domain's own closed
+  // StrategyCategoryCode enum (schema.prisma's own AI-103 section) —
+  // these rows are DISPLAY metadata only (name/description/sort order
+  // for a future UI), seeded once, matching this milestone's own
+  // "seed data for Strategy Categories" requirement.
+  const STRATEGY_CATEGORIES: { code: string; displayName: string; description: string; sortOrder: number }[] = [
+    { code: "TREND_FOLLOWING", displayName: "Trend Following", description: "Enters in the direction of an established price trend.", sortOrder: 1 },
+    { code: "MEAN_REVERSION", displayName: "Mean Reversion", description: "Bets on price returning toward a statistical average after an extreme move.", sortOrder: 2 },
+    { code: "MOMENTUM", displayName: "Momentum", description: "Follows the strength/speed of a recent price move.", sortOrder: 3 },
+    { code: "BREAKOUT", displayName: "Breakout", description: "Enters when price moves decisively beyond a defined range.", sortOrder: 4 },
+    { code: "SCALPING", displayName: "Scalping", description: "Very short-holding-period strategies targeting small, frequent gains.", sortOrder: 5 },
+    { code: "SWING", displayName: "Swing", description: "Multi-day holding periods capturing intermediate price swings.", sortOrder: 6 },
+    { code: "ARBITRAGE", displayName: "Arbitrage", description: "Exploits a price discrepancy between related instruments or venues.", sortOrder: 7 },
+    { code: "MARKET_MAKING", displayName: "Market Making", description: "Provides liquidity by quoting both sides of a market.", sortOrder: 8 },
+    { code: "CUSTOM", displayName: "Custom", description: "Doesn't fit an existing named category.", sortOrder: 9 },
+  ];
+
+  for (const category of STRATEGY_CATEGORIES) {
+    await prisma.strategyCategory.upsert({
+      where: { code: category.code as never },
+      update: { displayName: category.displayName, description: category.description, sortOrder: category.sortOrder },
+      create: { code: category.code as never, displayName: category.displayName, description: category.description, sortOrder: category.sortOrder },
+    });
+  }
+
   // eslint-disable-next-line no-console -- seed script CLI output, not app runtime logging
   console.log(
     `Seed complete: ${DEFAULT_ROLES.length} roles, ${DEFAULT_PERMISSIONS.length} permissions, ` +
-      `${DEFAULT_PLANS.length} plans, ${DEFAULT_FEATURE_FLAGS.length} feature flags, grants applied.`,
+      `${DEFAULT_PLANS.length} plans, ${DEFAULT_FEATURE_FLAGS.length} feature flags, grants applied, ` +
+      `${STRATEGY_CATEGORIES.length} strategy categories.`,
   );
 }
 
