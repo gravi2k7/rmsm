@@ -1,23 +1,33 @@
-import { envSchema, type Env } from "./env.schema";
-
-let cached: Env | null = null;
-
 /**
- * Validates and returns process.env against envSchema.
- * Fails fast (throws) on boot if required vars are missing/invalid —
- * per the Twelve-Factor principle: never fail silently at runtime.
+ * @rmsm/config
+ *
+ * Enterprise configuration framework for RMSM AI: Zod-validated,
+ * strongly-typed, environment-aware, and organized by domain.
+ *
+ * Two ways to consume it:
+ *
+ * 1. **Backward-compatible flat access** (every existing caller in
+ *    `apps/api` uses this today, unchanged):
+ *    ```ts
+ *    import { loadConfig } from "@rmsm/config";
+ *    const config = loadConfig();
+ *    config.DATABASE_URL; // flat, same field names as always
+ *    ```
+ *
+ * 2. **New domain-scoped access**, for code that wants a nested,
+ *    strongly-typed view organized by concern instead of one flat object:
+ *    ```ts
+ *    import { getAuthConfig } from "@rmsm/config";
+ *    const auth = getAuthConfig();
+ *    auth.jwt.accessSecret; // same underlying validated value
+ *    ```
+ *
+ * Both read from the exact same validated, memoized `Env` — there's only
+ * ever one source of truth, `loadConfig()`'s own cache.
  */
-export function loadConfig(): Env {
-  if (cached) return cached;
-  const parsed = envSchema.safeParse(process.env);
-  if (!parsed.success) {
-    const issues = parsed.error.issues
-      .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
-      .join("\n");
-    throw new Error(`Invalid environment configuration:\n${issues}`);
-  }
-  cached = parsed.data;
-  return cached;
-}
 
-export type { Env } from "./env.schema";
+export * from "./env";
+export * from "./config";
+export * from "./schemas";
+export * from "./types";
+export * from "./utils";
