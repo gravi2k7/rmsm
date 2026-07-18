@@ -180,12 +180,23 @@ model Role {
   description String?
   /// System roles (seeded defaults) cannot be deleted via the API.
   isSystem    Boolean  @default(false)
+  /// Epic 8: role hierarchy. A role with a parent inherits every
+  /// permission its parent (and its parent's own ancestors) grants, in
+  /// addition to its own directly-granted permissions — see
+  /// PermissionResolverService. Nullable and self-referential, added via
+  /// an additive migration; every pre-existing role has `parentRoleId:
+  /// null` after migration, meaning "no inheritance", not "broken" —
+  /// hierarchy is strictly opt-in.
+  parentRoleId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  parentRole      Role?            @relation("RoleHierarchy", fields: [parentRoleId], references: [id], onDelete: SetNull)
+  childRoles      Role[]           @relation("RoleHierarchy")
   rolePermissions RolePermission[]
   userRoles       UserRole[]
 
+  @@index([parentRoleId])
   @@map("roles")
 }
 

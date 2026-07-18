@@ -11,6 +11,7 @@ import { PasswordService } from "./services/password.service";
 import { TokenService, AccessTokenPayload } from "./services/token.service";
 import { TwoFactorService } from "./services/two-factor.service";
 import { AuditService } from "./services/audit.service";
+import { PermissionResolverService } from "../rbac/services/permission-resolver.service";
 import { EmailService } from "../email/email.service.interface";
 import {
   verificationEmail,
@@ -40,6 +41,7 @@ export class AuthService {
     private readonly tokenService: TokenService,
     private readonly twoFactorService: TwoFactorService,
     private readonly auditService: AuditService,
+    private readonly permissionResolver: PermissionResolverService,
     private readonly emailService: EmailService,
     @Inject(APP_CONFIG) private readonly config: Env,
   ) {}
@@ -174,7 +176,7 @@ export class AuthService {
     const userWithRoles = await this.userRepository.findByIdWithRoles(userId);
     if (!userWithRoles) throw new NotFoundError("User");
 
-    const { roles, permissions } = this.extractRolesAndPermissions(userWithRoles);
+    const { roles, permissions } = await this.extractRolesAndPermissions(userWithRoles);
 
     const session = await this.sessionRepository.create({
       userId,
@@ -193,21 +195,19 @@ export class AuthService {
   }
 
   /**
-   * Extracts role names and deduplicated permission keys from a user
-   * fetched via UserRepository.findByIdWithRoles(). Centralized here so
-   * issueSession() and refresh() never drift from each other's logic.
+   * Extracts role names and the user's *effective* permission keys
+   * (direct grants plus everything inherited through role hierarchy —
+   * Epic 8) from a user fetched via UserRepository.findByIdWithRoles().
+   * Centralized here so issueSession() and refresh() never drift from
+   * each other's logic. Now async: computing inherited permissions needs
+   * `PermissionResolverService`'s own hierarchy walk, a real query this
+   * method didn't previously need to make.
    */
-  private extractRolesAndPermissions(userWithRoles: NonNullable<
+  private async extractRolesAndPermissions(userWithRoles: NonNullable<
     Awaited<ReturnType<UserRepository["findByIdWithRoles"]>>
-  >): { roles: string[]; permissions: string[] } {
+  >): Promise<{ roles: string[]; permissions: string[] }> {
     const roles = userWithRoles.userRoles.map((ur) => ur.role.name);
-    const permissions = [
-      ...new Set(
-        userWithRoles.userRoles.flatMap((ur) =>
-          ur.role.rolePermissions.map((rp) => rp.permission.key),
-        ),
-      ),
-    ];
+    const permissions = await this.permissionResolver.resolveForUser(userWithRoles.id);
     return { roles, permissions };
   }
 
@@ -268,7 +268,7 @@ export class AuthService {
     const userWithRoles = await this.userRepository.findByIdWithRoles(existing.userId);
     if (!userWithRoles) throw new UnauthorizedError("User no longer exists.");
 
-    const { roles, permissions } = this.extractRolesAndPermissions(userWithRoles);
+    const { roles, permissions } = await this.extractRolesAndPermissions(userWithRoles);
 
     const tokens = await this.mintTokenPair(existing.userId, existing.sessionId, roles, permissions, existing.family);
     const newHash = this.tokenService.hashToken(tokens.refreshToken);
