@@ -29,6 +29,7 @@ import { ConfirmDialog } from "@/components/ui-extra/confirm-dialog";
 import { TablePagination } from "@/components/ui-extra/table-pagination";
 import { StrategyStatusBadge } from "@/components/strategy/status-badges";
 import { useArchiveStrategy, useCloneStrategy, useStrategies } from "@/hooks/use-strategies";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { STRATEGY_CATEGORIES, type Strategy, type StrategyCategory, type StrategyStatus } from "@/types/strategy";
 import { toast } from "@rmsm/ui";
 
@@ -50,7 +51,7 @@ export function StrategyTable({ initialSearchText = "" }: { initialSearchText?: 
   const query = useStrategies({
     status: status === "ALL" ? undefined : status,
     category: category === "ALL" ? undefined : category,
-    searchText: searchText || undefined,
+    searchText: useDebouncedValue(searchText, 300) || undefined,
     page,
     pageSize,
   });

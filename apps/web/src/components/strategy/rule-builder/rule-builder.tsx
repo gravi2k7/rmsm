@@ -1,6 +1,7 @@
 "use client";
 
-import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { GroupEditor } from "./group-editor";
 import { findParentId, reorderChildren } from "@/lib/rule-tree-ops";
 import type { RuleGroupNode, ValidationFinding } from "@/types/strategy";
@@ -23,7 +24,10 @@ export function RuleBuilder({
   onChange: (next: RuleGroupNode) => void;
   findings?: ValidationFinding[];
 }) {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;

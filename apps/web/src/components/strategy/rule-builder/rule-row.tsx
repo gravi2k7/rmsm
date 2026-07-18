@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronDown, ChevronRight, Copy, GripVertical, Trash2 } from "lucide-react";
@@ -9,7 +9,7 @@ import { ConditionEditor } from "./condition-editor";
 import type { RuleNode } from "@/types/strategy";
 import type { ValidationFinding } from "@/types/strategy";
 
-export function RuleRow({
+function RuleRowImpl({
   rule,
   onChange,
   onDelete,
@@ -95,3 +95,20 @@ export function RuleRow({
     </li>
   );
 }
+
+/**
+ * Memoized. This helps in the cases where `RuleRow` re-renders for reasons
+ * unrelated to its own props (e.g. a re-render triggered higher in the tree
+ * that doesn't touch this node) — but note it's a partial win: the `onChange`/
+ * `onDelete`/`onDuplicate` callbacks `GroupEditor` passes down are recreated
+ * on every `GroupEditor` render (they close over `child._id`), so sibling rows
+ * still re-render whenever *any* sibling in the same group changes. A full
+ * fix needs id-based stable callbacks (`onUpdateChild(id, next)` instead of a
+ * per-child closure) threaded through `useCallback` with a ref-backed "latest
+ * group" read to avoid the callback identity depending on `group` itself —
+ * real, deferred additional work, not implemented here to keep this change
+ * bounded and low-risk.
+ */
+export const RuleRow = memo(RuleRowImpl);
+
+

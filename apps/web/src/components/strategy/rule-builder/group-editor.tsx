@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronDown, ChevronRight, Copy, FolderPlus, GripVertical, Plus, Trash2 } from "lucide-react";
@@ -9,7 +9,7 @@ import { RuleRow } from "./rule-row";
 import { createEmptyGroup, createEmptyRule } from "@/lib/rule-tree-mapper";
 import type { LogicalOperator, RuleGroupNode, RuleTreeNode, ValidationFinding } from "@/types/strategy";
 
-export function GroupEditor({
+function GroupEditorImpl({
   group,
   onChange,
   onDelete,
@@ -139,6 +139,12 @@ export function GroupEditor({
     </div>
   );
 }
+
+/** Memoized — see `rule-row.tsx`'s own comment on `RuleRow` for the honest
+ * caveat: this helps for re-renders unrelated to this subtree, but sibling
+ * groups still re-render together today since their `onChange` props are
+ * recreated on every parent render. */
+export const GroupEditor = memo(GroupEditorImpl);
 
 function cloneNode(node: RuleTreeNode): RuleTreeNode {
   const genId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `node-${Math.random().toString(36).slice(2)}`);
