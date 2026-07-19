@@ -1,11 +1,11 @@
-import { ok, type Result } from "@rmsm/core";
+import { ok, err, type Result, InvariantViolationError } from "@rmsm/core";
 import { SymbolCode } from "@rmsm/market";
 import { Opportunity } from "../entities/opportunity";
 import { Signal, type SignalDirection } from "../entities/signal";
 import { MarketContext, type Trend, type VolatilityLevel, type LiquidityLevel } from "../entities/market-context";
 import { Confidence } from "../value-objects/confidence";
 import { SignalStrength } from "../value-objects/signal-strength";
-import type { OpportunityDomainError } from "../errors/opportunity.errors";
+import { InvalidOpportunityError, type OpportunityDomainError } from "../errors/opportunity.errors";
 
 export interface RawOpportunityInput {
   readonly id: string;
@@ -37,31 +37,36 @@ export class OpportunityFactory {
     const confidence = Confidence.create(input.confidenceScore);
     if (!confidence.ok) return confidence;
 
-    const signal = Signal.generate(input.signalId, {
-      symbolCode: symbolCode.value,
-      direction: input.direction,
-      strength: strength.value,
-      sourceId: input.strategyId,
-      generatedAt: input.createdAt,
-    });
+    try {
+      const signal = Signal.generate(input.signalId, {
+        symbolCode: symbolCode.value,
+        direction: input.direction,
+        strength: strength.value,
+        sourceId: input.strategyId,
+        generatedAt: input.createdAt,
+      });
 
-    const marketContext = MarketContext.capture(`${input.id}-context`, {
-      trend: input.trend,
-      volatility: input.volatility,
-      liquidity: input.liquidity,
-      capturedAt: input.createdAt,
-    });
+      const marketContext = MarketContext.capture(`${input.id}-context`, {
+        trend: input.trend,
+        volatility: input.volatility,
+        liquidity: input.liquidity,
+        capturedAt: input.createdAt,
+      });
 
-    const opportunity = Opportunity.create(input.id, {
-      symbolCode: symbolCode.value,
-      strategyId: input.strategyId,
-      signal,
-      confidence: confidence.value,
-      marketContext,
-      createdAt: input.createdAt,
-      expiresAt: input.expiresAt,
-    });
+      const opportunity = Opportunity.create(input.id, {
+        symbolCode: symbolCode.value,
+        strategyId: input.strategyId,
+        signal,
+        confidence: confidence.value,
+        marketContext,
+        createdAt: input.createdAt,
+        expiresAt: input.expiresAt,
+      });
 
-    return ok(opportunity);
+      return ok(opportunity);
+    } catch (error) {
+      if (error instanceof InvariantViolationError) return err(new InvalidOpportunityError(error.message));
+      throw error;
+    }
   }
 }

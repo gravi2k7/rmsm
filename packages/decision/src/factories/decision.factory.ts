@@ -1,9 +1,9 @@
-import { ok, type Result } from "@rmsm/core";
+import { ok, err, type Result, InvariantViolationError } from "@rmsm/core";
 import { randomUUID } from "node:crypto";
 import { Decision } from "../entities/decision";
 import type { RiskAssessment } from "../entities/risk-assessment";
 import type { PositionSize } from "../entities/position-size";
-import type { DecisionDomainError } from "../errors/decision.errors";
+import { InvalidDecisionError, type DecisionDomainError } from "../errors/decision.errors";
 
 export interface RawDecisionInput {
   readonly id?: string;
@@ -23,12 +23,17 @@ export interface RawDecisionInput {
  */
 export class DecisionFactory {
   static create(input: RawDecisionInput): Result<Decision, DecisionDomainError> {
-    const decision = Decision.create(input.id ?? randomUUID(), {
-      opportunityId: input.opportunityId,
-      riskAssessment: input.riskAssessment,
-      positionSize: input.positionSize,
-      createdAt: input.createdAt ?? new Date(),
-    });
-    return ok(decision);
+    try {
+      const decision = Decision.create(input.id ?? randomUUID(), {
+        opportunityId: input.opportunityId,
+        riskAssessment: input.riskAssessment,
+        positionSize: input.positionSize,
+        createdAt: input.createdAt ?? new Date(),
+      });
+      return ok(decision);
+    } catch (error) {
+      if (error instanceof InvariantViolationError) return err(new InvalidDecisionError(error.message));
+      throw error;
+    }
   }
 }

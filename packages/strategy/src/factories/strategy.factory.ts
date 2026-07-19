@@ -1,11 +1,11 @@
-import { ok, type Result } from "@rmsm/core";
+import { ok, err, type Result, InvariantViolationError } from "@rmsm/core";
 import { randomUUID } from "node:crypto";
 import { SymbolCode, type Timeframe } from "@rmsm/market";
 import { Strategy } from "../entities/strategy";
 import { StrategyId } from "../value-objects/strategy-id";
 import { RiskProfile, type RiskTolerance } from "../value-objects/risk-profile";
 import type { StrategyTemplate } from "../entities/strategy-template";
-import type { StrategyDomainError } from "../errors/strategy.errors";
+import { InvalidStrategyError, type StrategyDomainError } from "../errors/strategy.errors";
 
 export interface RawStrategyInput {
   readonly id?: string;
@@ -44,15 +44,19 @@ export class StrategyFactory {
       supportedSymbols.push(symbolResult.value);
     }
 
-    const strategy = Strategy.create(id.value, {
-      name: input.name,
-      description: input.description,
-      riskProfile: riskProfile.value,
-      timeframe: input.timeframe,
-      supportedSymbols,
-    });
-
-    return ok(strategy);
+    try {
+      const strategy = Strategy.create(id.value, {
+        name: input.name,
+        description: input.description,
+        riskProfile: riskProfile.value,
+        timeframe: input.timeframe,
+        supportedSymbols,
+      });
+      return ok(strategy);
+    } catch (error) {
+      if (error instanceof InvariantViolationError) return err(new InvalidStrategyError(error.message));
+      throw error;
+    }
   }
 
   /** Creates a new `Strategy` seeded from a `StrategyTemplate`'s own
