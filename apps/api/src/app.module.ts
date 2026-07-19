@@ -20,6 +20,12 @@ import { MarketDataModule } from "./modules/market-data/market-data.module";
 import { IndicatorEngineModule } from "./modules/indicator-engine/indicator-engine.module";
 import { StrategyEngineModule } from "./modules/strategy-engine/strategy-engine.module";
 import { JwtAuthGuard } from "./modules/auth/guards/jwt-auth.guard";
+import { MarketApplicationModule } from "./application/market/market.module";
+import { StrategyApplicationModule } from "./application/strategy/strategy.module";
+import { OpportunityApplicationModule } from "./application/opportunity/opportunity.module";
+import { DecisionApplicationModule } from "./application/decision/decision.module";
+import { ExecutionApplicationModule } from "./application/execution/execution.module";
+import { PortfolioApplicationModule } from "./application/portfolio/portfolio.module";
 
 const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
 
@@ -46,6 +52,20 @@ const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
     MarketDataModule,
     IndicatorEngineModule,
     StrategyEngineModule,
+    // Phase 4A — Enterprise API Platform. Full CQRS application layer for
+    // the 6 business domains built earlier this program (Market,
+    // Strategy, Opportunity, Decision, Execution, Portfolio) — each its
+    // own self-contained module wiring an in-memory repository adapter
+    // (see /apps/api/PERSISTENCE_ROADMAP.md) to CQRS commands/queries/
+    // handlers and a REST controller. Deliberately separate modules per
+    // domain, matching AI-101/AI-102/AI-103's own one-module-per-bounded-
+    // context convention above, rather than one giant combined module.
+    MarketApplicationModule,
+    StrategyApplicationModule,
+    OpportunityApplicationModule,
+    DecisionApplicationModule,
+    ExecutionApplicationModule,
+    PortfolioApplicationModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
