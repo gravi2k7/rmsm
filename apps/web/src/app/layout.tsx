@@ -6,8 +6,8 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "RMSM AI",
-  description: "Institutional-grade AI trading platform",
+  title: "RMSM Trader",
+  description: "RMSM Enterprise Trader Web Platform",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

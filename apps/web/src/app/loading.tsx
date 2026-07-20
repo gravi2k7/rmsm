@@ -1,7 +1,5 @@
+import { SplashScreen } from "@/components/shared/splash-screen";
+
 export default function Loading() {
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <span className="text-sm text-muted-foreground">Loading…</span>
-    </div>
-  );
+  return <SplashScreen />;
 }
