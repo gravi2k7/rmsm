@@ -17,6 +17,8 @@ export * from "./components/switch";
 export * from "./components/tooltip";
 export * from "./components/toaster";
 export * from "./components/visually-hidden";
+export * from "./components/alert";
+export * from "./components/sheet";
 // Module 001 ships this package with the shared `cn` utility only.
 // shadcn/ui components are added here incrementally as apps/web and
 // apps/admin need them, starting with Module 004/005.
