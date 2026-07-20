@@ -30,6 +30,14 @@ describe("envSchema — valid configuration", () => {
       LOG_FORMAT: "pretty",
       MARKET_DATA_SYNC_INTERVAL_MS: "30000",
       FEATURE_FLAGS: "new-dashboard,beta-search",
+      // A real production config must override every insecure dev
+      // default — see "envSchema — production/staging secret guard"
+      // below for what happens when it doesn't.
+      WEB_APP_URL: "https://app.example.com",
+      COOKIE_SECRET: "a".repeat(32),
+      TWO_FACTOR_ENCRYPTION_KEY: "b".repeat(64),
+      NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "c".repeat(64),
+      MOCK_WEBHOOK_SECRET: "d".repeat(32),
     });
     expect(result.success).toBe(true);
     if (result.success) {
@@ -165,5 +173,72 @@ describe("validateEnv", () => {
     const error = caught as ConfigValidationError;
     expect(error.issues.some((i) => i.startsWith("DATABASE_URL"))).toBe(true);
     expect(error.message).toContain("Invalid environment configuration");
+  });
+});
+
+describe("envSchema — production/staging insecure-default guard", () => {
+  const INSECURE_DEFAULTS = {
+    COOKIE_SECRET: "dev-cookie-secret-change-me!!",
+    TWO_FACTOR_ENCRYPTION_KEY: "0".repeat(64),
+    NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "1".repeat(64),
+    MOCK_WEBHOOK_SECRET: "mock-webhook-secret-dev-only",
+  } as const;
+
+  it.each(["production", "staging"] as const)("rejects every known dev-default secret when NODE_ENV=%s", (nodeEnv) => {
+    const result = envSchema.safeParse({ ...MINIMAL_VALID_ENV, NODE_ENV: nodeEnv });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((i) => i.path.join("."));
+      for (const field of Object.keys(INSECURE_DEFAULTS)) {
+        expect(paths).toContain(field);
+      }
+    }
+  });
+
+  it.each(["production", "staging"] as const)("rejects a localhost WEB_APP_URL when NODE_ENV=%s", (nodeEnv) => {
+    const result = envSchema.safeParse({ ...MINIMAL_VALID_ENV, NODE_ENV: nodeEnv });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.join(".") === "WEB_APP_URL")).toBe(true);
+    }
+  });
+
+  it.each(["development", "test"] as const)("does NOT reject dev-default secrets when NODE_ENV=%s (local ergonomics preserved)", (nodeEnv) => {
+    const result = envSchema.safeParse({ ...MINIMAL_VALID_ENV, NODE_ENV: nodeEnv });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts production when every insecure default is explicitly overridden", () => {
+    const result = envSchema.safeParse({
+      ...MINIMAL_VALID_ENV,
+      NODE_ENV: "production",
+      WEB_APP_URL: "https://app.example.com",
+      COOKIE_SECRET: "a".repeat(32),
+      TWO_FACTOR_ENCRYPTION_KEY: "b".repeat(64),
+      NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "c".repeat(64),
+      MOCK_WEBHOOK_SECRET: "d".repeat(32),
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("reports every insecure field in a single pass, not just the first", () => {
+    const result = envSchema.safeParse({ ...MINIMAL_VALID_ENV, NODE_ENV: "production" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = new Set(result.error.issues.map((i) => i.path.join(".")));
+      expect(paths.size).toBeGreaterThanOrEqual(Object.keys(INSECURE_DEFAULTS).length + 1); // + WEB_APP_URL
+    }
+  });
+
+  it("validateEnv's ConfigValidationError message names the offending fields and hints at a fix", () => {
+    let caught: unknown;
+    try {
+      validateEnv({ ...MINIMAL_VALID_ENV, NODE_ENV: "production" });
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(ConfigValidationError);
+    const error = caught as ConfigValidationError;
+    expect(error.issues.some((i) => i.startsWith("COOKIE_SECRET") && i.includes("production"))).toBe(true);
   });
 });

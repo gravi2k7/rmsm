@@ -55,4 +55,15 @@ async function bootstrap() {
   console.log(`RMSM API listening on :${config.API_PORT} (docs at /api/docs)`);
 }
 
-bootstrap();
+bootstrap().catch((error: unknown) => {
+  // Deliberately console.error, not the winston logger: if bootstrap
+  // failed before or during config validation, we can't assume winston
+  // (which itself now reads config — see winston.config.ts) is in a
+  // working state. This is the same "plain console before the real
+  // logger exists" reasoning tracing.ts's own no-op branch already uses.
+  // eslint-disable-next-line no-console
+  console.error("RMSM API failed to start:\n");
+  // eslint-disable-next-line no-console
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+});

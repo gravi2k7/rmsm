@@ -59,13 +59,80 @@ const platformIntegrationsSchema = z.object({
  * across the codebase; see `config/*.config.ts` for the *new*, nested,
  * domain-scoped view built on top of this same validated data.
  */
-export const envSchema = appSchema
+const mergedEnvSchema = appSchema
   .merge(databaseSchema)
   .merge(authSchema)
   .merge(loggingSchema)
   .merge(aiSchema)
   .merge(marketSchema)
   .merge(platformIntegrationsSchema);
+
+/**
+ * Every (field, insecure default) pair that exists purely so local
+ * development works with zero setup. None of these should ever reach a
+ * staging or production deployment still holding this value — each is a
+ * secret an attacker could trivially guess from this very file (it's
+ * public, checked into source control) if a deployment forgot to
+ * override it. This is deliberately a short, explicit, hand-maintained
+ * list rather than a heuristic ("looks like a default") — a hand-picked
+ * set of exact known values has no false-positive risk against a real
+ * operator-chosen secret that merely happens to look similar.
+ */
+const INSECURE_PRODUCTION_DEFAULTS: readonly { field: keyof z.infer<typeof mergedEnvSchema>; value: string; hint: string }[] = [
+  { field: "COOKIE_SECRET", value: "dev-cookie-secret-change-me!!", hint: "Generate a real secret (e.g. `openssl rand -base64 32`)." },
+  { field: "TWO_FACTOR_ENCRYPTION_KEY", value: "0".repeat(64), hint: "Generate a real 32-byte hex key (e.g. `openssl rand -hex 32`)." },
+  {
+    field: "NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY",
+    value: "1".repeat(64),
+    hint: "Generate a real 32-byte hex key (e.g. `openssl rand -hex 32`).",
+  },
+  { field: "MOCK_WEBHOOK_SECRET", value: "mock-webhook-secret-dev-only", hint: "The mock payment provider is for local dev only — set a real value or leave the provider disabled." },
+];
+
+/**
+ * A deployment left pointing at `localhost` isn't a leaked-secret risk
+ * the way the fields above are, but it's an equally real staging/
+ * production footgun this same fail-fast pass catches: Stripe checkout
+ * redirects, password-reset links, and (once CORS allowlisting lands)
+ * the browser origin allowlist all derive from `WEB_APP_URL`.
+ */
+const LOCALHOST_URL_DEFAULTS: readonly { field: keyof z.infer<typeof mergedEnvSchema>; prefix: string }[] = [
+  { field: "WEB_APP_URL", prefix: "http://localhost" },
+];
+
+const NON_DEVELOPMENT_ENVIRONMENTS = new Set(["staging", "production"]);
+
+/**
+ * Applied to the merged schema below. `superRefine` (rather than per-field
+ * `.refine()`) so this can see `NODE_ENV` alongside every other field at
+ * once, and so a single failing config reports *every* insecure field in
+ * one pass — matching this package's existing "list every issue, not just
+ * the first" fail-fast philosophy (see `validateEnv`'s own doc comment).
+ */
+export const envSchema = mergedEnvSchema.superRefine((data, ctx) => {
+  if (!NON_DEVELOPMENT_ENVIRONMENTS.has(data.NODE_ENV)) return;
+
+  for (const { field, value, hint } of INSECURE_PRODUCTION_DEFAULTS) {
+    if (data[field] === value) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [field],
+        message: `must be set to a real value in ${data.NODE_ENV} — the development default is not allowed here. ${hint}`,
+      });
+    }
+  }
+
+  for (const { field, prefix } of LOCALHOST_URL_DEFAULTS) {
+    const fieldValue = data[field];
+    if (typeof fieldValue === "string" && fieldValue.startsWith(prefix)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [field],
+        message: `must point to a real ${data.NODE_ENV} URL, not "${fieldValue}" — a localhost value here reaches actual users (checkout redirects, password-reset links) in this environment.`,
+      });
+    }
+  }
+});
 
 export type Env = z.infer<typeof envSchema>;
 

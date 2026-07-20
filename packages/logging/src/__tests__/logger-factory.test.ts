@@ -9,6 +9,18 @@ const REQUIRED_ENV = {
   JWT_REFRESH_SECRET: "b".repeat(16),
 };
 
+// Milestone 5.1.1's production/staging guard (packages/config's
+// env.validator.ts) rejects dev-default secrets outside development/test
+// — the two NODE_ENV: "production" cases below need these to get past
+// validation at all.
+const PRODUCTION_SAFE_SECRETS = {
+  WEB_APP_URL: "https://app.example.com",
+  COOKIE_SECRET: "a".repeat(32),
+  TWO_FACTOR_ENCRYPTION_KEY: "b".repeat(64),
+  NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "c".repeat(64),
+  MOCK_WEBHOOK_SECRET: "d".repeat(32),
+};
+
 describe("LoggerFactory.createLogger", () => {
   const originalEnv = { ...process.env };
 
@@ -36,7 +48,7 @@ describe("LoggerFactory.createLogger", () => {
   });
 
   it("uses JSON stdout output in production", () => {
-    process.env = { ...REQUIRED_ENV, NODE_ENV: "production" };
+    process.env = { ...REQUIRED_ENV, ...PRODUCTION_SAFE_SECRETS, NODE_ENV: "production" };
     const writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 
     const logger = LoggerFactory.createLogger();
@@ -60,7 +72,7 @@ describe("LoggerFactory.createLogger", () => {
   });
 
   it("honors forcePretty even in production", () => {
-    process.env = { ...REQUIRED_ENV, NODE_ENV: "production" };
+    process.env = { ...REQUIRED_ENV, ...PRODUCTION_SAFE_SECRETS, NODE_ENV: "production" };
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
     const logger = LoggerFactory.createLogger({ forcePretty: true });

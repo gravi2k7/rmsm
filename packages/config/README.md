@@ -65,3 +65,19 @@ doesn't need to be pre-declared anywhere; any name not present in the map is sim
   into a domain they don't belong to. `market.schema.ts` is genuinely new, forward-looking
   configuration with no reader in `apps/api` yet (documented there) — AI-101's actual per-provider
   credentials remain database-stored, per-organization data, not environment config.
+
+## Production/staging insecure-default guard (Milestone 5.1.1)
+
+Several fields — `COOKIE_SECRET`, `TWO_FACTOR_ENCRYPTION_KEY`,
+`NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY`, `MOCK_WEBHOOK_SECRET` — have predictable, publicly
+known default values so local development works with zero setup. `envSchema` (`env/env.validator.ts`)
+now refuses to validate when `NODE_ENV` is `staging` or `production` and any of these still hold
+that default, or when `WEB_APP_URL` is still pointed at `localhost`. `development` and `test` are
+unaffected — local ergonomics are unchanged.
+
+This is a hand-maintained list of exact known values, not a heuristic ("looks like a default") —
+a real operator-chosen secret that happens to resemble the dev default in shape is never rejected,
+only the literal dev value itself is. Every offending field is reported in one pass (via Zod's
+`superRefine`), consistent with `validateEnv()`'s existing "list every issue, not just the first"
+philosophy — see `env/env.validator.ts` for the full list and remediation hints, and
+`.env.example` for what each of these needs to become before a staging/production deploy.

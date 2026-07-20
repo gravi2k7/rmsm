@@ -21,6 +21,16 @@
  * break) can only be fully verified by actually starting the app with
  * `OTEL_EXPORTER_OTLP_ENDPOINT` set and confirming spans arrive at a real
  * collector. Flagged here rather than presented as verified.
+ *
+ * Milestone 5.1.1 note: this file's two `process.env` reads are a
+ * deliberate, reviewed exception to "no process.env outside the config
+ * layer" — not an oversight. `@rmsm/config`'s `loadConfig()` cannot run
+ * here: this file must be the *first* import in `main.ts`, before
+ * `reflect-metadata`/Nest/Express are ever required, or OTel's
+ * auto-instrumentation misses them entirely. Both vars remain declared
+ * and validated in `@rmsm/config`'s `logging.schema.ts` for
+ * documentation/discoverability alongside every other configurable
+ * value, even though this one file can't consume that validated copy.
  */
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";

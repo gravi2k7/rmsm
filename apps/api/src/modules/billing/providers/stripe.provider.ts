@@ -97,8 +97,8 @@ export class StripeProvider extends PaymentProviderAdapter {
         mode: "subscription",
         "line_items[0][price]": planProviderPriceId,
         "line_items[0][quantity]": "1",
-        success_url: `${process.env.WEB_APP_URL ?? ""}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.WEB_APP_URL ?? ""}/billing/cancelled`,
+        success_url: `${this.config.WEB_APP_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${this.config.WEB_APP_URL}/billing/cancelled`,
       }),
     });
     const data = (await res.json()) as { id: string; url: string; error?: { message: string } };
