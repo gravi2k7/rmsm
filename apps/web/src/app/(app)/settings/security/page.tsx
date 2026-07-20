@@ -24,6 +24,7 @@ import { useChangePassword } from "@/hooks/use-auth";
 import { useSessions, useRevokeSession, useRevokeAllOtherSessions } from "@/hooks/use-sessions";
 import { useAuthStore } from "@/lib/auth-store";
 import { ApiError } from "@/lib/api-client";
+import { TwoFactorManagement } from "@/features/two-factor/components/two-factor-management";
 
 const changePasswordSchema = z
   .object({
@@ -222,9 +223,10 @@ export default function SecuritySettingsPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-xl font-semibold">Security</h1>
-        <p className="text-sm text-muted-foreground">Manage your password and active sessions.</p>
+        <p className="text-sm text-muted-foreground">Manage your password, two-factor authentication, and active sessions.</p>
       </div>
       <ChangePasswordCard />
+      <TwoFactorManagement />
       <SessionsCard />
     </div>
   );

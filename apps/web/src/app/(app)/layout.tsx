@@ -6,6 +6,7 @@ import { SessionExpiredDialog } from "@/components/providers/session-expired-dia
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topnav } from "@/components/layout/topnav";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { CommandPalette } from "@/components/command-palette/command-palette";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -23,6 +24,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
       <SessionExpiredDialog />
+      <CommandPalette />
     </AuthGuard>
   );
 }

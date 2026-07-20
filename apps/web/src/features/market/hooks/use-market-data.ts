@@ -8,6 +8,10 @@ export interface InstrumentSearchParams {
   status?: InstrumentStatus;
   page?: number;
   pageSize?: number;
+  /** Set false to skip fetching entirely — e.g. the command palette,
+   * which shouldn't fire an unfiltered instrument list before the
+   * trader has typed anything. Defaults to true. */
+  enabled?: boolean;
 }
 
 function buildQuery(params: Record<string, string | number | undefined>): string {
@@ -26,6 +30,7 @@ export function useInstruments(params: InstrumentSearchParams = {}) {
       api.get<MarketDataPage<Instrument>>(
         `/market-data/instruments${buildQuery({ query: params.query, assetClass: params.assetClass, status: params.status, page: params.page ?? 1, pageSize: params.pageSize ?? 50 })}`,
       ),
+    enabled: params.enabled ?? true,
     // Symbol search should feel live without hammering the API on every
     // keystroke — a moderate staleTime plus the caller's own debounce
     // (see use-debounced-value) is the combination that achieves that.

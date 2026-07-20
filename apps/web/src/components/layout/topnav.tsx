@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Moon, Sun, LogOut, User as UserIcon, Menu, Bell } from "lucide-react";
 import {
   Button,
@@ -10,14 +11,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  TooltipProvider,
 } from "@rmsm/ui";
 import { useThemeStore } from "@/lib/theme-store";
 import { useAuthStore } from "@/lib/auth-store";
 import { useLogout } from "@/hooks/use-auth";
+import { useNotifications } from "@/features/notifications/hooks/use-notifications";
 import { Breadcrumbs } from "./breadcrumbs";
 
 export function Topnav({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
@@ -26,6 +24,10 @@ export function Topnav({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
+  // Silently no-ops (query disabled) until an organization session is
+  // connected — same gate the Notification Center page itself shows.
+  const notificationsQuery = useNotifications();
+  const unreadCount = notificationsQuery.data?.items.filter((n) => n.readAt === null && n.archivedAt === null).length ?? 0;
 
   async function handleLogout() {
     await logout.mutateAsync();
@@ -42,16 +44,16 @@ export function Topnav({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
         <Breadcrumbs />
       </div>
 
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" disabled aria-label="Notifications — coming in a future milestone">
-              <Bell className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Notifications — coming in a future milestone</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Button variant="ghost" size="icon" className="relative" asChild>
+        <Link href="/notifications" aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}>
+          <Bell className="h-4 w-4" aria-hidden="true" />
+          {unreadCount > 0 && (
+            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-destructive-foreground">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </Link>
+      </Button>
 
       <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}>
         {theme === "light" ? <Moon className="h-4 w-4" aria-hidden="true" /> : <Sun className="h-4 w-4" aria-hidden="true" />}
@@ -66,6 +68,8 @@ export function Topnav({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
         <DropdownMenuContent align="end">
           <DropdownMenuLabel className="max-w-[220px] truncate font-normal text-muted-foreground">{user?.email}</DropdownMenuLabel>
           <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => router.push("/settings/profile")}>Profile</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => router.push("/settings/preferences")}>Preferences</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => router.push("/settings/security")}>Security settings</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={handleLogout} disabled={logout.isPending}>

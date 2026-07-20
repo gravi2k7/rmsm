@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { LayoutDashboard, LineChart, ShieldCheck, TrendingUp, BookMarked, Target, Gavel, ListOrdered } from "lucide-react";
+import { LayoutDashboard, LineChart, ShieldCheck, TrendingUp, BookMarked, Target, Gavel, ListOrdered, Wallet, BarChart3, Bell } from "lucide-react";
 
 export interface NavItem {
   label: string;
@@ -11,12 +11,7 @@ export interface NavItem {
   permission?: string;
 }
 
-/**
- * Phase 4C is being built module by module. Analytics and Notifications
- * each add their own entry here when that module's own milestone lands.
- * Wiring a link to a page that doesn't exist yet is exactly the kind of
- * dead button Phase 4B's own honesty convention rules out.
- */
+/** Phase 4C is now feature-complete across all planned batches. */
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Market Watch", href: "/market", icon: TrendingUp },
@@ -25,5 +20,8 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Opportunities", href: "/opportunities", icon: Target },
   { label: "Decisions", href: "/decisions", icon: Gavel },
   { label: "Orders", href: "/orders", icon: ListOrdered },
+  { label: "Portfolio", href: "/portfolio", icon: Wallet },
+  { label: "Analytics", href: "/analytics", icon: BarChart3 },
+  { label: "Notifications", href: "/notifications", icon: Bell },
   { label: "Security", href: "/settings/security", icon: ShieldCheck },
 ];
