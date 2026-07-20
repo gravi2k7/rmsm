@@ -33,3 +33,14 @@ export interface Paginated<T> {
   page: number;
   pageSize: number;
 }
+
+export interface CreateOrderInput {
+  decisionId: string;
+  symbolCode: string;
+  side: (typeof ORDER_SIDES)[number];
+  type: (typeof ORDER_TYPES)[number];
+  quantityUnits: number;
+  limitPrice?: number;
+  stopPrice?: number;
+  pricePrecision: number;
+}

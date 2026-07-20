@@ -23,6 +23,8 @@ import { SessionGate } from "@/components/ui-extra/session-gate";
 import { EmptyState } from "@/components/ui-extra/empty-state";
 import { ConfirmDialog } from "@/components/ui-extra/confirm-dialog";
 import { StrategyStatusBadge, VersionStatusBadge } from "@/components/strategy/status-badges";
+import { EditStrategyDialog } from "@/components/strategy/edit-strategy-dialog";
+import { CompareVersionsDialog } from "@/components/strategy/compare-versions-dialog";
 import { useArchiveStrategy, useCloneStrategy, usePublishLatestApproved, useStrategy } from "@/hooks/use-strategies";
 import { useStrategyVersions } from "@/hooks/use-strategy-versions";
 
@@ -73,6 +75,7 @@ function StrategyDetailsContent({ strategyId }: { strategyId: string }) {
           </div>
         </div>
         <div className="flex gap-2">
+          <EditStrategyDialog strategy={s} />
           <Button
             variant="outline"
             onClick={() => {
@@ -109,7 +112,22 @@ function StrategyDetailsContent({ strategyId }: { strategyId: string }) {
             <CardContent className="grid gap-2 text-sm">
               <Row label="Category" value={s.category.replace(/_/g, " ")} />
               <Row label="Currently published version" value={s.currentPublishedVersionId ?? "None"} />
+              <Row label="Created by" value={s.createdByUserId} />
               <Row label="Created" value={new Date(s.createdAt).toLocaleString()} />
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="text-sm">Trading Activity</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Performance Summary, Strategy Health, and Last Execution aren&apos;t shown here: this Strategy Builder (the
+              org-scoped <code className="text-xs">strategy-engine</code> module) and the live trading pipeline
+              (Opportunities → Decisions → Orders → Executions, which reference a separate Phase 4A strategy id space) aren&apos;t
+              cross-referenced anywhere in the API — there is no field connecting a strategy-engine strategy id to the strategies
+              that actually generate live opportunities. This is a real architectural gap found while building the Trading
+              Operations module, not a missing UI feature.
             </CardContent>
           </Card>
         </TabsContent>
@@ -118,11 +136,16 @@ function StrategyDetailsContent({ strategyId }: { strategyId: string }) {
           <Card>
             <CardHeader className="flex-row items-center justify-between">
               <CardTitle className="text-sm">Versions</CardTitle>
-              <Button size="sm" asChild>
-                <Link href={`/strategies/${strategyId}/versions/new`}>
-                  <Plus /> New Version
-                </Link>
-              </Button>
+              <div className="flex gap-2">
+                {versions.data && versions.data.length >= 2 && (
+                  <CompareVersionsDialog versions={versions.data.map((v) => ({ id: v.id, versionNumber: v.versionNumber }))} />
+                )}
+                <Button size="sm" asChild>
+                  <Link href={`/strategies/${strategyId}/versions/new`}>
+                    <Plus /> New Version
+                  </Link>
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {versions.isLoading ? (

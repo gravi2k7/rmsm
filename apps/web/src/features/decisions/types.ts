@@ -4,6 +4,11 @@ export interface Decision {
   status: "PENDING" | "APPROVED" | "REJECTED" | "MANUAL_REVIEW";
   riskScore: number;
   riskPassed: boolean;
+  failedRiskChecks: string[];
+  positionSizeUnits: number;
+  positionSizeBasis: string;
+  decidedBy?: string;
+  decidedAt?: string;
   createdAt: string;
 }
 
