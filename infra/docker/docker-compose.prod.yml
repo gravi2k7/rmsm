@@ -1,11 +1,11 @@
-# Production stack — Milestone 5.1.2.
+# Production stack - Milestone 5.1.2.
 #
 # Contrast with docker-compose.yml (dev): every app service here builds
 # the `production` Dockerfile target (not `dev`), no source is
 # bind-mounted (production images are self-contained per their own
-# Dockerfile — see apps/api, apps/web, apps/admin), and every secret is
+# Dockerfile - see apps/api, apps/web, apps/admin), and every secret is
 # sourced from the environment rather than a checked-in default. This
-# file does not itself supply Postgres/Redis credentials or app secrets —
+# file does not itself supply Postgres/Redis credentials or app secrets -
 # see the `environment` blocks below and .env.example for what must be
 # set in a real deployment's env before `docker compose -f
 # docker-compose.prod.yml up` will start successfully. In particular,
@@ -13,12 +13,12 @@
 # guard, packages/config/src/env/env.validator.ts) if COOKIE_SECRET,
 # TWO_FACTOR_ENCRYPTION_KEY, NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY,
 # MOCK_WEBHOOK_SECRET, or WEB_APP_URL are left unset/at their dev default
-# — this is intentional, not a bug to work around.
+# - this is intentional, not a bug to work around.
 #
 # HONEST LIMITATION: this file has been reviewed carefully and the
 # individual Dockerfiles it references have been verified as described in
 # infra/docker/README.md, but this compose file itself has not been
-# executed — there is no `docker` binary in the sandbox this was authored
+# executed - there is no `docker` binary in the sandbox this was authored
 # in. Verify with `docker compose -f docker-compose.prod.yml config` and
 # a real `up` before relying on it.
 
@@ -37,22 +37,24 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-rmsm}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks: [rmsm_network]
+    networks:
+      - rmsm_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rmsm} -d ${POSTGRES_DB:-rmsm}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    # No host port published by default — production Postgres should not
+    # No host port published by default - production Postgres should not
     # be reachable outside the compose network unless a deployment
     # deliberately needs it (e.g. for a migration job). Uncomment if
     # needed:
-    # ports: ["5432:5432"]
+    # ports:
+    #   - "5432:5432"
 
   redis:
     image: redis:7-alpine
@@ -60,7 +62,8 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
-    networks: [rmsm_network]
+    networks:
+      - rmsm_network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -76,20 +79,21 @@ services:
     environment:
       NODE_ENV: production
       APP_ENV: ${APP_ENV:-production}
-      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-rmsm}
+      DATABASE_URL: postgresql://${POSTGRES_USER:?set POSTGRES_USER}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-rmsm}
       REDIS_URL: redis://redis:6379
-      # Every value below MUST be overridden — the container's own
+      # Every value below MUST be overridden - the container's own
       # startup validation (Milestone 5.1.1) refuses to boot with any of
-      # these left unset or at a known dev-only default.
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
-      COOKIE_SECRET: ${COOKIE_SECRET:?COOKIE_SECRET is required — see .env.example}
-      TWO_FACTOR_ENCRYPTION_KEY: ${TWO_FACTOR_ENCRYPTION_KEY:?TWO_FACTOR_ENCRYPTION_KEY is required — see .env.example}
-      NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: ${NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY:?NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY is required — see .env.example}
-      MOCK_WEBHOOK_SECRET: ${MOCK_WEBHOOK_SECRET:?MOCK_WEBHOOK_SECRET is required — see .env.example}
-      WEB_APP_URL: ${WEB_APP_URL:?WEB_APP_URL is required (must not be localhost)}
+      # these left unset or at a known dev-only default. See
+      # .env.example for how to generate real values.
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET}
+      COOKIE_SECRET: ${COOKIE_SECRET:?set COOKIE_SECRET}
+      TWO_FACTOR_ENCRYPTION_KEY: ${TWO_FACTOR_ENCRYPTION_KEY:?set TWO_FACTOR_ENCRYPTION_KEY}
+      NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: ${NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY:?set NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY}
+      MOCK_WEBHOOK_SECRET: ${MOCK_WEBHOOK_SECRET:?set MOCK_WEBHOOK_SECRET}
+      WEB_APP_URL: ${WEB_APP_URL:?set WEB_APP_URL, must not be localhost}
       API_PORT: "3001"
-      # Optional integrations pass through unset if not provided —
+      # Optional integrations pass through unset if not provided -
       # apps/api's own config layer treats each as an independently
       # disable-able provider (see packages/config's platformIntegrationsSchema).
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
@@ -102,10 +106,13 @@ services:
       LOG_FORMAT: json
     ports:
       - "3001:3001"
-    networks: [rmsm_network]
+    networks:
+      - rmsm_network
     depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
       interval: 15s
@@ -120,7 +127,8 @@ services:
       target: production
     restart: unless-stopped
     env_file: ../../apps/ai/.env
-    networks: [rmsm_network]
+    networks:
+      - rmsm_network
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s
@@ -136,12 +144,14 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required (the browser-facing API URL, not the internal service name)}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL, the browser-facing API URL}
     ports:
       - "3000:3000"
-    networks: [rmsm_network]
+    networks:
+      - rmsm_network
     depends_on:
-      api: { condition: service_healthy }
+      api:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
       interval: 15s
@@ -157,12 +167,14 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL}
     ports:
       - "3002:3002"
-    networks: [rmsm_network]
+    networks:
+      - rmsm_network
     depends_on:
-      api: { condition: service_healthy }
+      api:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3002/api/health"]
       interval: 15s

@@ -118,9 +118,27 @@ about an actual container build/run is **not** independently confirmed via `dock
 
 **Not verified**: an actual `docker build`, an actual running container, a `HEALTHCHECK`
 passing inside a real container, the `tini`/non-root/`apk` steps (Alpine-specific, can't run in
-this sandbox), or `docker-compose.prod.yml` beyond YAML-syntax validation. Confirm these with a
-real `docker build` and `docker compose -f docker-compose.prod.yml up` before relying on this
-in an actual deployment.
+this sandbox), or `docker-compose.prod.yml` beyond the checks below. Confirm these with a real
+`docker build` and `docker compose -f docker-compose.prod.yml up` before relying on this in an
+actual deployment.
+
+### `docker-compose.prod.yml` validation
+
+No `docker` binary is available in this sandbox, so `docker compose config` (the authoritative
+check) has not been run. `infra/docker/validate-compose.py` (stdlib + PyYAML only) is a
+structural stand-in: valid YAML, the expected six services present, declared volumes match what
+services reference, every `${...}` interpolation is well-formed, and no corrupted variable names
+(the file was hardened and re-verified against exactly this class of issue after a report of
+YAML corruption in a delivered copy that could not be reproduced against this file directly).
+Run it with:
+
+```bash
+python3 infra/docker/validate-compose.py
+```
+
+Treat a clean run of this script as "no obvious structural corruption," not as "verified
+correct" — run the real `docker compose config` whenever Docker is available, and prefer its
+output if the two ever disagree.
 
 ## Kubernetes / Terraform
 
