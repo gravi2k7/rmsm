@@ -14,6 +14,14 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, { logger: winstonLogger, rawBody: true });
 
+  // Graceful shutdown: without this, Nest's OnModuleDestroy/
+  // beforeApplicationShutdown lifecycle hooks never fire on SIGTERM/
+  // SIGINT — e.g. OutboxPublisherService's polling interval and
+  // IndicatorLifecycleService's own cleanup would otherwise keep running
+  // (or keep the event loop alive) past a `docker stop`, until Docker's
+  // force-kill timeout. Must be called before `app.listen()`.
+  app.enableShutdownHooks();
+
   // Security headers
   app.use(helmet());
 

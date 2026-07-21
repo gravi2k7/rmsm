@@ -1,7 +1,8 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from "@nestjs/common";
 import { trace } from "@opentelemetry/api";
 import { loadConfig } from "@rmsm/config";
 import type { Env } from "@rmsm/config";
+import { APP_CONFIG } from "../../../../config/app-config.module";
 import { StrategyOutboxRepository } from "../repositories/strategy-outbox.repository";
 import { EventDispatcherService } from "../../integration/dispatcher/event-dispatcher.service";
 import { StrategyEventMetricsService } from "../../integration/services/strategy-event-metrics.service";
@@ -46,7 +47,7 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
     private readonly outboxRepository: StrategyOutboxRepository,
     private readonly dispatcher: EventDispatcherService,
     private readonly metrics: StrategyEventMetricsService,
-    config?: Env,
+    @Optional() @Inject(APP_CONFIG) config?: Env,
   ) {
     this.config = config ?? loadConfig();
   }
