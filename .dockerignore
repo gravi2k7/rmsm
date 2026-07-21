@@ -1,0 +1,39 @@
+# Git
+.git
+.github
+
+# Dependencies
+node_modules
+**/node_modules
+.pnpm-store
+
+# Build caches
+.turbo
+**/.next
+**/dist
+**/coverage
+**/build
+**/out
+**/.cache
+
+# IDE
+.vscode
+.idea
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.venv
+
+# Archives
+*.zip
+*.7z
+*.rar

@@ -2,6 +2,48 @@
 
 Dockerfiles and docker-compose definitions for local development and production.
 
+## Workspace packaging (superseding update)
+
+The 11 runtime workspace packages (`@rmsm/core`, `config`, `database`, `shared`, `types`,
+`market`, `strategy`, `opportunity`, `decision`, `execution`, `portfolio`) now have real
+`build` scripts (`tsc -p tsconfig.build.json`) producing compiled CommonJS in `dist/`, with
+`package.json`'s `main`/`types`/`exports` pointing there instead of raw `.ts` source. This
+**retires the `tsx` runtime-loader workaround** documented in bug #7/#8 below: `apps/api`'s
+production image no longer needs it (or any TypeScript runtime tooling) at all — every
+`require("@rmsm/config")` now resolves to real, already-compiled JavaScript. See
+`packages/config/tsconfig.build.json` for the pattern (same across all 11), and the bug list
+below for the full history of why this was needed and what was tried first.
+
+`@rmsm/ui` is deliberately excluded from this — it remains TS-source-only by design, consumed
+directly via `next.config.mjs`'s `transpilePackages` by both `apps/web` (React 18) and
+`apps/admin` (React 19), which each need to transpile it against their own React version. See
+that package's own notes.
+
+## Development vs. production — do not confuse the two compose files (Milestone 5.1.3)
+
+`docker-compose.yml` (this directory) is **local development only** — every service builds its
+Dockerfile's `dev` target and bind-mounts source for hot reload. `apps/api`'s `dev` target
+correctly runs `nest start --watch`, which needs `@nestjs/cli` (a devDependency, present in
+that target, correctly absent from `production`). Running this file and describing the result
+as "the production container" produced a real support report (`nest start --watch` is indeed
+wrong for production) with the wrong diagnosis (the *actual* production path —
+`docker-compose.prod.yml`'s `production` target — was already correct and unaffected). A clear
+header comment now lives at the top of `docker-compose.yml` itself to prevent this recurring.
+
+A second, real, separate bug was found alongside it: `docker-compose.yml`'s bind mount
+(`../../:/workspace`) replaces the container's entire `/workspace` with the host's checkout,
+which would shadow every `node_modules` directory `docker build` produced — the file only
+protected the workspace-root `node_modules` with an anonymous volume, not the *nested*
+`node_modules` folders pnpm's non-hoisting linker actually uses for a package's own direct
+dependencies (the same category of issue as every `tsx`/`@rmsm/*` bug found during Milestones
+5.1.1–5.1.2 — see the bug list further down). `@nestjs/cli` lives only at
+`apps/api/node_modules/@nestjs/cli`, confirmed directly — never at the workspace root — so it
+was never protected, and a fresh `docker compose up` could fail with exactly the reported
+`Cannot find module '.../nest.js'` if the host's own local `apps/api/node_modules` didn't
+happen to already have it. Fixed by adding an anonymous volume for every nested `node_modules`
+each dev service actually needs (`api`, `web`, `admin` — see each service's own comment in
+`docker-compose.yml`).
+
 ## Files
 
 - `docker-compose.yml` — local development stack. Every app service builds its Dockerfile's
@@ -95,6 +137,63 @@ Every service's `production` stage:
    ./apps/*/public` step, but neither app has a `public/` directory.** A Docker `COPY` of a
    nonexistent source path fails the build outright — this was a latent, pre-existing bug.
    Removed, with a comment for when a `public/` directory is eventually added.
+7. **`apps/api/Dockerfile`'s production stage never copied `apps/api/node_modules`, and even
+   after fixing that, `-r tsx/cjs` still failed with `Error: Cannot find module 'tsx/cjs'`.**
+   Reported against an actual built image. Two distinct causes, found and fixed in sequence:
+   - **Cause 1**: the production stage copied the workspace-root `node_modules` and
+     `apps/api/dist`/`package.json`, but never `apps/api/node_modules` itself. Confirmed
+     directly (`ls node_modules/tsx` at the workspace root: not found; `ls
+     apps/api/node_modules/tsx`: a real symlink into the shared `.pnpm` store): pnpm's default
+     node-linker does not hoist a workspace package's own direct dependencies to the workspace
+     root — every one of them (not just `tsx`; `@nestjs/common`, `winston`, everything in
+     `apps/api/package.json`'s `dependencies`) is symlinked *only* inside that package's own
+     `node_modules` folder. Fixed by adding `COPY --from=prod-deps
+     /workspace/apps/api/node_modules ./apps/api/node_modules`.
+   - **Cause 2** (found only after Cause 1's fix was verified against a real build — the file
+     now existed in the image, but Node still couldn't find it): Node's `-r`/`--require` flag
+     resolves its module specifier starting from `process.cwd()` and walks *upward* through
+     ancestor `node_modules` directories only (confirmed directly:
+     `Module._nodeModulePaths(cwd)` never returns a descendant path) — unlike an ordinary
+     in-code `require()` call, which resolves relative to the requiring file's own `__dirname`.
+     With `WORKDIR /workspace` and `CMD ["node", "-r", "tsx/cjs", "apps/api/dist/src/main.js"]`,
+     `-r`'s resolution checked `/workspace/node_modules/tsx` (doesn't exist there — see Cause 1)
+     and had no way to reach `/workspace/apps/api/node_modules/tsx`, a *descendant* of CWD, not
+     an ancestor — copying the file there (Cause 1's fix) was necessary but not sufficient.
+     Fixed by adding `WORKDIR /workspace/apps/api` after the `COPY` instructions (so it's active
+     only for `CMD`/`ENTRYPOINT`, not the preceding copies) and changing `CMD`'s script path
+     from `apps/api/dist/src/main.js` to `dist/src/main.js` to match. Every other `require()`
+     call in `apps/api/dist` was already resolving correctly regardless of CWD, via
+     `__dirname`-relative walking — only the `-r` flag's own, differently-anchored resolution
+     needed this.
+
+   Verified both fixes by replicating the exact post-fix `COPY` structure *and* CWD outside
+   Docker (`cp` preserves symlinks the same way Docker's `COPY` does; this sandbox still has no
+   `docker` binary) and confirming the app resolves every dependency and reaches real runtime
+   code (module instantiation, config validation, Redis connection attempts) rather than
+   failing at module resolution.
+8. **`apps/api/Dockerfile`'s production stage copied `packages` (every `@rmsm/*` workspace
+   package) from the `prod-deps` stage, not `build`.** Reported as `Cannot find module
+   '@rmsm/config'` against a real build, immediately after Cause 2 above was fixed and
+   confirmed. Root cause: `prod-deps` (see its own comment in the Dockerfile) is deliberately
+   built from *only* `package.json` files, copied before any source, so its `pnpm install
+   --prod` layer caches independently of source changes — it never receives
+   `packages/*/src`. Copying `packages` from that stage put a real, resolvable directory at
+   e.g. `/workspace/packages/config` in the final image, but one containing only
+   `package.json` — no `src/index.ts`. Requiring `@rmsm/config` followed the (correctly
+   copied) `apps/api/node_modules/@rmsm/config` symlink to that directory, read its
+   `package.json`'s `"main": "./src/index.ts"`, and failed to find that file, because it was
+   never there. Fixed by sourcing `packages` from `build` (which has the full source tree via
+   `COPY . .`) instead. This does let each package's own `node_modules` (their own resolved
+   dependencies, not `apps/api`'s) come from the non-prod-only `build` stage too — verified
+   this doesn't meaningfully reintroduce devDependency bloat: those are themselves just
+   symlinks into the shared `.pnpm` store, which still comes from `prod-deps` separately, so a
+   devDependency-only symlink (e.g. into `vitest`) simply dangles, harmlessly, at negligible
+   size, while every real production dependency resolves correctly through the prod-only store.
+   Verified by replicating the corrected structure outside Docker and confirming `@rmsm/config`
+   and `@rmsm/database` both resolve to real source and the app reaches all the way into
+   `@prisma/client`'s own internal initialization — the only remaining failure was an artifact
+   of this sandbox's Prisma-stub testing methodology (see `PERSISTENCE_ROADMAP.md`/earlier
+   milestones), not the Dockerfile.
 
 ### How this was verified without a `docker` binary
 

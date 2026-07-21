@@ -1,3 +1,17 @@
+# LOCAL DEVELOPMENT ONLY.
+#
+# Every service here builds its Dockerfile's `dev` target and bind-mounts
+# source for hot reload (apps/api's dev target runs `nest start --watch`,
+# which needs @nestjs/cli — a devDependency, correctly present in this
+# target, correctly ABSENT from the production image). This is by
+# design, not a misconfiguration to fix.
+#
+# For a production-shaped run (compiled JS only, no dev tooling, no
+# source bind-mounts), use docker-compose.prod.yml instead:
+#   docker compose -f infra/docker/docker-compose.prod.yml up --build
+#
+# See infra/docker/README.md for the full comparison.
+
 version: "3.9"
 
 networks:
@@ -49,7 +63,34 @@ services:
       - "3001:3001"
     volumes:
       - ../../:/workspace
+      # Anonymous volumes below: the bind mount above replaces the
+      # container's ENTIRE /workspace with the host's repo checkout,
+      # which would otherwise shadow every node_modules directory built
+      # during `docker build` with whatever (or nothing) exists at that
+      # same path on the host. pnpm's node-linker does not hoist a
+      # workspace package's own direct dependencies to the workspace
+      # root (confirmed directly: @nestjs/cli, needed by this service's
+      # own `dev` script, only exists at
+      # apps/api/node_modules/@nestjs/cli, never at the workspace root)
+      # — so protecting only the root node_modules (the first entry
+      # below) is not sufficient; every nested node_modules this service
+      # actually needs must be protected the same way, or a fresh
+      # container can fail with "Cannot find module" for anything pnpm
+      # placed in a nested location, even though `docker build` produced
+      # it correctly.
       - /workspace/node_modules
+      - /workspace/apps/api/node_modules
+      - /workspace/packages/core/node_modules
+      - /workspace/packages/config/node_modules
+      - /workspace/packages/database/node_modules
+      - /workspace/packages/shared/node_modules
+      - /workspace/packages/types/node_modules
+      - /workspace/packages/market/node_modules
+      - /workspace/packages/strategy/node_modules
+      - /workspace/packages/opportunity/node_modules
+      - /workspace/packages/decision/node_modules
+      - /workspace/packages/execution/node_modules
+      - /workspace/packages/portfolio/node_modules
     networks: [rmsm_network]
     depends_on:
       postgres: { condition: service_healthy }
@@ -89,8 +130,14 @@ services:
       - "3000:3000"
     volumes:
       - ../../:/workspace
+      # See the api service's own comment above for why every one of
+      # these is needed, not just the workspace root.
       - /workspace/node_modules
+      - /workspace/apps/web/node_modules
       - /workspace/apps/web/.next
+      - /workspace/packages/ui/node_modules
+      - /workspace/packages/shared/node_modules
+      - /workspace/packages/types/node_modules
     networks: [rmsm_network]
     depends_on:
       api: { condition: service_healthy }
@@ -111,8 +158,14 @@ services:
       - "3002:3002"
     volumes:
       - ../../:/workspace
+      # See the api service's own comment above for why every one of
+      # these is needed, not just the workspace root.
       - /workspace/node_modules
+      - /workspace/apps/admin/node_modules
       - /workspace/apps/admin/.next
+      - /workspace/packages/ui/node_modules
+      - /workspace/packages/shared/node_modules
+      - /workspace/packages/types/node_modules
     networks: [rmsm_network]
     depends_on:
       api: { condition: service_healthy }

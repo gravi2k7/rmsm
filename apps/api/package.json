@@ -5,7 +5,7 @@
   "scripts": {
     "build": "nest build",
     "dev": "nest start --watch",
-    "start": "node -r tsx/cjs dist/src/main.js",
+    "start": "node dist/src/main.js",
     "lint": "eslint . --ext .ts",
     "typecheck": "tsc --noEmit",
     "test": "jest",
@@ -55,7 +55,6 @@
     "passport-local": "^1.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "tsx": "^4.19.1",
     "winston": "^3.14.2"
   },
   "devDependencies": {

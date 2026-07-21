@@ -37,7 +37,7 @@ CMD ["pnpm", "--filter", "@rmsm/api", "dev"]
 FROM deps AS build
 COPY . .
 RUN pnpm --filter @rmsm/database generate
-RUN pnpm --filter @rmsm/api build
+RUN pnpm --filter @rmsm/api... run build
 
 # ─────────────────────────────────────────────────────────────────────────
 # prod-deps: a SEPARATE install, `--prod` only — no jest/eslint/typescript/
@@ -94,11 +94,47 @@ WORKDIR /workspace
 ENV NODE_ENV=production
 COPY --from=build /workspace/apps/api/dist ./apps/api/dist
 COPY --from=build /workspace/apps/api/package.json ./apps/api/package.json
+# pnpm's default node-linker does NOT hoist a workspace package's own
+# direct dependencies to the workspace root node_modules — it symlinks
+# them ONLY inside that package's own node_modules folder (confirmed
+# directly: `ls node_modules/@nestjs` at the workspace root finds
+# nothing; `ls apps/api/node_modules/@nestjs` finds the real symlinks).
+# Both copies below are required together — the workspace-root
+# node_modules supplies the shared .pnpm store those symlinks point
+# INTO, apps/api/node_modules supplies the symlinks themselves.
 COPY --from=prod-deps /workspace/node_modules ./node_modules
-COPY --from=prod-deps /workspace/packages ./packages
+COPY --from=prod-deps /workspace/apps/api/node_modules ./apps/api/node_modules
+# `packages` (every @rmsm/* workspace package apps/api depends on) comes
+# from `build`, not `prod-deps`: as of Milestone 5.1.2's workspace
+# packaging work, every one of them has a real `build` script
+# (tsc -p tsconfig.build.json, see e.g. packages/config/tsconfig.build.json)
+# producing real compiled CommonJS in dist/, with package.json's "main"
+# pointing there — and only `build` actually runs those build scripts
+# (`prod-deps` only ever copies package.json manifests, by design, so its
+# own `pnpm install --prod` layer caches independently of source
+# changes). This is what makes plain `node dist/src/main.js` below fully
+# self-sufficient now: `require("@rmsm/config")` resolves the
+# apps/api/node_modules/@rmsm/config symlink to packages/config, reads
+# its package.json "main": "./dist/index.js", and finds real,
+# already-compiled JavaScript — no TypeScript source, no runtime loader,
+# involved at all. (Earlier revisions of this file used `tsx` as a
+# require-time loader specifically because these packages had no build
+# step yet and "main" pointed at raw .ts source; that workaround is
+# fully retired now that the packages are properly built.)
+COPY --from=build /workspace/packages ./packages
+# Each package's own `src/` (and build-only tsconfig*.json) ships
+# alongside `dist/` in the `build` stage above, since `build` also needs
+# it for typecheck/lint/test — but production only ever requires
+# `dist/` + `package.json` at runtime. Stripped here rather than via a
+# more surgical (and fragile — every package's dist/ folder has the same
+# name, risking collisions under Docker's wildcard COPY) per-package
+# COPY, to keep the final image smaller and avoid shipping raw
+# TypeScript source into production at all.
+RUN find packages -mindepth 2 -maxdepth 2 \( -name src -o -name "tsconfig*.json" \) -exec rm -rf {} +
+WORKDIR /workspace/apps/api
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD wget -qO- http://localhost:3001/health || exit 1
 USER node
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["node", "-r", "tsx/cjs", "apps/api/dist/src/main.js"]
+CMD ["node", "dist/src/main.js"]
