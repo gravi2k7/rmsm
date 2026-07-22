@@ -241,4 +241,71 @@ describe("envSchema — production/staging insecure-default guard", () => {
     const error = caught as ConfigValidationError;
     expect(error.issues.some((i) => i.startsWith("COOKIE_SECRET") && i.includes("production"))).toBe(true);
   });
+
+  it.each(["production", "staging"] as const)("rejects a wildcard CORS_ALLOWED_ORIGINS when NODE_ENV=%s (SEC-001 fix)", (nodeEnv) => {
+    const result = envSchema.safeParse({
+      ...MINIMAL_VALID_ENV,
+      NODE_ENV: nodeEnv,
+      WEB_APP_URL: "https://app.example.com",
+      COOKIE_SECRET: "a".repeat(32),
+      TWO_FACTOR_ENCRYPTION_KEY: "b".repeat(64),
+      NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "c".repeat(64),
+      MOCK_WEBHOOK_SECRET: "d".repeat(32),
+      CORS_ALLOWED_ORIGINS: "*",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.join(".") === "CORS_ALLOWED_ORIGINS")).toBe(true);
+    }
+  });
+
+  it.each(["production", "staging"] as const)("rejects a wildcard mixed in with real origins when NODE_ENV=%s", (nodeEnv) => {
+    const result = envSchema.safeParse({
+      ...MINIMAL_VALID_ENV,
+      NODE_ENV: nodeEnv,
+      WEB_APP_URL: "https://app.example.com",
+      COOKIE_SECRET: "a".repeat(32),
+      TWO_FACTOR_ENCRYPTION_KEY: "b".repeat(64),
+      NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "c".repeat(64),
+      MOCK_WEBHOOK_SECRET: "d".repeat(32),
+      CORS_ALLOWED_ORIGINS: "https://app.example.com,*",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.join(".") === "CORS_ALLOWED_ORIGINS")).toBe(true);
+    }
+  });
+
+  it("accepts an explicit, non-wildcard CORS_ALLOWED_ORIGINS list in production", () => {
+    const result = envSchema.safeParse({
+      ...MINIMAL_VALID_ENV,
+      NODE_ENV: "production",
+      WEB_APP_URL: "https://app.example.com",
+      COOKIE_SECRET: "a".repeat(32),
+      TWO_FACTOR_ENCRYPTION_KEY: "b".repeat(64),
+      NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "c".repeat(64),
+      MOCK_WEBHOOK_SECRET: "d".repeat(32),
+      CORS_ALLOWED_ORIGINS: "https://app.example.com,https://admin.example.com",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.CORS_ALLOWED_ORIGINS).toEqual(["https://app.example.com", "https://admin.example.com"]);
+    }
+  });
+
+  it("does not require CORS_ALLOWED_ORIGINS to be set in production — an empty allowlist is not a fail-fast condition (main.ts falls back to WEB_APP_URL instead)", () => {
+    const result = envSchema.safeParse({
+      ...MINIMAL_VALID_ENV,
+      NODE_ENV: "production",
+      WEB_APP_URL: "https://app.example.com",
+      COOKIE_SECRET: "a".repeat(32),
+      TWO_FACTOR_ENCRYPTION_KEY: "b".repeat(64),
+      NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "c".repeat(64),
+      MOCK_WEBHOOK_SECRET: "d".repeat(32),
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.CORS_ALLOWED_ORIGINS).toEqual([]);
+    }
+  });
 });

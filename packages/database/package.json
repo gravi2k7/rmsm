@@ -21,6 +21,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
+
+  "prisma": {
+     "seed": "tsx prisma/seed.ts"
+   },
+
   "dependencies": {
     "@prisma/client": "^5.18.0",
     "@rmsm/core": "workspace:*"

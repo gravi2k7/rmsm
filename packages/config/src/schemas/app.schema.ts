@@ -26,6 +26,22 @@ export const appSchema = z.object({
 
   WEB_APP_URL: z.string().default("http://localhost:3000"),
 
+  // Explicit, operator-controlled CORS allowlist for staging/production —
+  // comma-separated (e.g. "https://app.rmsm.com,https://admin.rmsm.com").
+  // Optional: unlike COOKIE_SECRET/TWO_FACTOR_ENCRYPTION_KEY/etc. (see
+  // env.validator.ts's production/staging guard), there's no
+  // "insecure guessable default" risk here to fail-fast against — an
+  // empty/missing value is a functional-restrictiveness problem (the API
+  // would reject its own frontends), not a security one, so main.ts
+  // falls back to `[WEB_APP_URL]` (already required and validated
+  // non-localhost in production) rather than failing startup outright.
+  // A literal "*" is rejected in staging/production by the same guard
+  // that validates the other production-only fields (see
+  // env.validator.ts) — wildcard origins are never safe to accept
+  // outside local development, especially combined with
+  // `credentials: true` (see main.ts's enableCors call).
+  CORS_ALLOWED_ORIGINS: commaSeparatedList(),
+
   FEATURE_FLAGS: commaSeparatedList(),
 });
 

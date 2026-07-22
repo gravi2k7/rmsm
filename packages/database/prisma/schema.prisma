@@ -87,40 +87,40 @@ model User {
   oauthAccounts      OAuthAccount[]
 
   // ── Module 003 additions ──────────────────────────────────────────────
-  organizationMemberships  OrganizationMembership[]
-  sentInvitations          OrganizationInvitation[] @relation("InvitationSender")
-  createdOrganizations     Organization[]           @relation("OrganizationCreatedBy")
-  updatedOrganizations     Organization[]           @relation("OrganizationUpdatedBy")
+  organizationMemberships   OrganizationMembership[]
+  sentInvitations           OrganizationInvitation[]      @relation("InvitationSender")
+  createdOrganizations      Organization[]                @relation("OrganizationCreatedBy")
+  updatedOrganizations      Organization[]                @relation("OrganizationUpdatedBy")
   membershipEventsAsSubject OrganizationMembershipEvent[] @relation("MembershipEventSubject")
   membershipEventsAsActor   OrganizationMembershipEvent[] @relation("MembershipEventActor")
 
   // ── Module 005 additions ──────────────────────────────────────────────
-  notificationsReceived   Notification[]            @relation("NotificationRecipient")
-  notificationLogsActedOn NotificationLog[]          @relation("NotificationLogActor")
+  notificationsReceived   Notification[]           @relation("NotificationRecipient")
+  notificationLogsActedOn NotificationLog[]        @relation("NotificationLogActor")
   notificationPreferences NotificationPreference[]
   notificationDigests     NotificationDigest[]
   deviceTokens            DeviceToken[]
 
   // ── AI-103 additions (Milestone 2) ──────────────────────────────────
-  strategiesCreated             Strategy[]             @relation("StrategyCreatedBy")
-  strategiesUpdated             Strategy[]             @relation("StrategyUpdatedBy")
-  strategyVersionsCreated       StrategyVersion[]      @relation("StrategyVersionCreatedBy")
-  strategyVersionsUpdated       StrategyVersion[]      @relation("StrategyVersionUpdatedBy")
-  ruleGroupsCreated              RuleGroup[]            @relation("RuleGroupCreatedBy")
-  ruleGroupsUpdated              RuleGroup[]            @relation("RuleGroupUpdatedBy")
-  rulesCreated                   Rule[]                 @relation("RuleCreatedBy")
-  rulesUpdated                   Rule[]                 @relation("RuleUpdatedBy")
-  conditionsCreated              Condition[]            @relation("ConditionCreatedBy")
-  conditionsUpdated              Condition[]            @relation("ConditionUpdatedBy")
-  strategyParametersCreated      StrategyParameter[]    @relation("StrategyParameterCreatedBy")
-  strategyParametersUpdated      StrategyParameter[]    @relation("StrategyParameterUpdatedBy")
-  executionProfilesCreated       ExecutionProfile[]     @relation("ExecutionProfileCreatedBy")
-  executionProfilesUpdated       ExecutionProfile[]     @relation("ExecutionProfileUpdatedBy")
-  strategyValidationsCreated     StrategyValidation[]   @relation("StrategyValidationCreatedBy")
-  strategyApprovalsRequested     StrategyApproval[]     @relation("StrategyApprovalRequestedBy")
-  strategyApprovalsDecided       StrategyApproval[]     @relation("StrategyApprovalDecidedBy")
-  strategyPublicationsPublished  StrategyPublication[]  @relation("StrategyPublicationPublishedBy")
-  strategyHistoryActedOn         StrategyHistory[]      @relation("StrategyHistoryActor")
+  strategiesCreated             Strategy[]            @relation("StrategyCreatedBy")
+  strategiesUpdated             Strategy[]            @relation("StrategyUpdatedBy")
+  strategyVersionsCreated       StrategyVersion[]     @relation("StrategyVersionCreatedBy")
+  strategyVersionsUpdated       StrategyVersion[]     @relation("StrategyVersionUpdatedBy")
+  ruleGroupsCreated             RuleGroup[]           @relation("RuleGroupCreatedBy")
+  ruleGroupsUpdated             RuleGroup[]           @relation("RuleGroupUpdatedBy")
+  rulesCreated                  Rule[]                @relation("RuleCreatedBy")
+  rulesUpdated                  Rule[]                @relation("RuleUpdatedBy")
+  conditionsCreated             Condition[]           @relation("ConditionCreatedBy")
+  conditionsUpdated             Condition[]           @relation("ConditionUpdatedBy")
+  strategyParametersCreated     StrategyParameter[]   @relation("StrategyParameterCreatedBy")
+  strategyParametersUpdated     StrategyParameter[]   @relation("StrategyParameterUpdatedBy")
+  executionProfilesCreated      ExecutionProfile[]    @relation("ExecutionProfileCreatedBy")
+  executionProfilesUpdated      ExecutionProfile[]    @relation("ExecutionProfileUpdatedBy")
+  strategyValidationsCreated    StrategyValidation[]  @relation("StrategyValidationCreatedBy")
+  strategyApprovalsRequested    StrategyApproval[]    @relation("StrategyApprovalRequestedBy")
+  strategyApprovalsDecided      StrategyApproval[]    @relation("StrategyApprovalDecidedBy")
+  strategyPublicationsPublished StrategyPublication[] @relation("StrategyPublicationPublishedBy")
+  strategyHistoryActedOn        StrategyHistory[]     @relation("StrategyHistoryActor")
 
   @@index([status])
   @@map("users")
@@ -146,28 +146,28 @@ model Profile {
   /// simple UI-language code); locale additionally governs number/date
   /// formatting. Kept as a separate field rather than overloading
   /// `language` to avoid a breaking change to that column's meaning.
-  locale                  String?
+  locale                   String?
   /// ISO 3166-1 alpha-2 country code.
-  country                 String?
-  theme                   String   @default("system")
+  country                  String?
+  theme                    String  @default("system")
   /// Free-form JSON, shape owned by apps/web (e.g. widget positions/sizes).
-  dashboardLayout         Json?
+  dashboardLayout          Json?
   /// The organization shown by default on login. Nullable — a user with no
   /// organizations, or who hasn't picked a default, has none. Intentionally
   /// NOT a required relation: Profile must remain creatable before a user
   /// has joined any organization (registration in Module 002 creates an
   /// empty Profile immediately).
-  defaultOrganizationId   String?
+  defaultOrganizationId    String?
   /// { twoFactorReminders: bool, loginAlerts: bool, ... } — presentation-
   /// layer preferences only; the actual security *enforcement* (lockout
   /// thresholds, password policy) stays owned by Module 002's AuthService
   /// and is not duplicated here.
-  securityPreferences     Json     @default("{}")
-  tradingPreferences      Json     @default("{}")
+  securityPreferences      Json    @default("{}")
+  tradingPreferences       Json    @default("{}")
   /// { reducedMotion: bool, highContrast: bool, screenReaderOptimized: bool }
   accessibilityPreferences Json    @default("{}")
 
-  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   defaultOrganization Organization? @relation("ProfileDefaultOrganization", fields: [defaultOrganizationId], references: [id], onDelete: SetNull)
 
   @@index([defaultOrganizationId])
@@ -175,11 +175,11 @@ model Profile {
 }
 
 model Role {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
+  id           String   @id @default(uuid())
+  name         String   @unique
+  description  String?
   /// System roles (seeded defaults) cannot be deleted via the API.
-  isSystem    Boolean  @default(false)
+  isSystem     Boolean  @default(false)
   /// Epic 8: role hierarchy. A role with a parent inherits every
   /// permission its parent (and its parent's own ancestors) grants, in
   /// addition to its own directly-granted permissions — see
@@ -188,8 +188,8 @@ model Role {
   /// null` after migration, meaning "no inheritance", not "broken" —
   /// hierarchy is strictly opt-in.
   parentRoleId String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   parentRole      Role?            @relation("RoleHierarchy", fields: [parentRoleId], references: [id], onDelete: SetNull)
   childRoles      Role[]           @relation("RoleHierarchy")
@@ -487,26 +487,26 @@ model Organization {
   /// ARCHIVED) does NOT set this; only hard-delete-equivalent does.
   deletedAt   DateTime?
 
-  createdBy               User?                     @relation("OrganizationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy               User?                     @relation("OrganizationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  memberships              OrganizationMembership[]
-  invitations              OrganizationInvitation[]
-  membershipEvents         OrganizationMembershipEvent[]
-  profilesDefaultingHere   Profile[]                 @relation("ProfileDefaultOrganization")
+  createdBy              User?                         @relation("OrganizationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy              User?                         @relation("OrganizationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  memberships            OrganizationMembership[]
+  invitations            OrganizationInvitation[]
+  membershipEvents       OrganizationMembershipEvent[]
+  profilesDefaultingHere Profile[]                     @relation("ProfileDefaultOrganization")
 
   // ── AI-103 additions (Milestone 2) ──────────────────────────────────
-  strategies              Strategy[]
-  strategyVersions        StrategyVersion[]
-  ruleGroups              RuleGroup[]
-  rules                   Rule[]
-  conditions              Condition[]
-  strategyParameters      StrategyParameter[]
-  executionProfiles       ExecutionProfile[]
-  strategyValidations     StrategyValidation[]
-  strategyApprovals       StrategyApproval[]
-  strategyPublications    StrategyPublication[]
-  strategyHistoryEntries  StrategyHistory[]
-  strategyOutboxEvents    StrategyOutboxEvent[]
+  strategies             Strategy[]
+  strategyVersions       StrategyVersion[]
+  ruleGroups             RuleGroup[]
+  rules                  Rule[]
+  conditions             Condition[]
+  strategyParameters     StrategyParameter[]
+  executionProfiles      ExecutionProfile[]
+  strategyValidations    StrategyValidation[]
+  strategyApprovals      StrategyApproval[]
+  strategyPublications   StrategyPublication[]
+  strategyHistoryEntries StrategyHistory[]
+  strategyOutboxEvents   StrategyOutboxEvent[]
 
   // ── Module 004 additions ──────────────────────────────────────────────
   subscription      OrganizationSubscription?
@@ -518,18 +518,18 @@ model Organization {
   usageRecords      UsageRecord[]
 
   // ── Module 005 additions ──────────────────────────────────────────────
-  notificationCategories NotificationCategory[]
-  emailProviders         EmailProvider[]
-  smsProviders           SmsProvider[]
-  pushProviders          PushProvider[]
-  notificationTemplates  NotificationTemplate[]
-  notifications          Notification[]
-  notificationLogs       NotificationLog[]
-  notificationSchedules  NotificationSchedule[]
-  notificationDigests    NotificationDigest[]
+  notificationCategories  NotificationCategory[]
+  emailProviders          EmailProvider[]
+  smsProviders            SmsProvider[]
+  pushProviders           PushProvider[]
+  notificationTemplates   NotificationTemplate[]
+  notifications           Notification[]
+  notificationLogs        NotificationLog[]
+  notificationSchedules   NotificationSchedule[]
+  notificationDigests     NotificationDigest[]
   notificationPreferences NotificationPreference[]
-  deviceTokens           DeviceToken[]
-  notificationWebhooks   NotificationWebhook[]
+  deviceTokens            DeviceToken[]
+  notificationWebhooks    NotificationWebhook[]
 
   @@index([status])
   @@index([slug])
@@ -722,26 +722,26 @@ enum WebhookProcessingStatus {
 }
 
 model SubscriptionPlan {
-  id              String   @id @default(uuid())
+  id                String   @id @default(uuid())
   /// Stable machine key, e.g. "free", "professional" — application code
   /// and the future admin UI reference plans by this, never by id, so
   /// seed data can be re-run idempotently (same pattern as Module 002's
   /// Role.name).
-  key             String   @unique
-  name            String
-  description     String?
+  key               String   @unique
+  name              String
+  description       String?
   /// Cents, matching Stripe's and most providers' native unit — avoids
   /// floating-point currency bugs entirely.
   monthlyPriceCents Int
   yearlyPriceCents  Int
-  currency        String   @default("USD")
-  trialDays       Int      @default(0)
-  gracePeriodDays Int      @default(0)
-  isVisible       Boolean  @default(true)
-  isActive        Boolean  @default(true)
-  displayOrder    Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  currency          String   @default("USD")
+  trialDays         Int      @default(0)
+  gracePeriodDays   Int      @default(0)
+  isVisible         Boolean  @default(true)
+  isActive          Boolean  @default(true)
+  displayOrder      Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   planFeatures  PlanFeature[]
   subscriptions OrganizationSubscription[]
@@ -784,26 +784,26 @@ model PlanFeature {
 }
 
 model OrganizationSubscription {
-  id                    String             @id @default(uuid())
+  id                     String              @id @default(uuid())
   /// Unique, not just indexed — "each organization owns exactly one
   /// subscription" (spec, verbatim) is a hard 1:1, enforced at the
   /// database level, not just assumed by application code.
-  organizationId        String             @unique
-  planId                String
-  status                SubscriptionStatus @default(TRIALING)
-  paymentProvider       PaymentProviderType @default(MOCK)
+  organizationId         String              @unique
+  planId                 String
+  status                 SubscriptionStatus  @default(TRIALING)
+  paymentProvider        PaymentProviderType @default(MOCK)
   /// The subscription id on the provider's side (e.g. Stripe subscription
   /// id). Null until the provider integration actually creates one —
   /// MOCK-provider subscriptions may never populate this.
   providerSubscriptionId String?
-  billingCycle          BillingCycle       @default(MONTHLY)
-  startDate             DateTime           @default(now())
-  renewalDate           DateTime?
-  cancellationDate      DateTime?
-  trialEndsAt           DateTime?
-  gracePeriodEndsAt     DateTime?
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
+  billingCycle           BillingCycle        @default(MONTHLY)
+  startDate              DateTime            @default(now())
+  renewalDate            DateTime?
+  cancellationDate       DateTime?
+  trialEndsAt            DateTime?
+  gracePeriodEndsAt      DateTime?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
 
   organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   plan         SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
@@ -860,10 +860,10 @@ model Invoice {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  subscription OrganizationSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-  lines        InvoiceLine[]
-  payments     Payment[]
+  organization      Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription      OrganizationSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  lines             InvoiceLine[]
+  payments          Payment[]
   couponRedemptions CouponRedemption[]
 
   @@index([organizationId, status])
@@ -872,13 +872,13 @@ model Invoice {
 }
 
 model InvoiceLine {
-  id             String   @id @default(uuid())
-  invoiceId      String
-  description    String
-  quantity       Int      @default(1)
+  id              String   @id @default(uuid())
+  invoiceId       String
+  description     String
+  quantity        Int      @default(1)
   unitAmountCents Int
-  amountCents    Int
-  createdAt      DateTime @default(now())
+  amountCents     Int
+  createdAt       DateTime @default(now())
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
@@ -887,22 +887,22 @@ model InvoiceLine {
 }
 
 model Payment {
-  id                   String              @id @default(uuid())
-  organizationId       String
-  invoiceId            String?
-  provider             PaymentProviderType
+  id                    String              @id @default(uuid())
+  organizationId        String
+  invoiceId             String?
+  provider              PaymentProviderType
   /// Unique per provider — a transaction id from Stripe and one from a
   /// (hypothetical) Razorpay payment could theoretically collide as bare
   /// strings, so uniqueness is scoped to [provider, providerTransactionId]
   /// rather than the field alone.
   providerTransactionId String?
-  amountCents          Int
-  currency             String              @default("USD")
-  status               PaymentStatus       @default(PENDING)
-  method               PaymentMethod?
-  metadata             Json                @default("{}")
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
+  amountCents           Int
+  currency              String              @default("USD")
+  status                PaymentStatus       @default(PENDING)
+  method                PaymentMethod?
+  metadata              Json                @default("{}")
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   invoice      Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
@@ -913,23 +913,23 @@ model Payment {
 }
 
 model Coupon {
-  id                String     @id @default(uuid())
-  code              String     @unique
-  type              CouponType
+  id                 String     @id @default(uuid())
+  code               String     @unique
+  type               CouponType
   /// Percentage: 1-100. Fixed amount: cents. Interpretation depends on
   /// `type` — enforced by CouponService (Phase 3), not the schema.
-  value             Int
-  currency          String?
-  expiresAt         DateTime?
-  maxRedemptions    Int?
-  currentRedemptions Int       @default(0)
+  value              Int
+  currency           String?
+  expiresAt          DateTime?
+  maxRedemptions     Int?
+  currentRedemptions Int        @default(0)
   /// Null = public coupon, usable by any organization. Non-null =
   /// restricted to that one organization.
-  organizationId    String?
-  isPublic          Boolean    @default(true)
-  isActive          Boolean    @default(true)
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  organizationId     String?
+  isPublic           Boolean    @default(true)
+  isActive           Boolean    @default(true)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
   organization Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   redemptions  CouponRedemption[]
@@ -980,18 +980,18 @@ model UsageRecord {
 }
 
 model PaymentWebhook {
-  id               String                  @id @default(uuid())
-  provider         PaymentProviderType
-  eventType        String
+  id              String                  @id @default(uuid())
+  provider        PaymentProviderType
+  eventType       String
   /// The provider's own event id — the idempotency key.
   /// WebhookService (Phase 3) checks this before processing so a
   /// provider's at-least-once delivery retry never double-applies an
   /// event (e.g. crediting a payment twice).
-  providerEventId  String                  @unique
-  payload          Json
-  status           WebhookProcessingStatus @default(PENDING)
-  processedAt      DateTime?
-  createdAt        DateTime                @default(now())
+  providerEventId String                  @unique
+  payload         Json
+  status          WebhookProcessingStatus @default(PENDING)
+  processedAt     DateTime?
+  createdAt       DateTime                @default(now())
 
   @@index([provider, eventType])
   @@index([status])
@@ -1120,7 +1120,7 @@ enum TemplateFormat {
 // ─────────────────────────────────────────────────────────────────────────
 
 model NotificationCategory {
-  id             String   @id @default(uuid())
+  id             String              @id @default(uuid())
   /// Null = platform-wide category (e.g. "security"). Non-null = an
   /// organization's own custom category (e.g. "trading-signals" defined
   /// per-org for a future Strategy Builder module to notify through).
@@ -1129,13 +1129,13 @@ model NotificationCategory {
   name           String
   description    String?
   defaultChannel NotificationChannel @default(IN_APP)
-  isActive       Boolean  @default(true)
+  isActive       Boolean             @default(true)
   createdById    String?
   updatedById    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
-  organization  Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization  Organization?            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   templates     NotificationTemplate[]
   notifications Notification[]
   preferences   NotificationPreference[]
@@ -1183,7 +1183,7 @@ model EmailProvider {
   updatedAt      DateTime          @updatedAt
   deletedAt      DateTime?
 
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   deliveries   NotificationDelivery[]
 
   @@index([organizationId, isActive])
@@ -1205,7 +1205,7 @@ model SmsProvider {
   updatedAt      DateTime        @updatedAt
   deletedAt      DateTime?
 
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   deliveries   NotificationDelivery[]
 
   @@index([organizationId, isActive])
@@ -1226,7 +1226,7 @@ model PushProvider {
   updatedAt      DateTime         @updatedAt
   deletedAt      DateTime?
 
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   deviceTokens DeviceToken[]
   deliveries   NotificationDelivery[]
 
@@ -1235,38 +1235,38 @@ model PushProvider {
 }
 
 model NotificationTemplate {
-  id             String              @id @default(uuid())
+  id              String              @id @default(uuid())
   /// Null = platform-wide template (e.g. the password-reset email
   /// Module 002 could migrate onto this system later — not done this
   /// phase, see the doc's Integration Points section).
-  organizationId String?
-  categoryId     String?
-  key            String
-  name           String
-  description    String?
-  channel        NotificationChannel
-  format         TemplateFormat      @default(HTML)
+  organizationId  String?
+  categoryId      String?
+  key             String
+  name            String
+  description     String?
+  channel         NotificationChannel
+  format          TemplateFormat      @default(HTML)
   subjectTemplate String?
-  bodyTemplate   String
+  bodyTemplate    String
   /// Self-relation: a template can reference a reusable layout (e.g. a
   /// branded HTML email shell) that wraps its own bodyTemplate content —
   /// "Reusable layouts" from the spec's Template Engine section.
-  layoutId       String?
-  locale         String              @default("en")
-  version        Int                 @default(1)
-  isActive       Boolean             @default(true)
-  createdById    String?
-  updatedById    String?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-  deletedAt      DateTime?
+  layoutId        String?
+  locale          String              @default("en")
+  version         Int                 @default(1)
+  isActive        Boolean             @default(true)
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  deletedAt       DateTime?
 
-  organization Organization?         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  category     NotificationCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  layout       NotificationTemplate? @relation("TemplateLayout", fields: [layoutId], references: [id], onDelete: SetNull)
-  layoutUsers  NotificationTemplate[] @relation("TemplateLayout")
+  organization  Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category      NotificationCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  layout        NotificationTemplate?  @relation("TemplateLayout", fields: [layoutId], references: [id], onDelete: SetNull)
+  layoutUsers   NotificationTemplate[] @relation("TemplateLayout")
   notifications Notification[]
-  schedules    NotificationSchedule[]
+  schedules     NotificationSchedule[]
 
   @@unique([organizationId, key, locale])
   @@index([organizationId, channel, isActive])
@@ -1278,44 +1278,44 @@ model NotificationTemplate {
 // ─────────────────────────────────────────────────────────────────────────
 
 model Notification {
-  id                 String               @id @default(uuid())
-  organizationId     String
-  type               NotificationType     @default(DIRECT)
-  channel            NotificationChannel
-  priority           NotificationPriority @default(NORMAL)
-  status             NotificationStatus   @default(PENDING)
-  categoryId         String?
-  templateId         String?
+  id                  String               @id @default(uuid())
+  organizationId      String
+  type                NotificationType     @default(DIRECT)
+  channel             NotificationChannel
+  priority            NotificationPriority @default(NORMAL)
+  status              NotificationStatus   @default(PENDING)
+  categoryId          String?
+  templateId          String?
   /// Populated for DIRECT notifications. Null for BROADCAST/ROLE/
   /// PERMISSION/TOPIC, whose actual recipients are resolved at send time
   /// (Phase 2's NotificationService) and tracked per-recipient via
   /// NotificationDelivery rows, not duplicated here.
-  recipientUserId    String?
+  recipientUserId     String?
   /// Populated only when type = ROLE.
-  recipientRole      OrganizationRole?
+  recipientRole       OrganizationRole?
   /// Populated only when type = PERMISSION (a platform permission key,
   /// e.g. "billing.admin.manage" — Module 002's Permission.key).
   recipientPermission String?
   /// Populated only when type = TOPIC — an arbitrary subscription topic
   /// string, not backed by its own table this phase (see the doc's
   /// deferred-scope section on pub/sub topic management).
-  topic              String?
-  subject            String?
-  body               String
+  topic               String?
+  subject             String?
+  body                String
   /// Rendered template variables / arbitrary payload data, e.g. for
   /// in-app notifications that carry structured data a frontend renders
   /// beyond the plain body text.
-  data               Json                 @default("{}")
-  locale             String               @default("en")
-  scheduledFor       DateTime?
-  sentAt             DateTime?
-  readAt             DateTime?
-  archivedAt         DateTime?
-  createdById        String?
-  updatedById        String?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
-  deletedAt          DateTime?
+  data                Json                 @default("{}")
+  locale              String               @default("en")
+  scheduledFor        DateTime?
+  sentAt              DateTime?
+  readAt              DateTime?
+  archivedAt          DateTime?
+  createdById         String?
+  updatedById         String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deletedAt           DateTime?
 
   organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   category     NotificationCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -1357,30 +1357,30 @@ model NotificationAttachment {
 // ─────────────────────────────────────────────────────────────────────────
 
 model NotificationDelivery {
-  id                String         @id @default(uuid())
+  id                String              @id @default(uuid())
   notificationId    String
   channel           NotificationChannel
   emailProviderId   String?
   smsProviderId     String?
   pushProviderId    String?
-  status            DeliveryStatus @default(PENDING)
+  status            DeliveryStatus      @default(PENDING)
   /// The provider's own message/delivery id — needed to correlate inbound
   /// webhook callbacks (bounce/open/click events) back to this row.
   providerMessageId String?
-  attempts          Int            @default(0)
+  attempts          Int                 @default(0)
   lastAttemptAt     DateTime?
   deliveredAt       DateTime?
   openedAt          DateTime?
   clickedAt         DateTime?
   bouncedAt         DateTime?
   failureReason     String?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
-  notification  Notification   @relation(fields: [notificationId], references: [id], onDelete: Cascade)
-  emailProvider EmailProvider? @relation(fields: [emailProviderId], references: [id], onDelete: SetNull)
-  smsProvider   SmsProvider?   @relation(fields: [smsProviderId], references: [id], onDelete: SetNull)
-  pushProvider  PushProvider?  @relation(fields: [pushProviderId], references: [id], onDelete: SetNull)
+  notification  Notification        @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  emailProvider EmailProvider?      @relation(fields: [emailProviderId], references: [id], onDelete: SetNull)
+  smsProvider   SmsProvider?        @relation(fields: [smsProviderId], references: [id], onDelete: SetNull)
+  pushProvider  PushProvider?       @relation(fields: [pushProviderId], references: [id], onDelete: SetNull)
   events        NotificationEvent[]
 
   @@index([notificationId])
@@ -1390,7 +1390,7 @@ model NotificationDelivery {
 }
 
 model NotificationEvent {
-  id             String    @id @default(uuid())
+  id             String   @id @default(uuid())
   notificationId String
   deliveryId     String?
   /// e.g. "sent", "delivered", "opened", "clicked", "bounced",
@@ -1399,9 +1399,9 @@ model NotificationEvent {
   /// subtypes this schema shouldn't need a migration to accommodate,
   /// mirroring Module 004's UsageRecord.metric design choice.
   eventType      String
-  metadata       Json      @default("{}")
-  occurredAt     DateTime  @default(now())
-  createdAt      DateTime  @default(now())
+  metadata       Json     @default("{}")
+  occurredAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
 
   notification Notification          @relation(fields: [notificationId], references: [id], onDelete: Cascade)
   delivery     NotificationDelivery? @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
@@ -1449,18 +1449,18 @@ model NotificationLog {
 /// update status as BullMQ reports progress) — not a replacement for
 /// BullMQ, a companion to it.
 model NotificationQueue {
-  id             String      @id @default(uuid())
+  id             String               @id @default(uuid())
   notificationId String
   queueName      String
-  status         QueueStatus @default(PENDING)
+  status         QueueStatus          @default(PENDING)
   priority       NotificationPriority @default(NORMAL)
   scheduledFor   DateTime?
-  attempts       Int         @default(0)
-  maxAttempts    Int         @default(5)
+  attempts       Int                  @default(0)
+  maxAttempts    Int                  @default(5)
   lastError      String?
   processedAt    DateTime?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 
   notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
 
@@ -1778,49 +1778,49 @@ enum TradingSessionType {
 // ─────────────────────────────────────────────────────────────────────────
 
 model MarketDataProviderConfig {
-  id                     String                 @id @default(uuid())
-  type                   MarketDataProviderType
-  name                   String
-  baseUrl                String?
+  id                    String                 @id @default(uuid())
+  type                  MarketDataProviderType
+  name                  String
+  baseUrl               String?
   /// Points to a secret stored in an external secrets manager (path/key
   /// string) — NEVER the credential itself. See this file's Phase 1
   /// design-resolution comment (Section 3) for why this differs from
   /// EP-004/EP-005's encrypted-at-rest `credentialsEnc` pattern.
-  credentialReference    String?
-  rateLimitPerMinute     Int?
-  supportedAssetClasses  AssetClass[]
-  isActive               Boolean                @default(true)
-  createdById            String?
-  updatedById            String?
-  createdAt              DateTime               @default(now())
-  updatedAt              DateTime               @updatedAt
+  credentialReference   String?
+  rateLimitPerMinute    Int?
+  supportedAssetClasses AssetClass[]
+  isActive              Boolean                @default(true)
+  createdById           String?
+  updatedById           String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 
-  importJobs        DataImportJob[]
+  importJobs          DataImportJob[]
   supportedTimeframes SupportedTimeframe[]
-  instrumentAliases InstrumentAlias[]
-  candles           MarketCandle[]
-  quotes            MarketQuote[]
-  ticks             MarketTick[]
-  corporateActions  CorporateAction[]
+  instrumentAliases   InstrumentAlias[]
+  candles             MarketCandle[]
+  quotes              MarketQuote[]
+  ticks               MarketTick[]
+  corporateActions    CorporateAction[]
 
   @@index([type, isActive])
   @@map("market_data_provider_configs")
 }
 
 model Exchange {
-  id           String   @id @default(uuid())
-  code         String   @unique
-  name         String
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
   /// IANA timezone identifier (e.g. "America/New_York") — the prompt's
   /// explicit "store exchange timezone as metadata; never use local
   /// server time as market time." Every session time on this exchange's
   /// TradingSession rows is a local time-of-day interpreted against this
   /// zone, not a fixed UTC offset (handles DST correctly).
-  timezone     String
-  country      String?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  timezone  String
+  country   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   instruments     Instrument[]
   tradingSessions TradingSession[]
@@ -1862,12 +1862,12 @@ model TradingSession {
 /// actually supports — not every provider offers every CandleInterval
 /// (e.g. a crypto exchange might not offer ONE_MONTH candles directly).
 model SupportedTimeframe {
-  id         String          @id @default(uuid())
+  id         String         @id @default(uuid())
   providerId String
   interval   CandleInterval
-  isEnabled  Boolean         @default(true)
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
+  isEnabled  Boolean        @default(true)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 
   provider MarketDataProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
@@ -1876,38 +1876,38 @@ model SupportedTimeframe {
 }
 
 model Instrument {
-  id           String            @id @default(uuid())
-  exchangeId   String
+  id         String           @id @default(uuid())
+  exchangeId String
   /// The ticker/symbol as canonically known on this exchange (e.g.
   /// "AAPL") — provider-specific variants of this same instrument's
   /// symbol live on InstrumentAlias, not here.
-  symbol       String
-  name         String
-  assetClass   AssetClass
-  status       InstrumentStatus  @default(ACTIVE)
-  currency     String
+  symbol     String
+  name       String
+  assetClass AssetClass
+  status     InstrumentStatus @default(ACTIVE)
+  currency   String
   /// International identifiers, both optional — not every instrument
   /// (especially crypto pairs) has either.
-  isin         String?
-  cusip        String?
+  isin       String?
+  cusip      String?
   /// Smallest meaningful price increment, as a Decimal (never float —
   /// the prompt's explicit financial-precision requirement) — e.g.
   /// 0.01 for most equities, much smaller for some crypto pairs.
-  tickSize     Decimal?         @db.Decimal(20, 10)
-  lotSize      Decimal?         @db.Decimal(20, 10)
-  listedAt     DateTime?
-  delistedAt   DateTime?
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  tickSize   Decimal?         @db.Decimal(20, 10)
+  lotSize    Decimal?         @db.Decimal(20, 10)
+  listedAt   DateTime?
+  delistedAt DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
 
-  exchange   Exchange            @relation(fields: [exchangeId], references: [id], onDelete: Restrict)
-  aliases    InstrumentAlias[]
-  candles    MarketCandle[]
-  quotes     MarketQuote[]
-  ticks      MarketTick[]
-  corporateActions CorporateAction[]
+  exchange          Exchange           @relation(fields: [exchangeId], references: [id], onDelete: Restrict)
+  aliases           InstrumentAlias[]
+  candles           MarketCandle[]
+  quotes            MarketQuote[]
+  ticks             MarketTick[]
+  corporateActions  CorporateAction[]
   dataQualityIssues DataQualityIssue[]
-  dataGaps   DataGap[]
+  dataGaps          DataGap[]
 
   @@unique([exchangeId, symbol])
   @@index([assetClass, status])
@@ -1930,8 +1930,8 @@ model InstrumentAlias {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  instrument Instrument                @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
-  provider   MarketDataProviderConfig  @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  instrument Instrument               @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  provider   MarketDataProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   @@unique([providerId, providerSymbol])
   @@index([instrumentId])
@@ -1948,47 +1948,47 @@ model InstrumentAlias {
 // ─────────────────────────────────────────────────────────────────────────
 
 model MarketCandle {
-  id                  String            @id @default(uuid())
-  instrumentId        String
-  interval            CandleInterval
+  id           String         @id @default(uuid())
+  instrumentId String
+  interval     CandleInterval
   /// The candle's own timestamp (UTC, always) — when this bar started,
   /// not when this system received it. Distinct from receivedAt per the
   /// prompt's explicit timestamp-separation requirement.
-  eventTime           DateTime
-  open                Decimal           @db.Decimal(24, 10)
-  high                Decimal           @db.Decimal(24, 10)
-  low                 Decimal           @db.Decimal(24, 10)
-  close               Decimal           @db.Decimal(24, 10)
-  volume              Decimal           @db.Decimal(30, 10)
+  eventTime    DateTime
+  open         Decimal        @db.Decimal(24, 10)
+  high         Decimal        @db.Decimal(24, 10)
+  low          Decimal        @db.Decimal(24, 10)
+  close        Decimal        @db.Decimal(24, 10)
+  volume       Decimal        @db.Decimal(30, 10)
 
   // Lineage
-  providerId          String
+  providerId           String
   source               MarketDataSource
   /// When THIS system received/wrote the row — distinct from eventTime.
-  receivedAt           DateTime          @default(now())
+  receivedAt           DateTime         @default(now())
   importJobId          String?
   /// The provider's own reported timestamp for this candle, if it
   /// differs from the normalized eventTime (e.g. before timezone
   /// normalization) — kept for audit/debugging, not used in queries.
-  sourceTimestamp       DateTime?
+  sourceTimestamp      DateTime?
   /// Increments whenever this row's normalization logic changes in a way
   /// that could alter historical values (e.g. a timezone-handling bugfix)
   /// — lets a future backfill identify "every candle normalized before
   /// the fix" without re-deriving that from code history.
-  normalizationVersion  Int               @default(1)
+  normalizationVersion Int              @default(1)
 
   // Corrections — see this file's Phase 1 design-resolution comment
   // (Section 4): corrections are new rows, never in-place updates.
-  isCorrection  Boolean        @default(false)
-  supersedesId  String?        @unique
+  isCorrection Boolean @default(false)
+  supersedesId String? @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  instrument  Instrument                @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
-  provider    MarketDataProviderConfig  @relation(fields: [providerId], references: [id], onDelete: Restrict)
-  importJob   DataImportJob?            @relation(fields: [importJobId], references: [id], onDelete: SetNull)
-  supersedes  MarketCandle?             @relation("CandleCorrection", fields: [supersedesId], references: [id], onDelete: SetNull)
+  instrument   Instrument               @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  provider     MarketDataProviderConfig @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  importJob    DataImportJob?           @relation(fields: [importJobId], references: [id], onDelete: SetNull)
+  supersedes   MarketCandle?            @relation("CandleCorrection", fields: [supersedesId], references: [id], onDelete: SetNull)
   supersededBy MarketCandle?            @relation("CandleCorrection")
 
   /// The prompt's explicit idempotency requirement: "prevent duplicate
@@ -2008,19 +2008,19 @@ model MarketCandle {
 }
 
 model MarketQuote {
-  id           String            @id @default(uuid())
+  id           String   @id @default(uuid())
   instrumentId String
-  bidPrice     Decimal?          @db.Decimal(24, 10)
-  askPrice     Decimal?          @db.Decimal(24, 10)
-  lastPrice    Decimal?          @db.Decimal(24, 10)
-  bidSize      Decimal?          @db.Decimal(30, 10)
-  askSize      Decimal?          @db.Decimal(30, 10)
+  bidPrice     Decimal? @db.Decimal(24, 10)
+  askPrice     Decimal? @db.Decimal(24, 10)
+  lastPrice    Decimal? @db.Decimal(24, 10)
+  bidSize      Decimal? @db.Decimal(30, 10)
+  askSize      Decimal? @db.Decimal(30, 10)
   eventTime    DateTime
 
-  providerId           String
-  source               MarketDataSource
-  receivedAt           DateTime          @default(now())
-  sourceTimestamp      DateTime?
+  providerId      String
+  source          MarketDataSource
+  receivedAt      DateTime         @default(now())
+  sourceTimestamp DateTime?
 
   createdAt DateTime @default(now())
 
@@ -2036,15 +2036,15 @@ model MarketQuote {
 }
 
 model MarketTick {
-  id           String            @id @default(uuid())
+  id           String   @id @default(uuid())
   instrumentId String
-  price        Decimal           @db.Decimal(24, 10)
-  size         Decimal           @db.Decimal(30, 10)
+  price        Decimal  @db.Decimal(24, 10)
+  size         Decimal  @db.Decimal(30, 10)
   eventTime    DateTime
 
   providerId      String
   source          MarketDataSource
-  receivedAt      DateTime          @default(now())
+  receivedAt      DateTime         @default(now())
   sourceTimestamp DateTime?
 
   createdAt DateTime @default(now())
@@ -2074,7 +2074,7 @@ model CorporateAction {
 
   providerId String
   source     MarketDataSource
-  receivedAt DateTime          @default(now())
+  receivedAt DateTime         @default(now())
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2091,23 +2091,23 @@ model CorporateAction {
 // ─────────────────────────────────────────────────────────────────────────
 
 model DataImportJob {
-  id                  String           @id @default(uuid())
-  providerId          String
+  id               String          @id @default(uuid())
+  providerId       String
   /// Free-form job classification (e.g. "historical_backfill",
   /// "daily_candle_sync", "corporate_action_sync") — string, not an enum,
   /// since the exact set of job types is a Phase 2+ synchronization-
   /// design decision this schema shouldn't need a migration to
   /// accommodate, mirroring the same NotificationEvent.eventType /
   /// UsageRecord.metric precedent from EP-004/EP-005.
-  jobType             String
-  status              ImportJobStatus  @default(PENDING)
-  startedAt           DateTime?
-  completedAt         DateTime?
-  recordsProcessed    Int              @default(0)
-  recordsFailed       Int              @default(0)
-  errorSummary        String?
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  jobType          String
+  status           ImportJobStatus @default(PENDING)
+  startedAt        DateTime?
+  completedAt      DateTime?
+  recordsProcessed Int             @default(0)
+  recordsFailed    Int             @default(0)
+  errorSummary     String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   provider          MarketDataProviderConfig @relation(fields: [providerId], references: [id], onDelete: Restrict)
   candles           MarketCandle[]
@@ -2119,22 +2119,22 @@ model DataImportJob {
 }
 
 model DataQualityIssue {
-  id            String             @id @default(uuid())
-  instrumentId  String?
-  importJobId   String?
+  id           String            @id @default(uuid())
+  instrumentId String?
+  importJobId  String?
   /// Free-form classification (e.g. "duplicate_candle", "out_of_order",
   /// "invalid_price", "stale_quote", "session_mismatch") — string, not an
   /// enum, for the same reason as DataImportJob.jobType: the exact
   /// taxonomy is a Phase 2+ data-quality-service design decision.
-  issueType     String
-  status        DataQualityStatus @default(FLAGGED)
-  severity      String             @default("medium")
-  description   String
-  detectedAt    DateTime           @default(now())
-  resolvedAt    DateTime?
+  issueType    String
+  status       DataQualityStatus @default(FLAGGED)
+  severity     String            @default("medium")
+  description  String
+  detectedAt   DateTime          @default(now())
+  resolvedAt   DateTime?
 
-  instrument Instrument?     @relation(fields: [instrumentId], references: [id], onDelete: SetNull)
-  importJob  DataImportJob?  @relation(fields: [importJobId], references: [id], onDelete: SetNull)
+  instrument Instrument?    @relation(fields: [instrumentId], references: [id], onDelete: SetNull)
+  importJob  DataImportJob? @relation(fields: [importJobId], references: [id], onDelete: SetNull)
 
   @@index([status, detectedAt])
   @@index([instrumentId, status])
@@ -2142,13 +2142,13 @@ model DataQualityIssue {
 }
 
 model DataGap {
-  id           String        @id @default(uuid())
+  id           String         @id @default(uuid())
   instrumentId String
   interval     CandleInterval
   gapStart     DateTime
   gapEnd       DateTime
-  status       DataGapStatus @default(DETECTED)
-  detectedAt   DateTime      @default(now())
+  status       DataGapStatus  @default(DETECTED)
+  detectedAt   DateTime       @default(now())
   backfilledAt DateTime?
 
   instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
@@ -2320,20 +2320,20 @@ model StrategyTagAssignment {
 }
 
 model Strategy {
-  id             String               @id @default(uuid())
-  organizationId String
-  name           String
-  slug           String
-  description    String
-  categoryCode   StrategyCategoryCode
-  status         StrategyStatus       @default(ACTIVE)
+  id                        String               @id @default(uuid())
+  organizationId            String
+  name                      String
+  slug                      String
+  description               String
+  categoryCode              StrategyCategoryCode
+  status                    StrategyStatus       @default(ACTIVE)
   /// Nullable — a brand-new Strategy has no published version yet.
   /// Deliberately a separate FK from StrategyVersion.strategyId (below)
   /// rather than "the version with the highest versionNumber" computed
   /// on read — publication is a real event (StrategyPublication,
   /// below), not simply "the latest one."
-  currentPublishedVersionId String? @unique
-  version                   Int     @default(1)
+  currentPublishedVersionId String?              @unique
+  version                   Int                  @default(1)
 
   createdById String?
   updatedById String?
@@ -2341,12 +2341,12 @@ model Strategy {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  organization            Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  category                StrategyCategory  @relation(fields: [categoryCode], references: [code])
-  createdBy               User?             @relation("StrategyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy               User?             @relation("StrategyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  currentPublishedVersion StrategyVersion?  @relation("StrategyCurrentPublishedVersion", fields: [currentPublishedVersionId], references: [id], onDelete: SetNull)
-  versions                StrategyVersion[] @relation("StrategyToVersions")
+  organization            Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category                StrategyCategory        @relation(fields: [categoryCode], references: [code])
+  createdBy               User?                   @relation("StrategyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy               User?                   @relation("StrategyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  currentPublishedVersion StrategyVersion?        @relation("StrategyCurrentPublishedVersion", fields: [currentPublishedVersionId], references: [id], onDelete: SetNull)
+  versions                StrategyVersion[]       @relation("StrategyToVersions")
   tagAssignments          StrategyTagAssignment[]
   historyEntries          StrategyHistory[]
 
@@ -2360,12 +2360,12 @@ model Strategy {
 }
 
 model StrategyVersion {
-  id             String                 @id @default(uuid())
+  id             String                @id @default(uuid())
   organizationId String
   strategyId     String
   versionNumber  Int
-  status         StrategyVersionStatus  @default(DRAFT)
-  version        Int                    @default(1)
+  status         StrategyVersionStatus @default(DRAFT)
+  version        Int                   @default(1)
 
   createdById String?
   updatedById String?
@@ -2520,12 +2520,12 @@ model StrategyParameter {
 }
 
 model ExecutionProfile {
-  id                String   @id @default(uuid())
+  id                String @id @default(uuid())
   organizationId    String
   strategyVersionId String
   name              String
-  parameters        Json     @default("{}")
-  version           Int      @default(1)
+  parameters        Json   @default("{}")
+  version           Int    @default(1)
 
   createdById String?
   updatedById String?

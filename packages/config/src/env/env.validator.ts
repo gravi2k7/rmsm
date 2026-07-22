@@ -132,6 +132,20 @@ export const envSchema = mergedEnvSchema.superRefine((data, ctx) => {
       });
     }
   }
+
+  // A literal "*" in CORS_ALLOWED_ORIGINS is never safe outside local
+  // development — doubly so here, since `enableCors` is called with
+  // `credentials: true` (see main.ts), and browsers themselves reject a
+  // wildcard origin combined with credentials; failing fast server-side
+  // makes the misconfiguration obvious at startup rather than as a
+  // confusing browser-side CORS failure discovered later.
+  if (data.CORS_ALLOWED_ORIGINS.includes("*")) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["CORS_ALLOWED_ORIGINS"],
+      message: `must not include a wildcard ("*") in ${data.NODE_ENV} — list explicit origins instead (e.g. "https://app.example.com,https://admin.example.com").`,
+    });
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -8,6 +8,7 @@ import cookieParser from "cookie-parser";
 import { loadConfig } from "@rmsm/config";
 import { AppModule } from "./app.module";
 import { winstonLogger } from "./common/logger/winston.config";
+import { resolveCorsOrigins } from "./common/cors/resolve-cors-origins";
 
 async function bootstrap() {
   const config = loadConfig();
@@ -29,10 +30,11 @@ async function bootstrap() {
   // token delivery mode on web (see Module 002 doc, Security Design).
   app.use(cookieParser(config.COOKIE_SECRET));
 
-  // CORS — locked to known frontends; extended per-environment via env vars
-  // in a later module once allowed origins are finalized.
+  // CORS — environment-aware and configurable (BVP-003R, fixing
+  // SEC-001). See resolve-cors-origins.ts for the full rationale and
+  // CORS_VERIFICATION.md for required env vars.
   app.enableCors({
-    origin: config.APP_ENV === "local" ? true : [], // local: permissive; else: explicit allowlist TBD
+    origin: resolveCorsOrigins(config),
     credentials: true,
   });
 
