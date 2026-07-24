@@ -8,20 +8,11 @@ import cookieParser from "cookie-parser";
 import { loadConfig } from "@rmsm/config";
 import { AppModule } from "./app.module";
 import { winstonLogger } from "./common/logger/winston.config";
-import { resolveCorsOrigins } from "./common/cors/resolve-cors-origins";
 
 async function bootstrap() {
   const config = loadConfig();
 
   const app = await NestFactory.create(AppModule, { logger: winstonLogger, rawBody: true });
-
-  // Graceful shutdown: without this, Nest's OnModuleDestroy/
-  // beforeApplicationShutdown lifecycle hooks never fire on SIGTERM/
-  // SIGINT — e.g. OutboxPublisherService's polling interval and
-  // IndicatorLifecycleService's own cleanup would otherwise keep running
-  // (or keep the event loop alive) past a `docker stop`, until Docker's
-  // force-kill timeout. Must be called before `app.listen()`.
-  app.enableShutdownHooks();
 
   // Security headers
   app.use(helmet());
@@ -30,11 +21,10 @@ async function bootstrap() {
   // token delivery mode on web (see Module 002 doc, Security Design).
   app.use(cookieParser(config.COOKIE_SECRET));
 
-  // CORS — environment-aware and configurable (BVP-003R, fixing
-  // SEC-001). See resolve-cors-origins.ts for the full rationale and
-  // CORS_VERIFICATION.md for required env vars.
+  // CORS — locked to known frontends; extended per-environment via env vars
+  // in a later module once allowed origins are finalized.
   app.enableCors({
-    origin: resolveCorsOrigins(config),
+    origin: config.APP_ENV === "local" ? true : [], // local: permissive; else: explicit allowlist TBD
     credentials: true,
   });
 
@@ -65,15 +55,4 @@ async function bootstrap() {
   console.log(`RMSM API listening on :${config.API_PORT} (docs at /api/docs)`);
 }
 
-bootstrap().catch((error: unknown) => {
-  // Deliberately console.error, not the winston logger: if bootstrap
-  // failed before or during config validation, we can't assume winston
-  // (which itself now reads config — see winston.config.ts) is in a
-  // working state. This is the same "plain console before the real
-  // logger exists" reasoning tracing.ts's own no-op branch already uses.
-  // eslint-disable-next-line no-console
-  console.error("RMSM API failed to start:\n");
-  // eslint-disable-next-line no-console
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+bootstrap();

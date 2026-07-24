@@ -2,39 +2,26 @@
   "name": "@rmsm/database",
   "version": "0.1.0",
   "private": true,
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    }
-  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
     "generate": "prisma generate",
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "seed": "tsx prisma/seed.ts",
     "studio": "prisma studio",
     "lint": "eslint . --ext .ts",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "typecheck": "tsc --noEmit"
   },
-
-  "prisma": {
-     "seed": "tsx prisma/seed.ts"
-   },
-
   "dependencies": {
     "@prisma/client": "^5.18.0",
     "@rmsm/core": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^20.14.15",
     "prisma": "^5.18.0",
     "tsx": "^4.16.5",
     "typescript": "^5.5.4",
-    "@types/node": "^20.14.15",
     "vitest": "^2.0.5"
   }
 }

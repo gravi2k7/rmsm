@@ -11,16 +11,13 @@ import { TokenService } from "./services/token.service";
 import { TwoFactorService } from "./services/two-factor.service";
 import { SessionService } from "./services/session.service";
 import { AuditService } from "./services/audit.service";
-import { LoginHistoryService } from "./services/login-history.service";
 import { UserRepository } from "./repositories/user.repository";
 import { SessionRepository } from "./repositories/session.repository";
 import { RefreshTokenRepository } from "./repositories/refresh-token.repository";
 import { AuditLogRepository } from "./repositories/audit-log.repository";
-import { LoginHistoryRepository } from "./repositories/login-history.repository";
-import { PermissionResolverModule } from "../rbac/permission-resolver.module";
 
 @Module({
-  imports: [PassportModule, JwtModule.register({}), PermissionResolverModule],
+  imports: [PassportModule, JwtModule.register({})],
   controllers: [AuthController, SessionsController],
   providers: [
     AuthService,
@@ -31,12 +28,10 @@ import { PermissionResolverModule } from "../rbac/permission-resolver.module";
     TwoFactorService,
     SessionService,
     AuditService,
-    LoginHistoryService,
     UserRepository,
     SessionRepository,
     RefreshTokenRepository,
     AuditLogRepository,
-    LoginHistoryRepository,
   ],
   // Exported so RbacModule/UsersModule/OAuthModule can reuse repositories,
   // AuditService, and TokenService without re-instantiating them.

@@ -48,20 +48,6 @@ export type RoleWithPermissions = Prisma.RoleGetPayload<{
   include: { rolePermissions: { include: { permission: true } } };
 }>;
 
-/** Epic 8: a role plus its own permissions AND its direct parent's own
- * `RoleWithHierarchy` shape, recursively — used by
- * `PermissionResolverService` to walk the inheritance chain without a
- * hardcoded max depth. Prisma's own `include` can only express a fixed
- * nesting depth at the type level (the same limitation AI-103's own
- * `RuleWithCondition` comment documents for its own unbounded rule
- * trees) — `PermissionResolverService` fetches one role at a time via a
- * loop instead of one deeply-nested `include`, so this type only needs
- * to describe a single level; the recursion happens in application code,
- * not in the query shape. */
-export type RoleWithPermissionsAndParent = Prisma.RoleGetPayload<{
-  include: { rolePermissions: { include: { permission: true } }; parentRole: true };
-}>;
-
 export type UserAccountSummary = Prisma.UserGetPayload<{
   select: {
     id: true;
@@ -99,12 +85,8 @@ export type OrganizationInvitationWithOrganization = Prisma.OrganizationInvitati
  * zero orchestration logic of its own — the transaction boundary itself is
  * a service-layer decision, per the repository/service split in
  * MODULE_003_PHASE_2_REPOSITORIES.md.
- *
- * `DbClient` itself is now defined in `interfaces/repository.interface.ts`
- * (Epic 6's own repository abstractions) and re-exported below via
- * `export * from "./interfaces"` — this comment stays here since it's
- * where every existing repository's own doc comments point back to.
  */
+export type DbClient = PrismaClient | Prisma.TransactionClient;
 
 // ─────────────────────────────────────────────────────────────────────────
 // Module 004 additions
@@ -159,18 +141,3 @@ export type StrategyTagAssignmentWithTag = Prisma.StrategyTagAssignmentGetPayloa
 export type StrategyWithTags = Prisma.StrategyGetPayload<{
   include: { tagAssignments: { include: { tag: true } } };
 }>;
-
-// ─────────────────────────────────────────────────────────────────────────
-// Epic 6: Database Platform — enterprise abstractions around Prisma
-// (generic repository base, transaction manager, unit of work, pagination,
-// filter builder, translated domain-shaped errors). Purely additive: the
-// Prisma schema, migrations, and every existing export above are
-// byte-for-byte unchanged.
-// ─────────────────────────────────────────────────────────────────────────
-
-export * from "./interfaces";
-export * from "./errors";
-export * from "./repositories";
-export * from "./transactions";
-export * from "./pagination";
-export * from "./filters";

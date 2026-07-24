@@ -84,23 +84,8 @@ const DEFAULT_PERMISSIONS: { key: string; group: string; description: string }[]
   { key: "strategy-engine.write", group: "strategy-engine", description: "Create/update/clone/archive strategies and versions; request approval." },
   { key: "strategy-engine.approve", group: "strategy-engine", description: "Approve/reject/publish strategy versions." },
 
-  // Phase 4A — Enterprise API Platform. Distinct permission group per new
-  // business domain (Market, Strategy, Opportunity, Decision, Execution,
-  // Portfolio) rather than reusing "strategy-engine.*" for the new
-  // @rmsm/strategy-backed endpoints — the old strategy-engine module (AI-103)
-  // and the new @rmsm/strategy domain package are two different bounded
-  // contexts sharing an English word, not the same feature; conflating
-  // their permissions would let a grant meant for one silently apply to
-  // the other.
-  { key: "markets.read", group: "markets", description: "View exchanges, symbols, and candles." },
-  { key: "strategies.read", group: "strategies", description: "View strategies." },
-  { key: "strategies.write", group: "strategies", description: "Create, update, or archive strategies." },
-  { key: "opportunities.read", group: "opportunities", description: "View trade opportunities." },
-  { key: "decisions.read", group: "decisions", description: "View risk decisions." },
-  { key: "decisions.approve", group: "decisions", description: "Approve or reject risk decisions." },
-  { key: "executions.read", group: "executions", description: "View orders and executions." },
-  { key: "executions.write", group: "executions", description: "Place orders." },
-  { key: "portfolio.read", group: "portfolio", description: "View portfolio, positions, and trade history." },
+  // ── AI Phase 5.1, Milestone 1: AI-201 Gateway ──────────────────────
+  { key: "ai-gateway.use", group: "ai-gateway", description: "Call the AI Gateway — chat, stream, embed, moderate." },
 ];
 
 // Role -> permission key grants for the roles that should have elevated
@@ -184,18 +169,10 @@ const ROLE_GRANTS: Record<string, string[]> = {
     "strategy-engine.read",
     "strategy-engine.write",
     "strategy-engine.approve",
-    "markets.read",
-    "strategies.read",
-    "strategies.write",
-    "opportunities.read",
-    "decisions.read",
-    "decisions.approve",
-    "executions.read",
-    "executions.write",
-    "portfolio.read",
+    "ai-gateway.use",
   ],
   SUPPORT: ["users.read", "sessions.read", "sessions.revoke"],
-  ANALYST: ["users.read", "audit.read", ...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read", "indicator-engine.read", "indicator-engine.execute", "strategy-engine.read", "strategy-engine.write", "markets.read", "strategies.read", "opportunities.read", "decisions.read", "executions.read", "portfolio.read"],
+  ANALYST: ["users.read", "audit.read", ...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read", "indicator-engine.read", "indicator-engine.execute", "strategy-engine.read", "strategy-engine.write", "ai-gateway.use"],
   // Judgment call, flagged explicitly (no product spec supplied a tier
   // matrix): every account can create and view organizations; only
   // SUBSCRIBER-tier and above can perform organization *management*
@@ -217,17 +194,9 @@ const ROLE_GRANTS: Record<string, string[]> = {
     "strategy-engine.read",
     "strategy-engine.write",
     "strategy-engine.approve",
-    "markets.read",
-    "strategies.read",
-    "strategies.write",
-    "opportunities.read",
-    "decisions.read",
-    "decisions.approve",
-    "executions.read",
-    "executions.write",
-    "portfolio.read",
+    "ai-gateway.use",
   ],
-  FREE_USER: [...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read", "indicator-engine.read", "strategy-engine.read", "markets.read"],
+  FREE_USER: [...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read", "indicator-engine.read", "strategy-engine.read", "ai-gateway.use"],
 };
 
 // ─────────────────────────────────────────────────────────────────────────

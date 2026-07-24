@@ -1,20 +1,10 @@
-"use client";
-
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/lib/auth-store";
-
-export default function RootPage() {
-  const router = useRouter();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
-
-  useEffect(() => {
-    router.replace(isAuthenticated ? "/dashboard" : "/login");
-  }, [isAuthenticated, router]);
-
+export default function AdminHome() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <span className="text-sm text-muted-foreground">Loading…</span>
-    </div>
+    <main className="flex min-h-screen flex-col items-center justify-center gap-2 p-8">
+      <h1 className="text-2xl font-semibold">RMSM AI — Admin Portal</h1>
+      <p className="text-sm text-muted-foreground">
+        Module 001 — infrastructure only. Admin features begin in Module 005.
+      </p>
+    </main>
   );
 }

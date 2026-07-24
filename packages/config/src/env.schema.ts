@@ -8,7 +8,10 @@ import { z } from "zod";
 export const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "staging", "production"]).default("development"),
   APP_ENV: z.enum(["local", "development", "staging", "production"]).default("local"),
-
+// Logging
+  LOG_LEVEL: z
+  .enum(["fatal", "error", "warn", "info", "debug", "trace"])
+  .default("info"),
   // Database
   DATABASE_URL: z.string().url().or(z.string().startsWith("postgresql://")),
 
@@ -116,6 +119,32 @@ export const envSchema = z.object({
   STRATEGY_OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   STRATEGY_OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().default(20),
   STRATEGY_OUTBOX_MAX_RETRIES: z.coerce.number().int().positive().default(5),
+
+  // --- AI Phase 5.1: AI-201 Gateway ---
+  // Centralized, validated config — "provider selection must be
+  // configurable... changing providers must NOT require code changes"
+  // (this phase's own explicit rule). Every provider's own API
+  // key/base URL lives here, never read from process.env directly
+  // inside a provider adapter.
+  AI_GATEWAY_DEFAULT_PROVIDER: z.string().default("ollama"),
+  AI_GATEWAY_DEFAULT_CHAT_MODEL: z.string().default("llama3"),
+  AI_GATEWAY_DEFAULT_EMBED_MODEL: z.string().default("llama3"),
+  AI_GATEWAY_FALLBACK_PROVIDER: z.string().optional(),
+  AI_GATEWAY_CIRCUIT_FAILURE_THRESHOLD: z.coerce.number().int().positive().default(5),
+  AI_GATEWAY_CIRCUIT_COOLDOWN_MS: z.coerce.number().int().positive().default(30000),
+  AI_GATEWAY_MAX_RETRIES: z.coerce.number().int().min(0).default(2),
+  AI_GATEWAY_RETRY_BASE_DELAY_MS: z.coerce.number().int().positive().default(300),
+  AI_GATEWAY_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+  AI_GATEWAY_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(60),
+
+  // OPENAI_API_KEY is NOT redeclared here — it already exists above
+  // (the pre-existing "AI service" placeholder block, never wired to
+  // any real controller/service until this phase). Confirmed via a
+  // real search: its only other reference in this codebase was a test
+  // fixture building a full mock Env object, not actual business
+  // logic — this Gateway is the first real consumer.
+  OPENAI_BASE_URL: z.string().default("https://api.openai.com/v1"),
+  OLLAMA_BASE_URL: z.string().default("http://localhost:11434"),
 });
 
 export type Env = z.infer<typeof envSchema>;

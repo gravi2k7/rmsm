@@ -17,10 +17,10 @@
       "dependsOn": ["^lint"]
     },
     "typecheck": {
-      "dependsOn": ["^build", "^typecheck", "@rmsm/database#generate"]
+      "dependsOn": ["^typecheck", "@rmsm/database#generate"]
     },
     "test": {
-      "dependsOn": ["^build", "@rmsm/database#generate"]
+      "dependsOn": ["@rmsm/database#generate"]
     }
   }
 }
