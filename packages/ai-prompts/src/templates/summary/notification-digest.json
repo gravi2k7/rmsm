@@ -1,0 +1,24 @@
+{
+  "id": "summary.notification-digest.v1",
+  "name": "summary.notification-digest",
+  "description": "Summarizes a batch of pending notifications into a short digest.",
+  "version": "1.0.0",
+  "type": "SUMMARY",
+  "template": "Summarize the following {{count}} notifications for {{userName}} into 3 bullet points:\n\n{{items}}",
+  "variables": [
+    { "name": "count", "required": true, "description": "Number of notifications being summarized." },
+    { "name": "userName", "required": true, "description": "The recipient's display name." },
+    { "name": "items", "required": true, "description": "The raw notification list, newline-separated." }
+  ],
+  "metadata": {
+    "id": "summary.notification-digest.v1",
+    "name": "summary.notification-digest",
+    "description": "Summarizes a batch of pending notifications into a short digest.",
+    "tags": ["summary", "notifications"],
+    "providerCompatibility": [],
+    "temperatureRecommendation": 0.3,
+    "maxTokensRecommendation": 256,
+    "author": "platform",
+    "version": "1.0.0"
+  }
+}

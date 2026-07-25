@@ -1,0 +1,22 @@
+{
+  "id": "analysis.market-summary.v1",
+  "name": "analysis.market-summary",
+  "description": "Analyzes recent market data for a given instrument.",
+  "version": "1.0.0",
+  "type": "ANALYSIS",
+  "template": "Analyze the recent price action for {{symbol}} over the last {{period}} and summarize the key trend.",
+  "variables": [
+    { "name": "symbol", "required": true, "description": "The instrument symbol." },
+    { "name": "period", "required": false, "defaultValue": "30 days", "description": "The lookback window." }
+  ],
+  "metadata": {
+    "id": "analysis.market-summary.v1",
+    "name": "analysis.market-summary",
+    "description": "Analyzes recent market data for a given instrument.",
+    "tags": ["analysis", "market-data"],
+    "providerCompatibility": [],
+    "temperatureRecommendation": 0.3,
+    "author": "platform",
+    "version": "1.0.0"
+  }
+}

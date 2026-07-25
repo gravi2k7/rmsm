@@ -1,0 +1,23 @@
+{
+  "id": "coding.strategy-review.v1",
+  "name": "coding.strategy-review",
+  "description": "Reviews a trading strategy rule definition for structural or logical issues.",
+  "version": "1.0.0",
+  "type": "CODING",
+  "template": "Review the following {{language}} strategy rule definition for correctness and edge cases:\n\n{{code}}",
+  "variables": [
+    { "name": "language", "required": false, "defaultValue": "JSON", "description": "The rule definition language/format." },
+    { "name": "code", "required": true, "description": "The rule definition source to review." }
+  ],
+  "metadata": {
+    "id": "coding.strategy-review.v1",
+    "name": "coding.strategy-review",
+    "description": "Reviews a trading strategy rule definition for structural or logical issues.",
+    "tags": ["coding", "strategy-engine"],
+    "providerCompatibility": ["openai"],
+    "temperatureRecommendation": 0.1,
+    "maxTokensRecommendation": 1024,
+    "author": "platform",
+    "version": "1.0.0"
+  }
+}

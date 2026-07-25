@@ -18,6 +18,16 @@ if (process.env.NODE_ENV !== "production") {
 
 export * from "@prisma/client";
 
+// Sub-modules built out with their own clean barrels but never re-exported
+// from this package root until now — the same gap found and fixed in
+// @rmsm/config and @rmsm/ui during this stabilization pass.
+export * from "./pagination";
+export * from "./transactions";
+export * from "./interfaces";
+export * from "./filters";
+export * from "./errors";
+export * from "./repositories";
+
 // ─────────────────────────────────────────────────────────────────────────
 // Named relation-payload types.
 //
@@ -46,6 +56,18 @@ export type UserWithRoles = Prisma.UserGetPayload<{
 
 export type RoleWithPermissions = Prisma.RoleGetPayload<{
   include: { rolePermissions: { include: { permission: true } } };
+}>;
+
+/**
+ * Epic 8 role hierarchy. One level of `parentRole` only — matching
+ * `RuleGroup`'s own established pattern in this file for self-referential
+ * trees of unbounded depth (see the AI-103 section below): the actual
+ * ancestor walk happens in `PermissionResolverService.collectPermissions`,
+ * which re-queries one level at a time via `parentRoleId`, rather than
+ * this type trying to express unlimited nesting.
+ */
+export type RoleWithPermissionsAndParent = Prisma.RoleGetPayload<{
+  include: { rolePermissions: { include: { permission: true } }; parentRole: true };
 }>;
 
 export type UserAccountSummary = Prisma.UserGetPayload<{
@@ -85,8 +107,13 @@ export type OrganizationInvitationWithOrganization = Prisma.OrganizationInvitati
  * zero orchestration logic of its own — the transaction boundary itself is
  * a service-layer decision, per the repository/service split in
  * MODULE_003_PHASE_2_REPOSITORIES.md.
+ *
+ * `DbClient` itself now comes from `./interfaces` (re-exported above) --
+ * `interfaces/repository.interface.ts` defines the identical type; this
+ * file used to carry its own duplicate copy (from before that module
+ * existed), which became a real duplicate-export conflict once
+ * `./interfaces` was wired into this barrel.
  */
-export type DbClient = PrismaClient | Prisma.TransactionClient;
 
 // ─────────────────────────────────────────────────────────────────────────
 // Module 004 additions
@@ -140,20 +167,4 @@ export type StrategyTagAssignmentWithTag = Prisma.StrategyTagAssignmentGetPayloa
 
 export type StrategyWithTags = Prisma.StrategyGetPayload<{
   include: { tagAssignments: { include: { tag: true } } };
-}>;
-// Shared database utilities
-export * from "./pagination";
-export * from "./filters";
-export * from "./interfaces";
-export * from "./repositories";
-export * from "./transactions";
-export type RoleWithPermissionsAndParent = Prisma.RoleGetPayload<{
-  include: {
-    rolePermissions: {
-      include: {
-        permission: true;
-      };
-    };
-    parentRole: true;
-  };
 }>;

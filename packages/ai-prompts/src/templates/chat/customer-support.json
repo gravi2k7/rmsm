@@ -1,0 +1,23 @@
+{
+  "id": "chat.customer-support.v1",
+  "name": "chat.customer-support",
+  "description": "Support chat assistant for answering account and platform questions.",
+  "version": "1.0.0",
+  "type": "CHAT",
+  "template": "Hello {{userName}}, how can I help you with your {{organization}} account today?",
+  "variables": [
+    { "name": "userName", "required": true, "description": "The end user's display name." },
+    { "name": "organization", "required": false, "defaultValue": "RMSM", "description": "The organization name to reference." }
+  ],
+  "metadata": {
+    "id": "chat.customer-support.v1",
+    "name": "chat.customer-support",
+    "description": "Support chat assistant for answering account and platform questions.",
+    "tags": ["chat", "support"],
+    "providerCompatibility": ["openai", "ollama"],
+    "temperatureRecommendation": 0.4,
+    "maxTokensRecommendation": 512,
+    "author": "platform",
+    "version": "1.0.0"
+  }
+}

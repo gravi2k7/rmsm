@@ -1,0 +1,22 @@
+{
+  "id": "research.instrument-background.v1",
+  "name": "research.instrument-background",
+  "description": "Produces background research on a tradable instrument.",
+  "version": "1.0.0",
+  "type": "RESEARCH",
+  "template": "Provide background research on {{symbol}}, covering sector, recent news themes, and typical volatility profile as of {{asOfDate}}.",
+  "variables": [
+    { "name": "symbol", "required": true, "description": "The instrument symbol." },
+    { "name": "asOfDate", "required": false, "defaultValue": "today", "description": "The reference date for the research." }
+  ],
+  "metadata": {
+    "id": "research.instrument-background.v1",
+    "name": "research.instrument-background",
+    "description": "Produces background research on a tradable instrument.",
+    "tags": ["research", "market-data"],
+    "providerCompatibility": [],
+    "temperatureRecommendation": 0.5,
+    "author": "platform",
+    "version": "1.0.0"
+  }
+}

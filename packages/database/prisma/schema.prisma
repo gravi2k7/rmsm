@@ -178,21 +178,34 @@ model Role {
   id          String   @id @default(uuid())
   name        String   @unique
   description String?
+  /// System roles (seeded defaults) cannot be deleted via the API.
   isSystem    Boolean  @default(false)
-
+  /// Epic 8 — role hierarchy. Nullable: a role with no parent inherits
+  /// nothing. Restored here to match migrations/20260722112727_initial_baseline
+  /// (itself a correct, additive carry-forward of the original
+  /// 20260718000000_epic8_role_hierarchy migration) — that migration
+  /// SQL already added this column, its index, and this exact FK to the
+  /// real database; this model block just never had the field added
+  /// back after the migration history was squashed into that baseline,
+  /// which is why `prisma generate` produced a client without it despite
+  /// the column genuinely existing wherever migrations have been applied.
   parentRoleId String?
-
-  parentRole Role? @relation("RoleHierarchy", fields: [parentRoleId], references: [id], onDelete: SetNull)
-  childRoles Role[] @relation("RoleHierarchy")
-
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  /// `SetNull`/`Cascade` match the FK exactly as written in both the
+  /// original epic8 migration and its carry-forward in the baseline
+  /// squash — deleting a parent role clears its children's
+  /// `parentRoleId` rather than deleting the children.
+  parentRole      Role?            @relation("RoleHierarchy", fields: [parentRoleId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  childRoles      Role[]           @relation("RoleHierarchy")
   rolePermissions RolePermission[]
   userRoles       UserRole[]
 
+  @@index([parentRoleId])
   @@map("roles")
 }
+
 model Permission {
   id          String   @id @default(uuid())
   /// Dotted key, e.g. "users.read", "signals.write". Application code
