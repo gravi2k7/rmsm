@@ -1,3 +1,7 @@
+import { DomainError } from "@rmsm/core";
+import { mapDomainErrorToAppError } from "../../application/common/errors/domain-error.mapper";
+import { Prisma } from "@rmsm/database";
+import { mapPrismaErrorToAppError } from "../../application/common/errors/prisma-error.mapper";
 import {
   ArgumentsHost,
   Catch,
@@ -20,6 +24,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost): void {
+    
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
@@ -28,7 +33,17 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let code = "INTERNAL_ERROR";
     let message = "An unexpected error occurred";
     let details: unknown;
-
+    if (exception instanceof DomainError) {
+    exception = mapDomainErrorToAppError(exception);
+        }
+    if (
+      exception instanceof Prisma.PrismaClientKnownRequestError ||
+      exception instanceof Prisma.PrismaClientValidationError ||
+      exception instanceof Prisma.PrismaClientInitializationError ||
+      exception instanceof Prisma.PrismaClientRustPanicError
+     ) {
+     exception = mapPrismaErrorToAppError(exception);
+   } 
     if (exception instanceof AppError) {
       status = exception.statusCode;
       code = exception.code;
@@ -41,8 +56,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       code = HttpStatus[status] ?? "HTTP_ERROR";
       details = typeof res === "object" ? res : undefined;
     } else if (exception instanceof Error) {
-      message = exception.message;
-    }
+       code = "INTERNAL_ERROR";
+        message = "An unexpected error occurred";
+      }
 
     if (status >= 500) {
       this.logger.error(`[${request.requestId ?? "no-request-id"}] ${request.method} ${request.url} -> ${status}`, (exception as Error)?.stack);

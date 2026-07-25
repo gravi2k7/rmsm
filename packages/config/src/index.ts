@@ -1,21 +1,12 @@
-import { envSchema, type Env } from "./env.schema";
+import { validateEnv, type Env } from "./env/env.validator";
 
 let cached: Env | null = null;
 
 export function loadConfig(): Env {
   if (cached) return cached;
 
-  const parsed = envSchema.safeParse(process.env);
+  cached = validateEnv(process.env);
 
-  if (!parsed.success) {
-    const issues = parsed.error.issues
-      .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
-      .join("\n");
-
-    throw new Error(`Invalid environment configuration:\n${issues}`);
-  }
-
-  cached = parsed.data;
   return cached;
 }
 
@@ -32,5 +23,7 @@ export function isTest(env?: Env): boolean {
   const cfg = env ?? loadConfig();
   return cfg.NODE_ENV === "test";
 }
+
+export { ConfigValidationError } from "./types/config.types";
 
 export type { Env } from "./env.schema";

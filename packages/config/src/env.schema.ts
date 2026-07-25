@@ -8,6 +8,16 @@ import { z } from "zod";
 export const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "staging", "production"]).default("development"),
   APP_ENV: z.enum(["local", "development", "staging", "production"]).default("local"),
+  CORS_ALLOWED_ORIGINS: z
+  .string()
+  .default("")
+    .transform((value): string[] =>
+    value
+      .split(",")
+      .map(origin => origin.trim())
+      .filter(Boolean)
+  ),
+
 // Logging
   LOG_LEVEL: z
   .enum(["fatal", "error", "warn", "info", "debug", "trace"])

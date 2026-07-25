@@ -178,8 +178,13 @@ model Role {
   id          String   @id @default(uuid())
   name        String   @unique
   description String?
-  /// System roles (seeded defaults) cannot be deleted via the API.
   isSystem    Boolean  @default(false)
+
+  parentRoleId String?
+
+  parentRole Role? @relation("RoleHierarchy", fields: [parentRoleId], references: [id], onDelete: SetNull)
+  childRoles Role[] @relation("RoleHierarchy")
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -188,7 +193,6 @@ model Role {
 
   @@map("roles")
 }
-
 model Permission {
   id          String   @id @default(uuid())
   /// Dotted key, e.g. "users.read", "signals.write". Application code

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 RUN corepack enable
 WORKDIR /workspace
 
@@ -24,7 +24,7 @@ COPY . .
 RUN pnpm --filter @rmsm/database generate
 RUN pnpm --filter @rmsm/api build
 
-FROM node:20-alpine AS production
+FROM node:24-alpine AS production
 RUN corepack enable
 WORKDIR /workspace
 ENV NODE_ENV=production

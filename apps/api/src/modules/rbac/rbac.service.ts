@@ -2,10 +2,14 @@ import { Injectable } from "@nestjs/common";
 import { prisma, Role, Permission, RolePermission, UserRole, RoleWithPermissions } from "@rmsm/database";
 import { NotFoundError, ValidationError } from "@rmsm/shared";
 import { AuditService } from "../auth/services/audit.service";
+import { PermissionResolverService } from "./services/permission-resolver.service";
 
 @Injectable()
 export class RbacService {
-  constructor(private readonly auditService: AuditService) {}
+  constructor(
+  private readonly auditService: AuditService,
+  private readonly permissionResolver: PermissionResolverService,
+) {}
 
   listRoles(): Promise<RoleWithPermissions[]> {
     return prisma.role.findMany({
@@ -109,4 +113,57 @@ export class RbacService {
       metadata: { permissionId },
     });
   }
+  async setParentRole(
+  roleId: string,
+  parentRoleId: string | null,
+  actorUserId: string,
+) {
+  const role = await prisma.role.findUnique({
+    where: { id: roleId },
+   });
+
+if (!role) {
+  throw new NotFoundError("Role", roleId);
+  }
+  if (parentRoleId === roleId) {
+  throw new ValidationError("A role cannot be its own parent.");
+}
+let parentRole: Role | null = null;
+
+if (parentRoleId !== null) {
+  parentRole = await prisma.role.findUnique({
+    where: { id: parentRoleId },
+  });
+
+  if (!parentRole) {
+    throw new NotFoundError("Role", parentRoleId);
+  }
+}
+if (parentRoleId !== null) {
+  const ancestors = await this.permissionResolver.getAncestorChain(parentRoleId);
+
+  if (ancestors.includes(roleId)) {
+    throw new ValidationError(
+      "This parent assignment would create a circular role hierarchy.",
+    );
+  }
+}
+const updatedRole = await prisma.role.update({
+  where: { id: roleId },
+  data: { parentRoleId },
+});await this.auditService.log("role.parent.updated", {
+  userId: actorUserId,
+  entityType: "Role",
+  entityId: roleId,
+  metadata: {
+    previousParentRoleId: role.parentRoleId,
+    newParentRoleId: parentRoleId,
+  },
+});
+
+return updatedRole;
+}
+  async getRoleAncestors(roleId: string): Promise<string[]> {
+  return this.permissionResolver.getAncestorChain(roleId);
+}
 }

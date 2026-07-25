@@ -1,5 +1,3 @@
-version: "3.9"
-
 networks:
   rmsm_network:
     driver: bridge
@@ -48,8 +46,11 @@ services:
     ports:
       - "3001:3001"
     volumes:
-      - ../../:/workspace
-      - /workspace/node_modules
+    - ../../:/workspace
+    - /workspace/node_modules
+    - /workspace/apps/api/node_modules
+    - /workspace/packages/database/node_modules
+    - /workspace/packages/config/node_modules
     networks: [rmsm_network]
     depends_on:
       postgres: { condition: service_healthy }
@@ -88,9 +89,10 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ../../:/workspace
-      - /workspace/node_modules
-      - /workspace/apps/web/.next
+    - ../../:/workspace
+    - /workspace/node_modules
+    - /workspace/apps/web/node_modules
+    - /workspace/apps/web/.next
     networks: [rmsm_network]
     depends_on:
       api: { condition: service_healthy }
@@ -110,9 +112,10 @@ services:
     ports:
       - "3002:3002"
     volumes:
-      - ../../:/workspace
-      - /workspace/node_modules
-      - /workspace/apps/admin/.next
+    - ../../:/workspace
+    - /workspace/node_modules
+    - /workspace/apps/admin/node_modules
+    - /workspace/apps/admin/.next
     networks: [rmsm_network]
     depends_on:
       api: { condition: service_healthy }

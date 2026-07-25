@@ -141,3 +141,19 @@ export type StrategyTagAssignmentWithTag = Prisma.StrategyTagAssignmentGetPayloa
 export type StrategyWithTags = Prisma.StrategyGetPayload<{
   include: { tagAssignments: { include: { tag: true } } };
 }>;
+// Shared database utilities
+export * from "./pagination";
+export * from "./filters";
+export * from "./interfaces";
+export * from "./repositories";
+export * from "./transactions";
+export type RoleWithPermissionsAndParent = Prisma.RoleGetPayload<{
+  include: {
+    rolePermissions: {
+      include: {
+        permission: true;
+      };
+    };
+    parentRole: true;
+  };
+}>;
