@@ -417,6 +417,267 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
 
+  packages/ai-agent-analytics:
+    dependencies:
+      '@rmsm/ai-agents':
+        specifier: workspace:*
+        version: link:../ai-agents
+      '@rmsm/ai-observability':
+        specifier: workspace:*
+        version: link:../ai-observability
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-agent-memory:
+    dependencies:
+      '@rmsm/ai-agents':
+        specifier: workspace:*
+        version: link:../ai-agents
+      '@rmsm/ai-memory':
+        specifier: workspace:*
+        version: link:../ai-memory
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-agent-registry:
+    dependencies:
+      '@rmsm/ai-agents':
+        specifier: workspace:*
+        version: link:../ai-agents
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-agent-security:
+    dependencies:
+      '@rmsm/ai-tools':
+        specifier: workspace:*
+        version: link:../ai-tools
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-agent-workflows:
+    dependencies:
+      '@rmsm/ai-agents':
+        specifier: workspace:*
+        version: link:../ai-agents
+      '@rmsm/ai-workflows':
+        specifier: workspace:*
+        version: link:../ai-workflows
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-agents:
+    dependencies:
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-chat:
+    dependencies:
+      '@rmsm/ai-memory':
+        specifier: workspace:*
+        version: link:../ai-memory
+      '@rmsm/ai-prompts':
+        specifier: workspace:*
+        version: link:../ai-prompts
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-classification:
+    dependencies:
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-documents:
+    dependencies:
+      '@rmsm/ai-memory':
+        specifier: workspace:*
+        version: link:../ai-memory
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-embeddings:
+    dependencies:
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-extraction:
+    dependencies:
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-hitl:
+    dependencies:
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
   packages/ai-memory:
     dependencies:
       '@rmsm/core':
@@ -452,12 +713,179 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
 
+  packages/ai-orchestration:
+    dependencies:
+      '@rmsm/ai-agents':
+        specifier: workspace:*
+        version: link:../ai-agents
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-planning:
+    dependencies:
+      '@rmsm/ai-agents':
+        specifier: workspace:*
+        version: link:../ai-agents
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
   packages/ai-prompts:
     dependencies:
       zod:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-rag:
+    dependencies:
+      '@rmsm/ai-memory':
+        specifier: workspace:*
+        version: link:../ai-memory
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-research:
+    dependencies:
+      '@rmsm/ai-memory':
+        specifier: workspace:*
+        version: link:../ai-memory
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-summarization:
+    dependencies:
+      '@rmsm/ai-memory':
+        specifier: workspace:*
+        version: link:../ai-memory
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-tools:
+    dependencies:
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-translation:
+    dependencies:
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(jsdom@24.1.3)(terser@5.49.0)
+
+  packages/ai-workflows:
+    dependencies:
+      '@rmsm/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
