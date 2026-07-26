@@ -9,7 +9,8 @@ import { IconWrapper } from "@/components/public/icons";
 import { AICapabilityGrid, AIWorkflowCard } from "@/components/public/ai";
 import { Container } from "@/components/public/container";
 import { Section } from "@/components/public/section";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, webPageJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/public/json-ld";
 import {
   aiAgentPlatform,
   aiArchitectureLayers,
@@ -29,6 +30,7 @@ export const metadata = buildMetadata({
   path: "/ai",
   description:
     "RMSM's enterprise AI platform: AI agents, decision intelligence, and retrieval-augmented enterprise knowledge, architected for the governance and security requirements of institutional trading and investment teams.",
+  keywords: ["enterprise AI platform", "AI trading agents", "decision intelligence software"],
 });
 
 /**
@@ -43,6 +45,7 @@ export const metadata = buildMetadata({
 export default function AiPage() {
   return (
     <>
+      <JsonLd data={webPageJsonLd({ title: "AI Solutions", description: "RMSM's enterprise AI platform: AI agents, decision intelligence, and retrieval-augmented enterprise knowledge, architected for the governance and security requirements of institutional trading and investment teams.", path: "/ai" })} />
       <HeroSplit {...aiHero} />
 
       <Section>

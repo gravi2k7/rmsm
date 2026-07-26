@@ -8,7 +8,8 @@ import { SectionHeader } from "@/components/public/content";
 import { IconWrapper } from "@/components/public/icons";
 import { Container } from "@/components/public/container";
 import { Section } from "@/components/public/section";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, webPageJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/public/json-ld";
 import { ContactForm } from "./contact-form";
 import { contactFaqs, contactHero, contactOptions, enterpriseServices, globalPresence } from "./content";
 
@@ -17,6 +18,7 @@ export const metadata = buildMetadata({
   path: "/contact",
   description:
     "Contact RMSM to talk to sales, request a product demo, ask technical questions, discuss enterprise licensing, or explore partnerships.",
+  keywords: ["contact RMSM", "request a demo", "enterprise trading platform sales"],
 });
 
 /**
@@ -31,6 +33,7 @@ export const metadata = buildMetadata({
 export default function ContactPage() {
   return (
     <>
+      <JsonLd data={webPageJsonLd({ title: "Contact", description: "Contact RMSM to talk to sales, request a product demo, ask technical questions, discuss enterprise licensing, or explore partnerships.", path: "/contact" })} />
       <HeroCentered {...contactHero} />
 
       <Section id="contact-options">

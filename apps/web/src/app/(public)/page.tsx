@@ -8,7 +8,8 @@ import { SectionHeader } from "@/components/public/content";
 import { IconWrapper } from "@/components/public/icons";
 import { Container } from "@/components/public/container";
 import { Section } from "@/components/public/section";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, webPageJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/public/json-ld";
 import {
   architectureCards,
   benefits,
@@ -25,6 +26,7 @@ export const metadata = buildMetadata({
   path: "/",
   description:
     "RMSM is an institutional-grade AI trading platform combining real-time market intelligence, strategy execution, portfolio risk management, and AI-driven trading copilots.",
+  keywords: ["enterprise trading platform", "AI trading intelligence", "institutional trading software", "portfolio risk management"],
 });
 
 /**
@@ -38,6 +40,7 @@ export const metadata = buildMetadata({
 export default function HomePage() {
   return (
     <>
+      <JsonLd data={webPageJsonLd({ title: undefined, description: "RMSM is an institutional-grade AI trading platform combining real-time market intelligence, strategy execution, portfolio risk management, and AI-driven trading copilots.", path: "/" })} />
       <HeroWithImage {...heroContent} background="gradient" />
 
       <Section>

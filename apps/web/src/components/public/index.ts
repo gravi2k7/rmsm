@@ -19,6 +19,7 @@ export * from "./container";
 export * from "./cookie-banner";
 export * from "./footer";
 export * from "./header";
+export * from "./json-ld";
 export * from "./mega-menu";
 export * from "./mobile-nav";
 export * from "./page-shell";

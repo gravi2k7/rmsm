@@ -17,7 +17,9 @@ describe("Header", () => {
     expect(screen.getByRole("button", { name: "Resources" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Company" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Login" })).toHaveAttribute("href", "/login");
-    expect(screen.getByRole("link", { name: "Get started" })).toHaveAttribute("href", "/register");
+    // WM-015R: "/register" never existed as a route (Part 13 broken-link
+    // fix) — ctaConfig.primary.href now correctly points at /contact.
+    expect(screen.getByRole("link", { name: "Get started" })).toHaveAttribute("href", "/contact");
   });
 
   it("renders a mobile menu trigger", () => {

@@ -8,7 +8,8 @@ import { SectionHeader } from "@/components/public/content";
 import { IconWrapper } from "@/components/public/icons";
 import { Container } from "@/components/public/container";
 import { Section } from "@/components/public/section";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, webPageJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/public/json-ld";
 import {
   assetClassCoverage,
   enterpriseAnalytics,
@@ -27,6 +28,7 @@ export const metadata = buildMetadata({
   path: "/markets",
   description:
     "RMSM Enterprise Markets: unified intelligence across equities, futures, options, forex, commodities, fixed income, ETFs, cryptocurrency, and indices — with enterprise-grade analytics, AI, and decision support.",
+  keywords: ["multi-asset trading platform", "market intelligence software", "institutional market analytics"],
 });
 
 /**
@@ -46,6 +48,7 @@ export const metadata = buildMetadata({
 export default function MarketsPage() {
   return (
     <>
+      <JsonLd data={webPageJsonLd({ title: "Markets", description: "RMSM Enterprise Markets: unified intelligence across equities, futures, options, forex, commodities, fixed income, ETFs, cryptocurrency, and indices — with enterprise-grade analytics, AI, and decision support.", path: "/markets" })} />
       <HeroSplit {...marketsHero} />
 
       <Section id="markets">

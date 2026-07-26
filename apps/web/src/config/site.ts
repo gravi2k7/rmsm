@@ -12,6 +12,11 @@ export const siteConfig = {
     "RMSM is an institutional-grade platform combining real-time market intelligence, strategy execution, portfolio risk management, and AI-driven trading copilots.",
   url: process.env.NEXT_PUBLIC_WEBSITE_URL ?? "http://localhost:3000",
   locale: "en_US",
+  /** WM-015R Part 1/9 — single source of truth for the root layout's
+   * `viewport` export and `manifest.ts`'s PWA `theme_color`, so the two
+   * never drift. Same value `manifest.ts` already hardcoded since WM-001R —
+   * not a new visual decision, just de-duplicating an existing one. */
+  themeColor: "#0f172a",
 } as const;
 
 /** Header logo placeholder (Task 1/14) — swap `text` for a real mark/SVG in
@@ -21,10 +26,16 @@ export const logoConfig = {
   href: "/",
 } as const;
 
-/** Header CTA + login button targets (Task 1/14). */
+/** Header CTA + login button targets (Task 1/14).
+ * WM-015R Part 13 — `primary.href` pointed at `/register`, a route that
+ * has never existed in this repo (verified: no `/register` page anywhere
+ * under `src/app`). Site-wide dead link, since this drives the header's
+ * "Get started" CTA on every public page. Repointed to `/contact`, the
+ * one real conversion surface every other CTA on the site already routes
+ * to — not a new feature, just fixing a broken link to an existing route. */
 export const ctaConfig = {
   login: { label: "Log in", href: "/login" },
-  primary: { label: "Get started", href: "/register" },
+  primary: { label: "Get started", href: "/contact" },
 } as const;
 
 export interface FooterLink {

@@ -7,7 +7,8 @@ import { CTABanner } from "@/components/public/cta";
 import { SectionHeader } from "@/components/public/content";
 import { Container } from "@/components/public/container";
 import { Section } from "@/components/public/section";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, webPageJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/public/json-ld";
 import {
   aboutHero,
   aboutTeamGroups,
@@ -27,6 +28,7 @@ export const metadata = buildMetadata({
   path: "/company",
   description:
     "About RMSM: building the next generation enterprise platform for intelligent trading, investment operations, AI automation, and market intelligence.",
+  keywords: ["about RMSM", "enterprise trading technology company"],
 });
 
 /**
@@ -43,6 +45,7 @@ export const metadata = buildMetadata({
 export default function AboutPage() {
   return (
     <>
+      <JsonLd data={webPageJsonLd({ title: "About", description: "About RMSM: building the next generation enterprise platform for intelligent trading, investment operations, AI automation, and market intelligence.", path: "/company" })} />
       <HeroCentered {...aboutHero} />
 
       <Section>

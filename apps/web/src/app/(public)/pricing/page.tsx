@@ -6,7 +6,8 @@ import { CTABanner } from "@/components/public/cta";
 import { SectionHeader } from "@/components/public/content";
 import { Container } from "@/components/public/container";
 import { Section } from "@/components/public/section";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, webPageJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/public/json-ld";
 import {
   customPlan,
   deploymentOptions,
@@ -26,6 +27,7 @@ export const metadata = buildMetadata({
   path: "/pricing",
   description:
     "RMSM Enterprise Pricing: flexible, modular licensing for professional traders, investment firms, and enterprise organizations. Contact sales for a tailored quote.",
+  keywords: ["enterprise software pricing", "trading platform pricing"],
 });
 
 /**
@@ -39,6 +41,7 @@ export const metadata = buildMetadata({
 export default function PricingPage() {
   return (
     <>
+      <JsonLd data={webPageJsonLd({ title: "Pricing", description: "RMSM Enterprise Pricing: flexible, modular licensing for professional traders, investment firms, and enterprise organizations. Contact sales for a tailored quote.", path: "/pricing" })} />
       <HeroCentered {...pricingHero} />
 
       <Section>
