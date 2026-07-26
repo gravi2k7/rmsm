@@ -32,10 +32,15 @@ export const logoConfig = {
  * under `src/app`). Site-wide dead link, since this drives the header's
  * "Get started" CTA on every public page. Repointed to `/contact`, the
  * one real conversion surface every other CTA on the site already routes
- * to — not a new feature, just fixing a broken link to an existing route. */
+ * to — not a new feature, just fixing a broken link to an existing route.
+ *
+ * WM-020A — `/signup` now exists (Enterprise Sign Up, frontend-only), so
+ * the header's primary CTA becomes a genuine self-serve entry point
+ * instead of routing every visitor into a sales conversation. Consumed by
+ * both `Header` and `MobileNav`, so this one change updates both. */
 export const ctaConfig = {
   login: { label: "Log in", href: "/login" },
-  primary: { label: "Get started", href: "/contact" },
+  primary: { label: "Start Free Trial", href: "/signup" },
 } as const;
 
 export interface FooterLink {

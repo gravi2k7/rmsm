@@ -33,7 +33,10 @@ export const heroContent = {
   subtitle: "Real-time market intelligence, execution, and risk management in one enterprise-grade platform.",
   description:
     "RMSM brings market data, AI-driven signals, strategy execution, and portfolio risk management together in a single, auditable workspace built for institutional trading desks.",
-  primaryCta: { label: "Request Demo", href: "/contact" },
+  // WM-020A — hero primary CTA now drives self-serve signup instead of
+  // a sales conversation; "Request Demo" still exists site-wide (this
+  // page's own closing CTABanner, and every other page's), unchanged.
+  primaryCta: { label: "Start Free Trial", href: "/signup" },
   secondaryCta: { label: "Explore Platform", href: "/platform" },
 } as const;
 

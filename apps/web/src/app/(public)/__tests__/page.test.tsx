@@ -3,12 +3,15 @@ import { render, screen } from "@testing-library/react";
 import HomePage, { metadata } from "../page";
 
 describe("HomePage (WM-004R)", () => {
-  it("renders the hero headline and Request Demo / Explore Platform CTAs", () => {
+  it("renders the hero headline and Start Free Trial / Explore Platform CTAs", () => {
     render(<HomePage />);
     expect(
       screen.getByRole("heading", { level: 1, name: /enterprise ai trading intelligence, unified for the modern desk/i }),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /request demo/i }).length).toBeGreaterThan(0);
+    // WM-020A — hero's primary CTA now drives self-serve signup; the
+    // closing CTABanner further down the page still says "Request Demo",
+    // which is covered by the section-rendering test below.
+    expect(screen.getByRole("link", { name: /start free trial/i })).toHaveAttribute("href", "/signup");
     expect(screen.getAllByRole("link", { name: /explore platform/i }).length).toBeGreaterThan(0);
   });
 

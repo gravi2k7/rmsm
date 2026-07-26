@@ -40,7 +40,10 @@ export const pricingHero = {
   badge: "Modular licensing, built for scale",
   title: "Enterprise Pricing",
   subtitle: "Flexible plans designed for professional traders, investment firms, and enterprise organizations.",
-  primaryCta: { label: "Talk to Sales", href: "/contact" },
+  // WM-020A — self-serve trial replaces "Talk to Sales" as the hero's
+  // primary path; secondary "Request Demo" CTA and every per-plan
+  // "Talk to Sales" button below are unchanged (still /contact).
+  primaryCta: { label: "Start Free Trial", href: "/signup" },
   secondaryCta: { label: "Request Demo", href: "/contact" },
 } as const;
 

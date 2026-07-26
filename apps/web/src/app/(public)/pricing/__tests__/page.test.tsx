@@ -3,9 +3,13 @@ import { render, screen } from "@testing-library/react";
 import PricingPage, { metadata } from "../page";
 
 describe("PricingPage (WM-008R)", () => {
-  it("renders the hero headline and Talk to Sales / Request Demo CTAs", () => {
+  it("renders the hero headline and Start Free Trial / Request Demo CTAs, plus per-plan Talk to Sales CTAs", () => {
     render(<PricingPage />);
     expect(screen.getByRole("heading", { level: 1, name: /^enterprise pricing$/i })).toBeInTheDocument();
+    // WM-020A — hero's primary CTA now drives self-serve signup; the
+    // secondary "Request Demo" CTA and every per-plan "Talk to Sales"
+    // button are unchanged.
+    expect(screen.getByRole("link", { name: /start free trial/i })).toHaveAttribute("href", "/signup");
     expect(screen.getAllByRole("link", { name: /talk to sales/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("link", { name: /request demo/i }).length).toBeGreaterThan(0);
   });
