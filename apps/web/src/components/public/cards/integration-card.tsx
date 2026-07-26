@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@rmsm/ui";
 import { cn } from "@/lib/utils";
 
-interface IntegrationCardProps {
+export interface IntegrationCardProps {
   name: string;
   logoSrc?: string;
   description?: string;

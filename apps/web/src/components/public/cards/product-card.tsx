@@ -5,7 +5,7 @@ import { Badge, Card, CardContent, CardHeader, CardTitle, CardDescription } from
 import { cn } from "@/lib/utils";
 import { IconWrapper } from "@/components/public/icons";
 
-interface ProductCardProps {
+export interface ProductCardProps {
   icon?: LucideIcon;
   name: string;
   description: string;
