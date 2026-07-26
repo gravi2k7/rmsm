@@ -1,5 +1,17 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * The full semantic color token set `@rmsm/ui`'s components already
+ * reference (`bg-primary`, `bg-accent`, `bg-popover`, `bg-muted`, `bg-
+ * destructive`, `border-input`, `ring-ring`, etc. — see e.g.
+ * packages/ui/src/components/button.tsx). Previously only `border`/
+ * `background`/`foreground` were mapped here, which meant every one of
+ * those classes — already used throughout the existing dashboard
+ * (Button/Badge/Card/Alert/...) as well as the new public shell — compiled
+ * to no CSS rule at all. Purely additive: no component's markup or logic
+ * changes, this only makes the classes they already use actually resolve.
+ * CSS variables are defined in `src/app/globals.css`.
+ */
 const config: Config = {
   darkMode: "class",
   content: [
@@ -10,8 +22,34 @@ const config: Config = {
     extend: {
       colors: {
         border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
