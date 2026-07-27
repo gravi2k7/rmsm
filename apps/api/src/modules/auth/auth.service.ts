@@ -32,6 +32,10 @@ export interface RegisterInput {
   password: string;
   firstName?: string;
   lastName?: string;
+  /** WM-020D — organization name override; see RegisterDto's own comment. */
+  companyName?: string;
+  /** WM-020E — see RegisterDto's own comment. */
+  invitationToken?: string;
 }
 
 export interface AuthTokens {
@@ -74,7 +78,7 @@ export class AuthService {
    * defense wasn't actually serving a caller that needed it.
    */
   async register(input: RegisterInput, ctx: RequestContext): Promise<{ message: string }> {
-    const { email, password, firstName, lastName } = input;
+    const { email, password, firstName, lastName, companyName, invitationToken } = input;
 
     const existing = await this.userRepository.findByEmail(email);
     if (existing) {
@@ -84,13 +88,26 @@ export class AuthService {
     const passwordHash = await this.passwordService.hash(password);
     const user = await this.userRepository.create({ email, passwordHash, firstName, lastName });
 
-    await this.issueEmailVerification(user.id, email);
+    await this.issueEmailVerification(user.id, email, { companyName, invitationToken });
     await this.auditService.log("user.registered", { userId: user.id, ...ctx });
 
     return { message: "If that email is available, an account has been created." };
   }
 
-  private async issueEmailVerification(userId: string, email: string): Promise<void> {
+  /**
+   * WM-020D/E — `companyName`/`invitationToken` (both optional) are
+   * round-tripped through the verification link as query params rather
+   * than persisted anywhere, so OnboardingService (a separate module —
+   * see its own file for why it isn't injected here directly) can read
+   * them back off the `/verify-email` page's URL without a schema change
+   * or a new holding table for state that's only needed once, briefly,
+   * between these two requests.
+   */
+  private async issueEmailVerification(
+    userId: string,
+    email: string,
+    opts: { companyName?: string; invitationToken?: string } = {},
+  ): Promise<void> {
     const raw = randomBytes(32).toString("base64url");
     const tokenHash = createHash("sha256").update(raw).digest("hex");
     await prisma.emailVerification.create({
@@ -100,12 +117,32 @@ export class AuthService {
         expiresAt: new Date(Date.now() + this.config.EMAIL_VERIFICATION_TTL_MS),
       },
     });
-    const link = `${this.config.WEB_APP_URL}/verify-email?token=${raw}`;
+    const params = new URLSearchParams({ token: raw });
+    if (opts.companyName) params.set("companyName", opts.companyName);
+    if (opts.invitationToken) params.set("invitationToken", opts.invitationToken);
+    const link = `${this.config.WEB_APP_URL}/verify-email?${params.toString()}`;
     const { subject, html } = verificationEmail(link);
     await this.emailService.send({ to: email, subject, html });
   }
 
-  async verifyEmail(rawToken: string): Promise<{ message: string }> {
+  /**
+   * WM-020F — this is the single source of truth for validating and
+   * consuming an email-verification token. It now also returns the
+   * verified user's id: OnboardingService (a separate module that
+   * orchestrates what happens right after verification — organization
+   * auto-creation or invitation acceptance) needs to know which user was
+   * just verified, and the only correct way to get that is from this
+   * method's own lookup, since it's the one place that already resolves
+   * and validates the token record. There is deliberately no separate
+   * "resolve the token first" helper on this service — that would be a
+   * second, independent token-hash lookup living outside the single
+   * validation path, duplicating the expiry/reuse checks below and
+   * risking drift between the two. Callers that only need the message
+   * (e.g. AuthController's public `/auth/verify-email` HTTP response)
+   * simply ignore the extra field — this is a non-breaking, additive
+   * change to the return shape, not a new API surface.
+   */
+  async verifyEmail(rawToken: string): Promise<{ message: string; userId: string }> {
     const tokenHash = createHash("sha256").update(rawToken).digest("hex");
     const record = await prisma.emailVerification.findUnique({ where: { tokenHash } });
     if (!record || record.verifiedAt || record.expiresAt < new Date()) {
@@ -127,7 +164,7 @@ export class AuthService {
     }
     await this.auditService.log("user.email_verified", { userId: record.userId });
 
-    return { message: "Email verified successfully." };
+    return { message: "Email verified successfully.", userId: record.userId };
   }
 
   /**

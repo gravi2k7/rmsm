@@ -89,7 +89,7 @@ describe("AuthService email verification (WM-020C)", () => {
       });
       expect(emailService.send).toHaveBeenCalledTimes(1);
       expect(auditService.log).toHaveBeenCalledWith("user.email_verified", { userId: "user-1" });
-      expect(result).toEqual({ message: expect.stringContaining("verified successfully") });
+      expect(result).toEqual({ message: expect.stringContaining("verified successfully"), userId: "user-1" });
     });
 
     it("rejects a token that doesn't exist", async () => {

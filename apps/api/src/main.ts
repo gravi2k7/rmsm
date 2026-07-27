@@ -8,6 +8,7 @@ import cookieParser from "cookie-parser";
 import { loadConfig } from "@rmsm/config";
 import { AppModule } from "./app.module";
 import { winstonLogger } from "./common/logger/winston.config";
+import { resolveCorsOrigins } from "./common/cors/resolve-cors-origins";
 
 async function bootstrap() {
   const config = loadConfig();
@@ -21,10 +22,17 @@ async function bootstrap() {
   // token delivery mode on web (see Module 002 doc, Security Design).
   app.use(cookieParser(config.COOKIE_SECRET));
 
-  // CORS — locked to known frontends; extended per-environment via env vars
-  // in a later module once allowed origins are finalized.
+  // CORS — WM-020F: wires up the already-built, already-tested SEC-001
+  // fix (see common/cors/resolve-cors-origins.ts) that this bootstrap
+  // code was never actually updated to call. The previous inline
+  // `config.APP_ENV === "local" ? true : []` meant every non-local
+  // environment silently rejected all cross-origin requests outright —
+  // resolveCorsOrigins() instead uses the explicit CORS_ALLOWED_ORIGINS
+  // allowlist when set, or falls back to [WEB_APP_URL] so the API is
+  // never unreachable from its own frontend by default. No behavior
+  // change for local (still fully permissive).
   app.enableCors({
-    origin: config.APP_ENV === "local" ? true : [], // local: permissive; else: explicit allowlist TBD
+    origin: resolveCorsOrigins(config),
     credentials: true,
   });
 

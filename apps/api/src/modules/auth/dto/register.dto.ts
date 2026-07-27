@@ -47,4 +47,29 @@ export class RegisterDto {
   @IsBoolean()
   @Equals(true, { message: "You must accept the Terms of Service to register." })
   acceptTerms?: boolean;
+
+  /**
+   * WM-020D — used to name the organization auto-created once this
+   * account's email is verified (see OnboardingService). Optional: when
+   * omitted, the organization is named "<firstName>'s Organization" per
+   * WM-020D's own naming rule.
+   */
+  @ApiPropertyOptional({ example: "Acme Trading Desk" })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  companyName?: string;
+
+  /**
+   * WM-020E — set when this registration originated from an organization
+   * invitation link (`/invitations/accept?token=...` routed an
+   * unauthenticated visitor here). Carried through to email verification
+   * (see AuthService.issueEmailVerification()) so OnboardingService can
+   * accept the invitation automatically instead of creating a new
+   * organization, per WM-020D's "Existing Invitation" requirement.
+   */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  invitationToken?: string;
 }

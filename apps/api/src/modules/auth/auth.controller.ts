@@ -48,7 +48,14 @@ export class AuthController {
   @ApiOperation({ summary: "Register a new account (enterprise trial signup or legacy email/password). Sends an email verification link." })
   register(@Body() dto: RegisterDto, @Req() req: Request): Promise<RegisterResponseDto> {
     return this.authService.register(
-      { email: dto.email, password: dto.password, firstName: dto.firstName, lastName: dto.lastName },
+      {
+        email: dto.email,
+        password: dto.password,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        companyName: dto.companyName,
+        invitationToken: dto.invitationToken,
+      },
       requestContext(req),
     );
   }
@@ -56,8 +63,14 @@ export class AuthController {
   @Public()
   @Post("verify-email")
   @ApiOperation({ summary: "Verify an account's email address." })
-  verifyEmail(@Body() dto: VerifyEmailDto): Promise<{ message: string }> {
-    return this.authService.verifyEmail(dto.token);
+  async verifyEmail(@Body() dto: VerifyEmailDto): Promise<{ message: string }> {
+    // WM-020F — AuthService.verifyEmail() now also returns the verified
+    // user's id (see its own JSDoc) for OnboardingService's benefit, but
+    // this public, unauthenticated endpoint's response contract is
+    // unchanged: strip it back down to { message } rather than leaking
+    // an internal user id onto an anonymous HTTP response.
+    const { message } = await this.authService.verifyEmail(dto.token);
+    return { message };
   }
 
   @Public()
