@@ -5,25 +5,27 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { CheckCircle2, LineChart } from "lucide-react";
+import { AlertCircle, CheckCircle2, LineChart } from "lucide-react";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, Alert, AlertDescription, Checkbox } from "@rmsm/ui";
+import { useRegister } from "@/hooks/use-auth";
+import { ApiError } from "@/lib/api-client";
 
 /**
- * WM-020A — Enterprise Sign Up page. Frontend UI only: no `/auth/signup`
- * hook exists (and none is added here — see `hooks/use-auth.ts`, which
- * only has login/logout/forgot-password/reset-password). Submitting the
- * form runs validation, then shows a local "request received" success
- * state and resets — the same zero-network pattern already established by
- * the public Contact form (`(public)/contact/contact-form.tsx`). No
- * account, session, or workspace is actually created; that's explicitly
- * out of scope per WM-020A ("No backend / API / Prisma / JWT / sessions /
- * organization creation").
+ * WM-020A — Enterprise Sign Up page.
  *
- * Laid out with the same centered-Card auth shell as `/login`,
- * `/forgot-password`, and `/reset-password` (LineChart badge, CardHeader/
- * CardTitle/CardDescription, `bg-muted/30` full-screen background) for
- * visual consistency with the rest of the auth family, widened to
- * `max-w-md` since this form carries meaningfully more fields.
+ * WM-020B — wired to the real `POST /auth/register` backend (see
+ * `hooks/use-auth.ts`'s `useRegister()`). Field mapping to the backend's
+ * request contract: `businessEmail` -> `email`, `termsAccepted` ->
+ * `acceptTerms`. `companyName`, `confirmPassword`, and `marketingOptIn`
+ * are validated/used client-side only and are never sent — the backend
+ * milestone's request contract and storage list deliberately exclude
+ * company (organization creation is a later milestone) and there's
+ * nothing for the server to do with a client-side-only confirmation
+ * field or a marketing preference with no persistence target yet.
+ *
+ * DO NOT implement login after registration (per WM-020B) — success
+ * shows a static confirmation message and does not redirect, create a
+ * session, or store any token.
  */
 const signupSchema = z
   .object({
@@ -103,15 +105,33 @@ function PasswordStrengthMeter({ password }: { password: string }) {
 
 export default function SignupPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [genericError, setGenericError] = useState<string | null>(null);
+  const registerMutation = useRegister();
   const form = useForm<SignupValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: { termsAccepted: false, marketingOptIn: false },
   });
   const password = form.watch("password") ?? "";
 
-  function onSubmit() {
-    setSubmitted(true);
-    form.reset();
+  async function onSubmit(values: SignupValues) {
+    setGenericError(null);
+    try {
+      await registerMutation.mutateAsync({
+        firstName: values.firstName,
+        lastName: values.lastName,
+        email: values.businessEmail,
+        password: values.password,
+        acceptTerms: values.termsAccepted,
+      });
+      setSubmitted(true);
+      form.reset();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "EMAIL_ALREADY_EXISTS") {
+        form.setError("businessEmail", { message: err.message });
+        return;
+      }
+      setGenericError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+    }
   }
 
   return (
@@ -128,12 +148,17 @@ export default function SignupPage() {
           {submitted ? (
             <Alert>
               <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-              <AlertDescription>
-                Your workspace request has been received. Our team will be in touch shortly to help you get set up.
-              </AlertDescription>
+              <AlertDescription>Registration successful. Please verify your email.</AlertDescription>
             </Alert>
           ) : (
             <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} noValidate aria-label="Enterprise sign up">
+              {genericError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" aria-hidden="true" />
+                  <AlertDescription>{genericError}</AlertDescription>
+                </Alert>
+              )}
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First name</Label>
@@ -269,8 +294,8 @@ export default function SignupPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full">
-                Create Workspace
+              <Button type="submit" className="w-full" disabled={registerMutation.isPending}>
+                {registerMutation.isPending ? "Creating workspace…" : "Create Workspace"}
               </Button>
             </form>
           )}

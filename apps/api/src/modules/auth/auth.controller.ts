@@ -9,10 +9,12 @@ import {
   UnauthorizedException,
   UseGuards,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 import { AuthService, AuthTokens } from "./auth.service";
 import { RegisterDto } from "./dto/register.dto";
+import { RegisterResponseDto } from "./dto/register-response.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
@@ -36,10 +38,18 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  // WM-020B — 5/min per caller, tighter than the platform-wide default
+  // (Module 001's global `ThrottlerModule`, still in effect underneath
+  // this), matching the pattern already used for other abuse-sensitive
+  // endpoints (see notification.controller.ts's own `@Throttle()` uses).
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post("register")
-  @ApiOperation({ summary: "Register a new account. Sends an email verification link." })
-  register(@Body() dto: RegisterDto, @Req() req: Request): Promise<{ message: string }> {
-    return this.authService.register(dto.email, dto.password, requestContext(req));
+  @ApiOperation({ summary: "Register a new account (enterprise trial signup or legacy email/password). Sends an email verification link." })
+  register(@Body() dto: RegisterDto, @Req() req: Request): Promise<RegisterResponseDto> {
+    return this.authService.register(
+      { email: dto.email, password: dto.password, firstName: dto.firstName, lastName: dto.lastName },
+      requestContext(req),
+    );
   }
 
   @Public()

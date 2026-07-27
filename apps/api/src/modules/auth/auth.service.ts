@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { randomBytes, createHash } from "crypto";
 import { prisma, UserWithProfile, LoginHistory } from "@rmsm/database";
-import { NotFoundError, UnauthorizedError, ValidationError } from "@rmsm/shared";
+import { AppError, NotFoundError, UnauthorizedError, ValidationError } from "@rmsm/shared";
 import { APP_CONFIG } from "../../config/app-config.module";
 import type { Env } from "@rmsm/config";
 import { UserRepository } from "./repositories/user.repository";
@@ -22,6 +22,16 @@ import {
 export interface RequestContext {
   ipAddress?: string;
   userAgent?: string;
+}
+
+/** WM-020B — input shape for `AuthService.register()`. `firstName`/
+ * `lastName` optional to stay backward compatible with the pre-existing
+ * email/password-only registration path (see `RegisterDto`). */
+export interface RegisterInput {
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface AuthTokens {
@@ -46,16 +56,33 @@ export class AuthService {
 
   // ── Registration ────────────────────────────────────────────────────
 
-  async register(email: string, password: string, ctx: RequestContext): Promise<{ message: string }> {
+  /**
+   * WM-020B — extended for the enterprise `/signup` trial-request flow.
+   * `firstName`/`lastName` (optional — see `RegisterDto`'s own doc
+   * comment) are persisted onto the user's `Profile`; everything else
+   * (password hashing/policy, User row, email-verification issuance,
+   * audit logging) is exactly Module 002's existing registration path,
+   * reused rather than duplicated.
+   *
+   * WM-020B Part "Error Handling" — duplicate email now returns a real
+   * 400 (`EMAIL_ALREADY_EXISTS`) instead of the prior silent-success
+   * anti-enumeration response. That older behavior was never exercised by
+   * any existing test or caller (checked before changing it): this
+   * endpoint had zero frontend callers until WM-020A/B. A clear "email
+   * already registered" error is standard, expected UX for a public B2B
+   * trial-signup form, where the previous consumer-auth-style enumeration
+   * defense wasn't actually serving a caller that needed it.
+   */
+  async register(input: RegisterInput, ctx: RequestContext): Promise<{ message: string }> {
+    const { email, password, firstName, lastName } = input;
+
     const existing = await this.userRepository.findByEmail(email);
     if (existing) {
-      // Do not reveal whether the account exists — respond identically to
-      // a successful registration to prevent user enumeration.
-      return { message: "If that email is available, an account has been created." };
+      throw new AppError("An account with this email already exists.", "EMAIL_ALREADY_EXISTS", 400);
     }
 
     const passwordHash = await this.passwordService.hash(password);
-    const user = await this.userRepository.create({ email, passwordHash });
+    const user = await this.userRepository.create({ email, passwordHash, firstName, lastName });
 
     await this.issueEmailVerification(user.id, email);
     await this.auditService.log("user.registered", { userId: user.id, ...ctx });

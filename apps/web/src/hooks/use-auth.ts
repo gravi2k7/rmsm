@@ -88,3 +88,25 @@ export function useChangePassword() {
       api.post<{ message: string }>("/auth/change-password", { currentPassword, newPassword }),
   });
 }
+
+/**
+ * WM-020B — enterprise trial signup. Maps the `/signup` form's fields onto
+ * the backend's exact request contract: `businessEmail` -> `email`,
+ * `termsAccepted` -> `acceptTerms`; `companyName`/`confirmPassword`/
+ * `marketingOptIn` stay client-only (the backend milestone's request
+ * contract and storage list deliberately don't include company — that's
+ * deferred to a future organization-creation milestone).
+ */
+export interface RegisterPayload {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  acceptTerms: boolean;
+}
+
+export function useRegister() {
+  return useMutation({
+    mutationFn: (payload: RegisterPayload) => api.post<{ message: string }>("/auth/register", payload, { skipAuth: true }),
+  });
+}

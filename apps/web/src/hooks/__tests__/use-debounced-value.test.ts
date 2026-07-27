@@ -1,6 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useDebouncedValue } from "../use-debounced-value";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("useDebouncedValue", () => {
   it("returns the initial value immediately", () => {
@@ -10,7 +14,11 @@ describe("useDebouncedValue", () => {
 
   it("does not update until the delay has elapsed", () => {
     vi.useFakeTimers();
-    const { result, rerender } = renderHook(({ value }) => useDebouncedValue(value, 300), { initialProps: { value: "a" } });
+
+    const { result, rerender } = renderHook(
+      ({ value }) => useDebouncedValue(value, 300),
+      { initialProps: { value: "a" } }
+    );
 
     rerender({ value: "ab" });
     expect(result.current).toBe("a");
@@ -24,23 +32,25 @@ describe("useDebouncedValue", () => {
       vi.advanceTimersByTime(1);
     });
     expect(result.current).toBe("ab");
-
-    vi.useRealTimers();
   });
 
   it("resets the timer on rapid successive changes (only the last value wins)", () => {
     vi.useFakeTimers();
-    const { result, rerender } = renderHook(({ value }) => useDebouncedValue(value, 300), { initialProps: { value: "a" } });
+
+    const { result, rerender } = renderHook(
+      ({ value }) => useDebouncedValue(value, 300),
+      { initialProps: { value: "a" } }
+    );
 
     rerender({ value: "ab" });
     act(() => vi.advanceTimersByTime(200));
+
     rerender({ value: "abc" });
     act(() => vi.advanceTimersByTime(200));
-    expect(result.current).toBe("a"); // neither intermediate value has committed yet
+
+    expect(result.current).toBe("a");
 
     act(() => vi.advanceTimersByTime(100));
     expect(result.current).toBe("abc");
-
-    vi.useRealTimers();
   });
 });

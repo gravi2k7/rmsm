@@ -33,13 +33,23 @@ export class UserRepository {
     });
   }
 
-  create(data: { email: string; passwordHash: string | null; status?: UserStatus }): Promise<UserWithProfile> {
+  /** WM-020B — `firstName`/`lastName` optional (existing Module 002
+   * callers pass neither, and still get an empty `Profile` row exactly as
+   * before); populated onto `Profile` when the enterprise `/signup` flow
+   * provides them. */
+  create(data: {
+    email: string;
+    passwordHash: string | null;
+    status?: UserStatus;
+    firstName?: string;
+    lastName?: string;
+  }): Promise<UserWithProfile> {
     return prisma.user.create({
       data: {
         email: data.email,
         passwordHash: data.passwordHash,
         status: data.status ?? "PENDING_VERIFICATION",
-        profile: { create: {} },
+        profile: { create: { firstName: data.firstName, lastName: data.lastName } },
       },
       include: { profile: true },
     });
