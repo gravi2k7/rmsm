@@ -13,6 +13,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import type { Request } from "express";
 import type { OrganizationMembership, OrganizationMembershipWithUser } from "@rmsm/database";
 import { OrganizationMembershipService, TransferOwnershipResult } from "./services/membership.service";
@@ -42,7 +43,12 @@ export class MembershipController {
 
   // ── Token-based endpoints: no :organizationId, no OrganizationRoleGuard ──
 
+  // WM-020E — same rationale as auth.controller.ts's forgot-password/
+  // resend-verification endpoints: these are public, token-guessable
+  // surfaces (5/min matches that established pattern), on top of the
+  // app-wide ThrottlerGuard already registered in app.module.ts.
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post("organizations/invitations/decline")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ operationId: "declineInvitation", summary: "Decline an invitation using its token. No account required." })
@@ -50,6 +56,7 @@ export class MembershipController {
     return this.invitationService.rejectInvitation(dto.token);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post("organizations/invitations/accept")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ operationId: "acceptInvitation", summary: "Accept an invitation using its token. Requires the invitation's email to match the authenticated account." })
@@ -97,7 +104,10 @@ export class MembershipController {
     @CurrentUser() user: AccessTokenPayload,
     @Req() req: Request,
   ): Promise<{ message: string }> {
-    return this.invitationService.createInvitation(organizationId, dto.email, dto.role, user.sub, requestContext(req));
+    return this.invitationService.createInvitation(organizationId, dto.email, dto.role, user.sub, requestContext(req), {
+      message: dto.message,
+      expiresInDays: dto.expiresInDays,
+    });
   }
 
   @Patch("organizations/:organizationId/members/:membershipId/role")

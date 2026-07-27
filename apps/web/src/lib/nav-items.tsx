@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { LayoutDashboard, LineChart, ShieldCheck, TrendingUp, BookMarked, Target, Gavel, ListOrdered, Wallet, BarChart3, Bell } from "lucide-react";
+import { LayoutDashboard, LineChart, ShieldCheck, TrendingUp, BookMarked, Target, Gavel, ListOrdered, Wallet, BarChart3, Bell, Users } from "lucide-react";
 
 export interface NavItem {
   label: string;
@@ -23,5 +23,6 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Portfolio", href: "/portfolio", icon: Wallet },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Notifications", href: "/notifications", icon: Bell },
+  { label: "Team", href: "/settings/team", icon: Users, permission: "organization.read" },
   { label: "Security", href: "/settings/security", icon: ShieldCheck },
 ];

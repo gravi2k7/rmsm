@@ -8,6 +8,7 @@ import { PermissionsGuard } from "../auth/guards/permissions.guard";
 import { RequireOrgRole } from "./decorators/require-org-role.decorator";
 import { OrganizationRoleGuard } from "./guards/organization-role.guard";
 import { Public } from "../auth/decorators/public.decorator";
+import { Throttle } from "@nestjs/throttler";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AccessTokenPayload } from "../auth/services/token.service";
 import { MANAGEMENT_ORG_ROLES } from "./constants";
@@ -18,7 +19,11 @@ import { requestContext } from "./utils/request-context.util";
 export class InvitationController {
   constructor(private readonly invitationService: OrganizationInvitationService) {}
 
+  // WM-020E — public, token-guessable surface; same 5/min pattern as
+  // auth.controller.ts's forgot-password/resend-verification and this
+  // module's own accept/decline endpoints.
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Get("invitations/validate")
   @ApiQuery({ name: "token", required: true })
   @ApiOperation({ operationId: "validateInvitation", summary: "Check whether an invitation token is currently valid, without consuming it." })

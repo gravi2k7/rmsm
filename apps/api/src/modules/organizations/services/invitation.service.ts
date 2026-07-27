@@ -50,6 +50,7 @@ export class OrganizationInvitationService {
     role: OrganizationRole,
     invitedById: string,
     ctx: AuditContext = {},
+    options: { message?: string; expiresInDays?: number } = {},
   ): Promise<{ message: string }> {
     const organization = await this.organizationRepository.findById(organizationId);
     if (!organization) throw new NotFoundError("Organization", organizationId);
@@ -67,6 +68,7 @@ export class OrganizationInvitationService {
       }
     }
 
+    const ttlMs = options.expiresInDays ? options.expiresInDays * 24 * 60 * 60 * 1000 : INVITATION_TTL_MS;
     const { raw, hash } = this.generateToken();
     const invitation = await this.invitationRepository.create({
       organizationId,
@@ -74,7 +76,7 @@ export class OrganizationInvitationService {
       role,
       tokenHash: hash,
       invitedById,
-      expiresAt: new Date(Date.now() + INVITATION_TTL_MS),
+      expiresAt: new Date(Date.now() + ttlMs),
     });
 
     await this.membershipEventRepository.create({
@@ -87,7 +89,10 @@ export class OrganizationInvitationService {
     });
 
     const link = `${this.config.WEB_APP_URL}/invitations/accept?token=${raw}`;
-    const { subject, html } = organizationInvitationEmail(link, organization.name, role);
+    const { subject, html } = organizationInvitationEmail(link, organization.name, role, {
+      message: options.message,
+      expiresInDays: options.expiresInDays ?? 7,
+    });
     await this.emailService.send({ to: email, subject, html });
 
     await this.auditService.log("organization.invitation.created", {
