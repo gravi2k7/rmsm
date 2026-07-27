@@ -13,9 +13,13 @@ describe("loadConfig", () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
-    resetConfigCache();
-    process.env = { ...REQUIRED_ENV };
-  });
+  resetConfigCache();
+
+  process.env = {
+    ...REQUIRED_ENV,
+    RMSM_SKIP_DOTENV: "true",
+  } as NodeJS.ProcessEnv;
+});
 
   afterEach(() => {
     process.env = originalEnv;
@@ -37,8 +41,11 @@ describe("loadConfig", () => {
   });
 
   it("throws ConfigValidationError when required vars are missing", () => {
-    process.env = {};
-    expect(() => loadConfig()).toThrow(ConfigValidationError);
+  process.env = {
+    RMSM_SKIP_DOTENV: "true",
+  } as NodeJS.ProcessEnv;
+
+  expect(() => loadConfig()).toThrow(ConfigValidationError);
   });
 
   it("getEnv() is an alias for loadConfig() — same memoized instance", () => {

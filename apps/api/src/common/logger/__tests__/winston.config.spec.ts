@@ -24,15 +24,22 @@ const PRODUCTION_SAFE_SECRETS = {
  * import produced, or throws whatever it threw (callers assert on both). */
 function loadWinstonConfigWith(env: Record<string, string>) {
   const previousEnv = { ...process.env };
-  process.env = env as NodeJS.ProcessEnv;
+
+  process.env = {
+    ...env,
+    RMSM_SKIP_DOTENV: "true",
+  } as NodeJS.ProcessEnv;
+
   resetConfigCache();
 
   try {
     let winstonLogger: unknown;
+
     jest.isolateModules(() => {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       winstonLogger = require("../winston.config").winstonLogger;
     });
+
     return winstonLogger;
   } finally {
     process.env = previousEnv;
@@ -61,7 +68,11 @@ describe("winston.config.ts — reads NODE_ENV via @rmsm/config, not raw process
     // winston.config.ts with a different env possible at all).
     let caught: unknown;
     try {
-      loadWinstonConfigWith({ ...REQUIRED_ENV, NODE_ENV: "production" });
+      loadWinstonConfigWith({
+        ...REQUIRED_ENV,
+        WEB_APP_URL: "https://app.example.com",
+        NODE_ENV: "production",
+      });
     } catch (e) {
       caught = e;
     }

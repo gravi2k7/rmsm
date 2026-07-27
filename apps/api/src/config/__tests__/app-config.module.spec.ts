@@ -12,10 +12,16 @@ const REQUIRED_ENV = {
 describe("AppConfigModule", () => {
   let previousEnv: NodeJS.ProcessEnv;
 
-  beforeEach(() => {
-    previousEnv = { ...process.env };
-    resetConfigCache();
-  });
+ beforeEach(() => {
+  previousEnv = { ...process.env };
+
+  process.env = {
+    ...process.env,
+    RMSM_SKIP_DOTENV: "true",
+  } as NodeJS.ProcessEnv;
+
+  resetConfigCache();
+ });
 
   afterEach(() => {
     process.env = previousEnv;
@@ -23,7 +29,11 @@ describe("AppConfigModule", () => {
   });
 
   it("provides the validated, typed config via the APP_CONFIG token when the environment is valid", async () => {
-    process.env = { ...REQUIRED_ENV, NODE_ENV: "development" } as NodeJS.ProcessEnv;
+    process.env = {
+    ...REQUIRED_ENV,
+    NODE_ENV: "development",
+    RMSM_SKIP_DOTENV: "true",
+} as NodeJS.ProcessEnv;
 
     const moduleRef = await Test.createTestingModule({ imports: [AppConfigModule] }).compile();
     const config = moduleRef.get(APP_CONFIG);
@@ -34,19 +44,21 @@ describe("AppConfigModule", () => {
   });
 
   it("fails fast with a descriptive ConfigValidationError when required vars are missing", async () => {
-    process.env = { NODE_ENV: "development" } as NodeJS.ProcessEnv;
+    process.env = {
+    NODE_ENV: "development",
+    RMSM_SKIP_DOTENV: "true",
+} as NodeJS.ProcessEnv;
 
     await expect(Test.createTestingModule({ imports: [AppConfigModule] }).compile()).rejects.toThrow(ConfigValidationError);
   });
 
   it("fails fast in production when a required secret still holds its insecure development default", async () => {
     process.env = {
-      ...REQUIRED_ENV,
-      NODE_ENV: "production",
-      WEB_APP_URL: "https://app.example.com",
-      // COOKIE_SECRET, TWO_FACTOR_ENCRYPTION_KEY, etc. deliberately left
-      // at their dev defaults here.
-    } as NodeJS.ProcessEnv;
+    ...REQUIRED_ENV,
+   NODE_ENV: "production",
+   WEB_APP_URL: "https://app.example.com",
+   RMSM_SKIP_DOTENV: "true",
+} as NodeJS.ProcessEnv;
 
     let caught: unknown;
     try {

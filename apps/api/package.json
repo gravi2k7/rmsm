@@ -2,10 +2,11 @@
   "name": "@rmsm/api",
   "version": "0.1.0",
   "private": true,
+  "type": "commonjs",
   "scripts": {
     "build": "nest build",
-   "dev": "nest start --watch --exec \"node -r ts-node/register\"",
-    "start": "node dist/main.js",
+    "dev": "nest start --watch --exec \"node -r ts-node/register\"",
+    "start": "node -r ts-node/register dist/main.js",
     "lint": "eslint . --ext .ts",
     "typecheck": "tsc --noEmit",
     "test": "jest",
