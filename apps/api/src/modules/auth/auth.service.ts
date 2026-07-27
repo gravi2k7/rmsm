@@ -130,6 +130,34 @@ export class AuthService {
     return { message: "Email verified successfully." };
   }
 
+  /**
+   * WM-020C — re-issues a verification email for accounts that haven't
+   * completed WM-020B's registration verification step yet. Reuses
+   * `issueEmailVerification()` (register()'s own helper) rather than
+   * duplicating token generation/hashing/email-send logic.
+   *
+   * Same anti-enumeration shape as `forgotPassword()` — always returns an
+   * identical generic message, and does nothing observable if the email
+   * doesn't exist or the account is already verified, so this endpoint
+   * can't be used to probe which addresses are registered.
+   *
+   * Any outstanding (unverified, unexpired) tokens from a previous
+   * request are deleted first, so at most one verification token is ever
+   * valid for a given user — otherwise an earlier resend's token would
+   * remain independently redeemable after a later one, since
+   * `verifyEmail()` checks the token *record's* own `verifiedAt`, not a
+   * user-level "already verified" flag.
+   */
+  async resendVerification(email: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findByEmail(email);
+    if (user && !user.emailVerifiedAt) {
+      await prisma.emailVerification.deleteMany({ where: { userId: user.id, verifiedAt: null } });
+      await this.issueEmailVerification(user.id, user.email);
+      await this.auditService.log("user.verification_resent", { userId: user.id });
+    }
+    return { message: "If that account exists and needs verification, a new link has been sent." };
+  }
+
   // ── Credential validation (used by LocalStrategy) ───────────────────
 
   async validateCredentials(

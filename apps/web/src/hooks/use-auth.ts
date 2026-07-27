@@ -75,6 +75,28 @@ export function useForgotPassword() {
   });
 }
 
+/**
+ * WM-020C — verifies the token from a `/verify-email?token=...` link
+ * (see the WM-020B `register()` flow, which is what issues it).
+ */
+export function useVerifyEmail() {
+  return useMutation({
+    mutationFn: (token: string) => api.post<{ message: string }>("/auth/verify-email", { token }, { skipAuth: true }),
+  });
+}
+
+/**
+ * WM-020C — re-sends the verification email. Same anti-enumeration
+ * contract as `useForgotPassword()`: the backend always returns an
+ * identical generic message regardless of whether the account exists or
+ * is already verified.
+ */
+export function useResendVerification() {
+  return useMutation({
+    mutationFn: (email: string) => api.post<{ message: string }>("/auth/resend-verification", { email }, { skipAuth: true }),
+  });
+}
+
 export function useResetPassword() {
   return useMutation({
     mutationFn: ({ token, newPassword }: { token: string; newPassword: string }) =>

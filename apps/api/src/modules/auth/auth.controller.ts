@@ -21,6 +21,7 @@ import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
 import { VerifyEmailDto } from "./dto/verify-email.dto";
+import { ResendVerificationDto } from "./dto/resend-verification.dto";
 import { VerifyTwoFactorDto } from "./dto/verify-two-factor.dto";
 import { DisableTwoFactorDto } from "./dto/disable-two-factor.dto";
 import { Public } from "./decorators/public.decorator";
@@ -57,6 +58,18 @@ export class AuthController {
   @ApiOperation({ summary: "Verify an account's email address." })
   verifyEmail(@Body() dto: VerifyEmailDto): Promise<{ message: string }> {
     return this.authService.verifyEmail(dto.token);
+  }
+
+  @Public()
+  // Same throttle as register()/forgot-password — this is an unauthenticated,
+  // enumeration-adjacent endpoint (see AuthService.resendVerification()'s
+  // own doc comment on the generic response it always returns).
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Post("resend-verification")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Resend the email verification link." })
+  resendVerification(@Body() dto: ResendVerificationDto): Promise<{ message: string }> {
+    return this.authService.resendVerification(dto.email);
   }
 
   @Public()

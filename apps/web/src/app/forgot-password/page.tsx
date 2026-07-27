@@ -20,7 +20,11 @@ export default function ForgotPasswordPage() {
   const form = useForm<ForgotPasswordValues>({ resolver: zodResolver(forgotPasswordSchema) });
 
   async function onSubmit(values: ForgotPasswordValues) {
-    await forgotPassword.mutateAsync(values.email);
+    try {
+      await forgotPassword.mutateAsync(values.email);
+    } catch {
+      // Surfaced via forgotPassword.isError/.error below — nothing further to do here.
+    }
   }
 
   const errorMessage = forgotPassword.isError

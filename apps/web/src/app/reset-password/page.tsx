@@ -32,7 +32,11 @@ function ResetPasswordForm() {
 
   async function onSubmit(values: ResetPasswordValues) {
     if (!token) return;
-    await resetPassword.mutateAsync({ token, newPassword: values.newPassword });
+    try {
+      await resetPassword.mutateAsync({ token, newPassword: values.newPassword });
+    } catch {
+      // Surfaced via resetPassword.isError/.error below — nothing further to do here.
+    }
   }
 
   const errorMessage = resetPassword.isError
