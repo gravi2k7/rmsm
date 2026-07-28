@@ -43,14 +43,12 @@ export class OutboxPublisherService implements OnModuleInit, OnModuleDestroy {
   private readonly config: Env;
 
   constructor(
-    private readonly outboxRepository: StrategyOutboxRepository,
-    private readonly dispatcher: EventDispatcherService,
-    private readonly metrics: StrategyEventMetricsService,
-    config?: Env,
+  private readonly outboxRepository: StrategyOutboxRepository,
+  private readonly dispatcher: EventDispatcherService,
+  private readonly metrics: StrategyEventMetricsService,
   ) {
-    this.config = config ?? loadConfig();
+  this.config = loadConfig();
   }
-
   onModuleInit(): void {
     if (!this.config.STRATEGY_OUTBOX_PUBLISHER_ENABLED) {
       this.logger.log("Outbox publisher disabled via STRATEGY_OUTBOX_PUBLISHER_ENABLED=false.");

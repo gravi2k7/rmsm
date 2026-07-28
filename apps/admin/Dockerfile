@@ -1,6 +1,12 @@
 # syntax=docker/dockerfile:1
-FROM node:24-alpine AS base
+FROM node:24-bookworm-slim AS base
+
+RUN apt-get update && \
+    apt-get install -y openssl && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN corepack enable
+
 WORKDIR /workspace
 
 FROM base AS deps
@@ -22,7 +28,7 @@ FROM deps AS build
 COPY . .
 RUN pnpm --filter @rmsm/admin build
 
-FROM node:24-alpine AS production
+FROM node:24-bookworm-slim AS production
 WORKDIR /workspace
 ENV NODE_ENV=production
 COPY --from=build /workspace/apps/admin/.next ./apps/admin/.next

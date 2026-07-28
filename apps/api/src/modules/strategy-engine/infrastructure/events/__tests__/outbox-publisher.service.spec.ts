@@ -4,6 +4,11 @@ import type { EventDispatcherService } from "../../../integration/dispatcher/eve
 import { StrategyEventMetricsService } from "../../../integration/services/strategy-event-metrics.service";
 import type { StrategyOutboxEvent as OutboxRow } from "@rmsm/database";
 import type { Env } from "@rmsm/config";
+import { loadConfig } from "@rmsm/config";
+
+jest.mock("@rmsm/config", () => ({
+  loadConfig: jest.fn(),
+}));
 
 function buildRow(overrides: Partial<OutboxRow> = {}): OutboxRow {
   return {
@@ -38,6 +43,8 @@ function buildTestConfig(overrides: Partial<Env> = {}): Env {
 
 /** dispatchImpl lets each test supply exactly the dispatch behavior it needs (real dependency injection, not reaching into the service's own private fields after construction to swap a mock mid-test). */
 function buildService(config: Env, dispatchImpl: jest.Mock = jest.fn().mockResolvedValue(undefined)) {
+  (loadConfig as jest.Mock).mockReturnValue(config);
+ 
   const outboxRepository = {
     findPendingBatch: jest.fn(),
     markProcessing: jest.fn().mockResolvedValue(undefined),
@@ -47,7 +54,7 @@ function buildService(config: Env, dispatchImpl: jest.Mock = jest.fn().mockResol
   } as unknown as StrategyOutboxRepository;
   const dispatcher = { dispatch: dispatchImpl } as unknown as EventDispatcherService;
   const metrics = new StrategyEventMetricsService();
-  const service = new OutboxPublisherService(outboxRepository, dispatcher, metrics, config);
+  const service = new OutboxPublisherService(outboxRepository, dispatcher, metrics,);
   return { service, outboxRepository, dispatcher, metrics };
 }
 

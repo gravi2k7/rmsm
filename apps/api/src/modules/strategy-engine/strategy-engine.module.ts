@@ -44,7 +44,6 @@ import { StrategyVersionController } from "./rest/version.controller";
 // Events & Integration (Milestone 4)
 import { StrategyOutboxRepository } from "./infrastructure/repositories/strategy-outbox.repository";
 import { OutboxEventPublisher } from "./infrastructure/events/outbox-event-publisher.service";
-import { OutboxPublisherService } from "./infrastructure/events/outbox-publisher.service";
 import { EVENT_PUBLISHER } from "./application/events/event-publisher.interface";
 import { EventDispatcherService } from "./integration/dispatcher/event-dispatcher.service";
 import { AuditEventHandler } from "./integration/handlers/audit-event.handler";
@@ -110,7 +109,7 @@ import { StrategyStructuredLogger } from "./integration/services/strategy-struct
     ListTagsHandler,
     // Events & integration (Milestone 4)
     { provide: EVENT_PUBLISHER, useClass: OutboxEventPublisher },
-    OutboxPublisherService,
+    //OutboxPublisherService,
     EventDispatcherService,
     AuditEventHandler,
     MetricsEventHandler,
