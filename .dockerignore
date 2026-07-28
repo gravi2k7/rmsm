@@ -1,39 +1,83 @@
-# Git
-.git
-.github
+# ==============================================================================
+# RMSM Docker Platform — root .dockerignore
+# ==============================================================================
+# Required by docker/build.Dockerfile's `COPY . .` (the one point in the
+# platform where full repository source enters a build). Without this
+# file, that COPY would also pull in every workspace's local node_modules
+# (already resolved for the *host* machine's OS/arch, not the container's),
+# .git history, and prior local build output — bloating the build context
+# transferred to the daemon on every single build (directly working
+# against "Fast Docker caching") and risking a stale host node_modules
+# shadowing the fresh, container-native `pnpm install --offline` result
+# produced inside build.Dockerfile.
+#
+# This file is intentionally scoped to Docker-context concerns only. It
+# does not move, rename, or remove anything — every path listed here
+# still exists on disk exactly as before; it is simply excluded from what
+# gets sent to the Docker build context.
+# ==============================================================================
 
-# Dependencies
+# Dependency trees — reinstalled fresh, inside the container, by
+# deps.Dockerfile / build.Dockerfile. Host-resolved node_modules must
+# never be copied into an image.
 node_modules
 **/node_modules
+
+# Version control — never needed inside an image, and .git alone can be
+# larger than the entire application source.
+.git
+.gitignore
+
+# Local build output — regenerated inside build.Dockerfile; stale host
+# output must never shadow a container-built artifact.
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/*.tsbuildinfo
+
+# Prisma's generated client is produced fresh by build.Dockerfile's
+# `prisma generate` step, not copied in from the host.
+**/.prisma
+
+# Editor/OS noise.
+.vscode
+.idea
+**/.DS_Store
+
+# Local environment files — real secrets must never be baked into an
+# image layer. Runtime configuration is injected via the orchestrator
+# (Docker Compose env_file, Kubernetes Secrets/ConfigMaps), consistent
+# with how packages/config's env loader already treats a committed .env
+# as a local-development convenience, not a production source of truth.
+.env
+.env.*
+!.env.example
+
+# Docker's own build context never needs to include itself recursively,
+# and Phase 2's compose files are irrelevant to what these Dockerfiles
+# build.
+docker/scripts/**/*.md
+
+# Test artifacts and logs.
+**/*.log
+**/junit.xml
+
+# PNPM local store
 .pnpm-store
 
-# Build caches
-.turbo
-**/.next
-**/dist
-**/coverage
+# Additional build outputs
 **/build
 **/out
 **/.cache
 
-# IDE
-.vscode
-.idea
-
-# Logs
-*.log
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Python
+# Python caches
 **/__pycache__
 **/*.pyc
 **/.pytest_cache
 **/.venv
 
-# Archives
+# Archive files
 *.zip
 *.7z
 *.rar
