@@ -1,5 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
+import { cleanup } from "@testing-library/react";
+import { afterEach } from "vitest";
 
 // ResizeObserver
 class ResizeObserverMock {
@@ -58,3 +60,8 @@ HTMLElement.prototype.setPointerCapture = vi.fn();
 HTMLElement.prototype.releasePointerCapture = vi.fn();
 // scrollIntoView (Radix UI)
 HTMLElement.prototype.scrollIntoView = vi.fn();
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
