@@ -23,13 +23,15 @@ describe("MobileNav", () => {
     await user.click(screen.getByRole("button", { name: "Platform" }));
     expect(await screen.findByRole("link", { name: "Features" })).toHaveAttribute("href", "/features");
   });
+it("closes the drawer when a link is clicked", async () => {
+  const onOpenChange = vi.fn();
+  const user = userEvent.setup();
+  render(<MobileNav open onOpenChange={onOpenChange} />);
 
-  it("closes the drawer when a link is clicked", async () => {
-    const onOpenChange = vi.fn();
-    const user = userEvent.setup();
-    render(<MobileNav open onOpenChange={onOpenChange} />);
+  await user.click(screen.getByRole("link", { name: "Login" }));
+  expect(onOpenChange).toHaveBeenCalledWith(false);
 
-    await user.click(screen.getByRole("link", { name: "Login" }));
-    expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
+  // Flush jsdom's queued navigation callback
+  await new Promise((resolve) => setTimeout(resolve, 0));
+});
 });
