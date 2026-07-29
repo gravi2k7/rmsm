@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithQueryClient } from "@/test/render-with-query";
 import DashboardPage from "../page";
 import { useAuthStore } from "@/lib/auth-store";
 
@@ -13,12 +13,7 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function renderDashboard() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <DashboardPage />
-    </QueryClientProvider>,
-  );
+  return renderWithQueryClient(<DashboardPage />);
 }
 
 describe("DashboardPage", () => {
@@ -26,7 +21,13 @@ describe("DashboardPage", () => {
     useAuthStore.setState({
       accessToken: "token",
       refreshToken: "refresh",
-      user: { sub: "u1", email: "trader@example.com", roles: ["TRADER"], permissions: [], sessionId: "s1" },
+      user: {
+        sub: "u1",
+        email: "trader@example.com",
+        roles: ["TRADER"],
+        permissions: [],
+        sessionId: "s1",
+      },
     });
   });
 
@@ -40,7 +41,17 @@ describe("DashboardPage", () => {
       "fetch",
       vi.fn().mockImplementation(async (url: string) => {
         if (url.includes("/portfolio")) {
-          return jsonResponse({ id: "pf1", cashBalance: 5000, equity: 12345, buyingPower: 20000, marginUsed: 1000, marginAvailable: 4000, openPositionCount: 1, closedPositionCount: 3, createdAt: "2026-01-01T00:00:00.000Z" });
+          return jsonResponse({
+            id: "pf1",
+            cashBalance: 5000,
+            equity: 12345,
+            buyingPower: 20000,
+            marginUsed: 1000,
+            marginAvailable: 4000,
+            openPositionCount: 1,
+            closedPositionCount: 3,
+            createdAt: "2026-01-01T00:00:00.000Z",
+          });
         }
         if (url.includes("/positions")) return jsonResponse(paginated([]));
         if (url.includes("/trades")) return jsonResponse(paginated([]));
@@ -49,7 +60,8 @@ describe("DashboardPage", () => {
         if (url.includes("/decisions")) return jsonResponse(paginated([]));
         if (url.includes("/strategies")) return jsonResponse(paginated([]));
         if (url.includes("/markets")) return jsonResponse(paginated([]));
-        if (url.includes("/health/ready")) return jsonResponse({ status: "ok", checks: {} });
+        if (url.includes("/health/ready"))
+          return jsonResponse({ status: "ok", checks: {} });
         if (url.includes("/health")) return jsonResponse({ status: "ok" });
         return jsonResponse({});
       }),
@@ -57,7 +69,9 @@ describe("DashboardPage", () => {
 
     renderDashboard();
 
-    expect(screen.getByText(/welcome, trader@example.com/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/welcome, trader@example.com/i),
+    ).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText("$12,345.00")).toBeInTheDocument();
@@ -69,7 +83,8 @@ describe("DashboardPage", () => {
       "fetch",
       vi.fn().mockImplementation(async (url: string) => {
         if (url.includes("/portfolio")) return jsonResponse({}, 500);
-        if (url.includes("/health/ready")) return jsonResponse({ status: "ok", checks: {} });
+        if (url.includes("/health/ready"))
+          return jsonResponse({ status: "ok", checks: {} });
         if (url.includes("/health")) return jsonResponse({ status: "ok" });
         return jsonResponse(paginated([]));
       }),
@@ -89,9 +104,19 @@ describe("DashboardPage", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async (url: string) => {
-        if (url.includes("/health/ready")) return jsonResponse({ status: "ok", checks: {} });
+        if (url.includes("/health/ready"))
+          return jsonResponse({ status: "ok", checks: {} });
         if (url.includes("/health")) return jsonResponse({ status: "ok" });
-        if (url.includes("/portfolio")) return jsonResponse({ cashBalance: 0, equity: 0, buyingPower: 0, marginUsed: 0, marginAvailable: 0, openPositionCount: 0, closedPositionCount: 0 });
+        if (url.includes("/portfolio"))
+          return jsonResponse({
+            cashBalance: 0,
+            equity: 0,
+            buyingPower: 0,
+            marginUsed: 0,
+            marginAvailable: 0,
+            openPositionCount: 0,
+            closedPositionCount: 0,
+          });
         return jsonResponse(paginated([]));
       }),
     );

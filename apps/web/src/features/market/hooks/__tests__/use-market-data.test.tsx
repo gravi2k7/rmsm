@@ -1,17 +1,11 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { createQueryClientWrapper } from "@/test/render-with-query";
 import { useInstruments, useQuotes, useExchanges } from "../use-market-data";
 import { useAuthStore } from "@/lib/auth-store";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-}
-
-function wrapper({ children }: { children: ReactNode }) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
 describe("market-data hooks", () => {
@@ -27,6 +21,7 @@ describe("market-data hooks", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
+    const { wrapper } = createQueryClientWrapper();
     const { result } = renderHook(() => useInstruments({ query: "EUR", assetClass: "FOREX", page: 2, pageSize: 10 }), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
@@ -43,6 +38,7 @@ describe("market-data hooks", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
     vi.stubGlobal("fetch", fetchMock);
 
+    const { wrapper } = createQueryClientWrapper();
     const { result } = renderHook(() => useQuotes(["b-id", "a-id"]), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
@@ -56,6 +52,7 @@ describe("market-data hooks", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
+    const { wrapper } = createQueryClientWrapper();
     renderHook(() => useQuotes([]), { wrapper });
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -66,6 +63,7 @@ describe("market-data hooks", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
     vi.stubGlobal("fetch", fetchMock);
 
+    const { wrapper } = createQueryClientWrapper();
     const { result } = renderHook(() => useExchanges(), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 

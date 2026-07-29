@@ -1,17 +1,11 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { createQueryClientWrapper } from "@/test/render-with-query";
 import { useNotifications, useMarkNotificationRead, useMarkAllRead } from "../use-notifications";
 import { useSessionStore } from "@/lib/session-store";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-}
-
-function wrapper({ children }: { children: ReactNode }) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
 describe("notification hooks", () => {
@@ -28,6 +22,7 @@ describe("notification hooks", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [], total: 0 }));
     vi.stubGlobal("fetch", fetchMock);
 
+    const { wrapper } = createQueryClientWrapper();
     const { result } = renderHook(() => useNotifications(), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
@@ -40,6 +35,7 @@ describe("notification hooks", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
+    const { wrapper } = createQueryClientWrapper();
     renderHook(() => useNotifications(), { wrapper });
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -49,6 +45,7 @@ describe("notification hooks", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: "n1", readAt: "2026-07-20T00:00:00.000Z" }));
     vi.stubGlobal("fetch", fetchMock);
 
+    const { wrapper } = createQueryClientWrapper();
     const { result } = renderHook(() => useMarkNotificationRead(), { wrapper });
     await result.current.mutateAsync("n1");
 
@@ -61,6 +58,7 @@ describe("notification hooks", () => {
     const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({}));
     vi.stubGlobal("fetch", fetchMock);
 
+    const { wrapper } = createQueryClientWrapper();
     const { result } = renderHook(() => useMarkAllRead(), { wrapper });
     await result.current.mutateAsync(["n1", "n2", "n3"]);
 

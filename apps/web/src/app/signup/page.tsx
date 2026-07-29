@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,12 +17,18 @@ import { ApiError } from "@/lib/api-client";
  * WM-020B — wired to the real `POST /auth/register` backend (see
  * `hooks/use-auth.ts`'s `useRegister()`). Field mapping to the backend's
  * request contract: `businessEmail` -> `email`, `termsAccepted` ->
- * `acceptTerms`. `companyName`, `confirmPassword`, and `marketingOptIn`
- * are validated/used client-side only and are never sent — the backend
- * milestone's request contract and storage list deliberately exclude
- * company (organization creation is a later milestone) and there's
- * nothing for the server to do with a client-side-only confirmation
- * field or a marketing preference with no persistence target yet.
+ * `acceptTerms`. `confirmPassword` and `marketingOptIn` stay
+ * client-only — there's nothing for the server to do with a
+ * confirmation field or a marketing preference with no persistence
+ * target yet.
+ *
+ * WM-020D — `companyName` IS now sent (organization creation, deferred
+ * in WM-020B, is this milestone): it names the organization
+ * auto-created once the account's email is verified. WM-020E — an
+ * `?invitationToken=` on this page's own URL (present when arriving from
+ * an "Accept Invitation" link for an email with no account yet) is
+ * carried through registration so OnboardingService accepts that
+ * invitation instead of creating a new organization.
  *
  * DO NOT implement login after registration (per WM-020B) — success
  * shows a static confirmation message and does not redirect, create a
@@ -103,7 +110,9 @@ function PasswordStrengthMeter({ password }: { password: string }) {
   );
 }
 
-export default function SignupPage() {
+function SignupForm() {
+  const searchParams = useSearchParams();
+  const invitationToken = searchParams.get("invitationToken") ?? undefined;
   const [submitted, setSubmitted] = useState(false);
   const [genericError, setGenericError] = useState<string | null>(null);
   const registerMutation = useRegister();
@@ -122,6 +131,8 @@ export default function SignupPage() {
         email: values.businessEmail,
         password: values.password,
         acceptTerms: values.termsAccepted,
+        companyName: values.companyName,
+        invitationToken,
       });
       setSubmitted(true);
       form.reset();
@@ -309,5 +320,13 @@ export default function SignupPage() {
         </CardContent>
       </Card>
     </main>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignupForm />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithQueryClient } from "@/test/render-with-query";
 import NotificationCenterPage from "../page";
 import { useSessionStore } from "@/lib/session-store";
 
@@ -9,12 +9,7 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function renderPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <NotificationCenterPage />
-    </QueryClientProvider>,
-  );
+  return renderWithQueryClient(<NotificationCenterPage />);
 }
 
 describe("NotificationCenterPage", () => {

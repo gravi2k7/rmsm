@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithQueryClient } from "@/test/render-with-query";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CommandPalette } from "../command-palette";
 import { useAuthStore } from "@/lib/auth-store";
 
@@ -15,12 +15,7 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function renderPalette() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <CommandPalette />
-    </QueryClientProvider>,
-  );
+  return renderWithQueryClient(<CommandPalette />);
 }
 
 describe("CommandPalette", () => {

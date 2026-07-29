@@ -1,17 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { renderWithQueryClient } from "@/test/render-with-query";
 import ResetPasswordPage from "../page";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-}
-
-function wrapper({ children }: { children: ReactNode }) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
 const searchParamsMock = vi.fn();
@@ -36,7 +30,7 @@ describe("ResetPasswordPage (WM-020C)", () => {
 
   it("shows a missing-token state and disables the form when no token is present", () => {
     searchParamsMock.mockReturnValue(new URLSearchParams(""));
-    render(<ResetPasswordPage />, { wrapper });
+    renderWithQueryClient(<ResetPasswordPage />);
 
     expect(screen.getByText(/missing its token/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^new password$/i)).toBeDisabled();
@@ -46,7 +40,7 @@ describe("ResetPasswordPage (WM-020C)", () => {
   it("requires matching password confirmation", async () => {
     searchParamsMock.mockReturnValue(new URLSearchParams("token=raw-token"));
     const user = userEvent.setup();
-    render(<ResetPasswordPage />, { wrapper });
+    renderWithQueryClient(<ResetPasswordPage />);
 
     await fillPasswords(user, "correcthorsebattery1", "somethingelse123456");
     await user.click(screen.getByRole("button", { name: /reset password/i }));
@@ -59,7 +53,7 @@ describe("ResetPasswordPage (WM-020C)", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Password has been reset. Please log in again." }));
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
-    render(<ResetPasswordPage />, { wrapper });
+    renderWithQueryClient(<ResetPasswordPage />);
 
     await fillPasswords(user);
     await user.click(screen.getByRole("button", { name: /reset password/i }));
@@ -81,7 +75,7 @@ describe("ResetPasswordPage (WM-020C)", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
-    render(<ResetPasswordPage />, { wrapper });
+    renderWithQueryClient(<ResetPasswordPage />);
 
     await fillPasswords(user);
     await user.click(screen.getByRole("button", { name: /reset password/i }));

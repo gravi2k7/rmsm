@@ -1,21 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { renderWithQueryClient } from "@/test/render-with-query";
 import SignupPage from "../page";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
-function wrapper({ children }: { children: ReactNode }) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
-}
+const searchParamsMock = vi.fn(() => new URLSearchParams(""));
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => searchParamsMock(),
+}));
 
 function renderPage() {
-  return render(<SignupPage />, { wrapper });
+  return renderWithQueryClient(<SignupPage />);
 }
 
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
@@ -28,10 +28,11 @@ async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByLabelText(/terms of service/i));
 }
 
-describe("SignupPage (WM-020A/B)", () => {
+describe("SignupPage (WM-020A/B/D/E)", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    searchParamsMock.mockReturnValue(new URLSearchParams(""));
   });
 
   it("renders the hero, every required field with an accessible label, and the primary CTA", () => {
@@ -133,12 +134,32 @@ describe("SignupPage (WM-020A/B)", () => {
       email: "jane@acme-capital.example",
       password: "correcthorsebattery1",
       acceptTerms: true,
+      // WM-020D — now sent, names the organization OnboardingService
+      // auto-creates once this account's email is verified.
+      companyName: "Acme Capital",
     });
-    // companyName/confirmPassword/marketingOptIn are client-only per the
-    // backend's request contract — never sent.
-    expect(body).not.toHaveProperty("companyName");
+    // confirmPassword/marketingOptIn stay client-only — never sent.
     expect(body).not.toHaveProperty("confirmPassword");
     expect(body).not.toHaveProperty("marketingOptIn");
+  });
+
+  it("WM-020E — carries an ?invitationToken= from the URL through to registration", async () => {
+    searchParamsMock.mockReturnValue(new URLSearchParams("invitationToken=raw-invite-token"));
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ message: "If that email is available, an account has been created." }, 201),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    renderPage();
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole("button", { name: /create workspace/i }));
+
+    expect(await screen.findByText(/registration successful\. please verify your email\./i)).toBeInTheDocument();
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.invitationToken).toBe("raw-invite-token");
   });
 
   it("shows a disabled, loading button label while the request is in flight", async () => {
