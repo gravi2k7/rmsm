@@ -1,4 +1,5 @@
-import { Controller, HttpCode, HttpStatus, Param, Post, RawBodyRequest, Req } from "@nestjs/common";
+import { Controller, HttpCode, HttpStatus, Param, Post, Req } from "@nestjs/common";
+import type { RawBodyRequest } from "@nestjs/common";
 import { ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 import { ValidationError } from "@rmsm/shared";

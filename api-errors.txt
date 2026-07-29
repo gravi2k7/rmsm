@@ -1,0 +1,5 @@
+src/modules/billing/webhook.controller.ts(36,17): error TS1272: A type referenced in a decorated signature must be imported with 'import type' or a namespace import when 'isolatedModules' and 'emitDecoratorMetadata' are enabled.
+src/modules/notifications/webhook.controller.ts(64,17): error TS1272: A type referenced in a decorated signature must be imported with 'import type' or a namespace import when 'isolatedModules' and 'emitDecoratorMetadata' are enabled.
+undefined
+C:\Ravi\RMSM_Project\rmsm\apps\api:
+ΓÇëERR_PNPM_RECURSIVE_EXEC_FIRST_FAILΓÇë Command failed with exit code 2: tsc --noEmit --pretty false

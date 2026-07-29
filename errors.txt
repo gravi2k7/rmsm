@@ -1,0 +1,443 @@
+src/application/common/errors/__tests__/prisma-error.mapper.spec.ts(1,10): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/application/common/errors/prisma-error.mapper.ts(1,10): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/common/filters/__tests__/http-exception.filter.spec.ts(2,10): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/common/filters/http-exception.filter.ts(3,10): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/auth/auth.service.ts(3,35): error TS2305: Module '"@rmsm/database"' has no exported member 'LoginHistory'.
+src/modules/auth/auth.service.ts(295,48): error TS7006: Parameter 'ur' implicitly has an 'any' type.
+src/modules/auth/auth.service.ts(298,42): error TS7006: Parameter 'ur' implicitly has an 'any' type.
+src/modules/auth/auth.service.ts(299,40): error TS7006: Parameter 'rp' implicitly has an 'any' type.
+src/modules/auth/auth.service.ts(303,21): error TS2322: Type 'unknown[]' is not assignable to type 'string[]'.
+  Type 'unknown' is not assignable to type 'string'.
+src/modules/auth/repositories/audit-log.repository.ts(2,18): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/auth/repositories/audit-log.repository.ts(2,26): error TS2305: Module '"@rmsm/database"' has no exported member 'AuditLog'.
+src/modules/auth/repositories/login-history.repository.ts(2,23): error TS2305: Module '"@rmsm/database"' has no exported member 'LoginHistory'.
+src/modules/auth/repositories/login-history.repository.ts(2,42): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/auth/repositories/refresh-token.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'RefreshToken'.
+src/modules/auth/repositories/refresh-token.repository.ts(2,32): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/auth/repositories/session.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'Session'.
+src/modules/auth/repositories/session.repository.ts(2,27): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/auth/repositories/user.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'UserStatus'.
+src/modules/auth/repositories/user.repository.ts(2,30): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/auth/repositories/user.repository.ts(2,38): error TS2305: Module '"@rmsm/database"' has no exported member 'User'.
+src/modules/auth/services/audit.service.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'AuditLog'.
+src/modules/auth/services/audit.service.ts(3,25): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/auth/services/login-history.service.spec.ts(3,32): error TS2305: Module '"@rmsm/database"' has no exported member 'LoginHistory'.
+src/modules/auth/services/login-history.service.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'LoginHistory'.
+src/modules/auth/services/session.service.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'Session'.
+src/modules/auth/services/session.service.ts(3,24): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/auth/sessions.controller.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'Session'.
+src/modules/auth/sessions.controller.ts(3,24): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/billing/admin.controller.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'SubscriptionPlan'.
+src/modules/billing/admin.controller.ts(3,33): error TS2305: Module '"@rmsm/database"' has no exported member 'FeatureFlag'.
+src/modules/billing/admin.controller.ts(3,46): error TS2305: Module '"@rmsm/database"' has no exported member 'PlanFeature'.
+src/modules/billing/billing-account.controller.ts(4,15): error TS2305: Module '"@rmsm/database"' has no exported member 'BillingAccount'.
+src/modules/billing/constants.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+src/modules/billing/coupon.controller.ts(4,15): error TS2305: Module '"@rmsm/database"' has no exported member 'Coupon'.
+src/modules/billing/coupon.controller.ts(4,23): error TS2305: Module '"@rmsm/database"' has no exported member 'Invoice'.
+src/modules/billing/interfaces/payment-provider.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'BillingCycle'.
+src/modules/billing/interfaces/payment-provider.interface.ts(1,29): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentProviderType'.
+src/modules/billing/invoice.controller.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'Invoice'.
+src/modules/billing/payment.controller.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'Payment'.
+src/modules/billing/plans.controller.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'SubscriptionPlan'.
+src/modules/billing/providers/mock.provider.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentProviderType'.
+src/modules/billing/providers/payment-provider.registry.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentProviderType'.
+src/modules/billing/providers/paypal.provider.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentProviderType'.
+src/modules/billing/providers/razorpay.provider.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentProviderType'.
+src/modules/billing/providers/stripe.provider.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentProviderType'.
+src/modules/billing/repositories/billing-account.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'BillingAccount'.
+src/modules/billing/repositories/billing-account.repository.ts(2,44): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/billing/repositories/coupon-redemption.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'CouponRedemption'.
+src/modules/billing/repositories/coupon.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'Coupon'.
+src/modules/billing/repositories/coupon.repository.ts(2,26): error TS2305: Module '"@rmsm/database"' has no exported member 'CouponType'.
+src/modules/billing/repositories/feature-flag.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'FeatureFlag'.
+src/modules/billing/repositories/feature-flag.repository.ts(2,31): error TS2305: Module '"@rmsm/database"' has no exported member 'FeatureType'.
+src/modules/billing/repositories/invoice-line.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'InvoiceLine'.
+src/modules/billing/repositories/invoice.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'Invoice'.
+src/modules/billing/repositories/invoice.repository.ts(2,45): error TS2305: Module '"@rmsm/database"' has no exported member 'InvoiceStatus'.
+src/modules/billing/repositories/organization-subscription.repository.ts(4,3): error TS2724: '"@rmsm/database"' has no exported member named 'OrganizationSubscription'. Did you mean 'OrganizationSubscriptionWithPlan'?
+src/modules/billing/repositories/organization-subscription.repository.ts(6,3): error TS2305: Module '"@rmsm/database"' has no exported member 'SubscriptionStatus'.
+src/modules/billing/repositories/organization-subscription.repository.ts(7,3): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentProviderType'.
+src/modules/billing/repositories/organization-subscription.repository.ts(8,3): error TS2305: Module '"@rmsm/database"' has no exported member 'BillingCycle'.
+src/modules/billing/repositories/payment-webhook.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentWebhook'.
+src/modules/billing/repositories/payment-webhook.repository.ts(2,34): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentProviderType'.
+src/modules/billing/repositories/payment-webhook.repository.ts(2,65): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/billing/repositories/payment.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'Payment'.
+src/modules/billing/repositories/payment.repository.ts(2,27): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentStatus'.
+src/modules/billing/repositories/payment.repository.ts(2,42): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentProviderType'.
+src/modules/billing/repositories/payment.repository.ts(2,63): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentMethod'.
+src/modules/billing/repositories/payment.repository.ts(2,88): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/billing/repositories/plan-feature.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'PlanFeature'.
+src/modules/billing/repositories/subscription-plan.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'SubscriptionPlan'.
+src/modules/billing/repositories/usage-record.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'UsageRecord'.
+src/modules/billing/services/billing.service.ts(2,10): error TS2305: Module '"@rmsm/database"' has no exported member 'BillingAccount'.
+src/modules/billing/services/coupon.service.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'Coupon'.
+src/modules/billing/services/coupon.service.ts(2,26): error TS2305: Module '"@rmsm/database"' has no exported member 'CouponRedemption'.
+src/modules/billing/services/coupon.service.ts(2,44): error TS2305: Module '"@rmsm/database"' has no exported member 'Invoice'.
+src/modules/billing/services/coupon.service.ts(2,53): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/billing/services/invoice.service.ts(3,18): error TS2305: Module '"@rmsm/database"' has no exported member 'Invoice'.
+src/modules/billing/services/invoice.service.ts(3,45): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/billing/services/payment.service.ts(2,10): error TS2305: Module '"@rmsm/database"' has no exported member 'Payment'.
+src/modules/billing/services/payment.service.ts(2,19): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentProviderType'.
+src/modules/billing/services/payment.service.ts(2,40): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentStatus'.
+src/modules/billing/services/subscription.service.ts(2,18): error TS2724: '"@rmsm/database"' has no exported member named 'OrganizationSubscription'. Did you mean 'OrganizationSubscriptionWithPlan'?
+src/modules/billing/services/subscription.service.ts(2,78): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentProviderType'.
+src/modules/billing/services/subscription.service.ts(2,99): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/billing/services/usage.service.ts(2,10): error TS2305: Module '"@rmsm/database"' has no exported member 'UsageRecord'.
+src/modules/billing/services/webhook.service.ts(2,10): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentProviderType'.
+src/modules/billing/subscription.controller.ts(4,15): error TS2724: '"@rmsm/database"' has no exported member named 'OrganizationSubscription'. Did you mean 'OrganizationSubscriptionWithPlan'?
+src/modules/billing/usage.controller.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'UsageRecord'.
+src/modules/billing/webhook.controller.ts(5,15): error TS2305: Module '"@rmsm/database"' has no exported member 'PaymentProviderType'.
+src/modules/billing/webhook.controller.ts(36,17): error TS1272: A type referenced in a decorated signature must be imported with 'import type' or a namespace import when 'isolatedModules' and 'emitDecoratorMetadata' are enabled.
+src/modules/indicator-engine/contracts/timeframe.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/__tests__/candle-interval.constants.spec.ts(24,36): error TS2345: Argument of type 'number | undefined' is not assignable to parameter of type 'number | bigint'.
+  Type 'undefined' is not assignable to type 'number | bigint'.
+src/modules/market-data/constants/asset-class.constants.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'AssetClass'.
+src/modules/market-data/constants/candle-interval.constants.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/constants/candle-interval.constants.ts(31,3): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/modules/market-data/contracts/detection.contracts.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/contracts/workflow.contracts.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'DataGap'.
+src/modules/market-data/dto/responses/candle-response.dto.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/dto/responses/candle-response.dto.ts(2,31): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataSource'.
+src/modules/market-data/dto/responses/corporate-action-response.dto.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'CorporateActionType'.
+src/modules/market-data/dto/responses/import-job-response.dto.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'ImportJobStatus'.
+src/modules/market-data/dto/responses/instrument-response.dto.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'AssetClass'.
+src/modules/market-data/dto/responses/instrument-response.dto.ts(2,27): error TS2305: Module '"@rmsm/database"' has no exported member 'InstrumentStatus'.
+src/modules/market-data/dto/responses/provider-config-response.dto.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataProviderType'.
+src/modules/market-data/dto/responses/provider-config-response.dto.ts(2,39): error TS2305: Module '"@rmsm/database"' has no exported member 'AssetClass'.
+src/modules/market-data/dto/responses/quote-response.dto.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataSource'.
+src/modules/market-data/dto/responses/tick-response.dto.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataSource'.
+src/modules/market-data/interfaces/corporate-action-provider.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'CorporateActionType'.
+src/modules/market-data/interfaces/historical-data-client.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/interfaces/market-data-provider.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataProviderType'.
+src/modules/market-data/interfaces/models/operational.models.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'ImportJobStatus'.
+src/modules/market-data/interfaces/models/operational.models.ts(1,32): error TS2305: Module '"@rmsm/database"' has no exported member 'DataQualityStatus'.
+src/modules/market-data/interfaces/models/operational.models.ts(1,51): error TS2305: Module '"@rmsm/database"' has no exported member 'DataGapStatus'.
+src/modules/market-data/interfaces/models/operational.models.ts(1,66): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/interfaces/models/reference-data.models.ts(2,3): error TS2305: Module '"@rmsm/database"' has no exported member 'AssetClass'.
+src/modules/market-data/interfaces/models/reference-data.models.ts(3,3): error TS2305: Module '"@rmsm/database"' has no exported member 'InstrumentStatus'.
+src/modules/market-data/interfaces/models/reference-data.models.ts(4,3): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataProviderType'.
+src/modules/market-data/interfaces/models/reference-data.models.ts(5,3): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/interfaces/models/reference-data.models.ts(6,3): error TS2305: Module '"@rmsm/database"' has no exported member 'TradingSessionType'.
+src/modules/market-data/interfaces/models/time-series.models.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/interfaces/models/time-series.models.ts(1,31): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataSource'.
+src/modules/market-data/interfaces/models/time-series.models.ts(1,49): error TS2305: Module '"@rmsm/database"' has no exported member 'CorporateActionType'.
+src/modules/market-data/interfaces/normalized-market-data.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'AssetClass'.
+src/modules/market-data/interfaces/normalized-market-data.interface.ts(1,27): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/interfaces/normalized-market-data.interface.ts(1,43): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataSource'.
+src/modules/market-data/interfaces/provider-metadata.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'AssetClass'.
+src/modules/market-data/interfaces/provider-metadata.interface.ts(1,27): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/interfaces/provider-resolver.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'AssetClass'.
+src/modules/market-data/interfaces/provider-resolver.interface.ts(1,27): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataProviderType'.
+src/modules/market-data/interfaces/reference-data-provider.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'AssetClass'.
+src/modules/market-data/providers/__tests__/provider-resolver.service.spec.ts(5,15): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataProviderType'.
+src/modules/market-data/providers/internal-feed.provider.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'AssetClass'.
+src/modules/market-data/providers/internal-feed.provider.ts(1,27): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataProviderType'.
+src/modules/market-data/providers/provider-factory.service.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataProviderType'.
+src/modules/market-data/providers/provider-registry.service.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataProviderType'.
+src/modules/market-data/repositories/corporate-action.repository.ts(2,28): error TS2305: Module '"@rmsm/database"' has no exported member 'CorporateActionType'.
+src/modules/market-data/repositories/corporate-action.repository.ts(2,49): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataSource'.
+src/modules/market-data/repositories/data-gap.repository.ts(2,28): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/repositories/data-gap.repository.ts(2,44): error TS2305: Module '"@rmsm/database"' has no exported member 'DataGapStatus'.
+src/modules/market-data/repositories/data-import-job.repository.ts(2,28): error TS2305: Module '"@rmsm/database"' has no exported member 'ImportJobStatus'.
+src/modules/market-data/repositories/data-quality-issue.repository.ts(2,28): error TS2305: Module '"@rmsm/database"' has no exported member 'DataQualityStatus'.
+src/modules/market-data/repositories/instrument.repository.ts(2,28): error TS2305: Module '"@rmsm/database"' has no exported member 'AssetClass'.
+src/modules/market-data/repositories/instrument.repository.ts(2,40): error TS2305: Module '"@rmsm/database"' has no exported member 'InstrumentStatus'.
+src/modules/market-data/repositories/mappers/operational.mappers.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'DataImportJob'.
+src/modules/market-data/repositories/mappers/operational.mappers.ts(1,30): error TS2305: Module '"@rmsm/database"' has no exported member 'DataQualityIssue'.
+src/modules/market-data/repositories/mappers/operational.mappers.ts(1,48): error TS2305: Module '"@rmsm/database"' has no exported member 'DataGap'.
+src/modules/market-data/repositories/mappers/reference-data.mappers.ts(2,3): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataProviderConfig'.
+src/modules/market-data/repositories/mappers/reference-data.mappers.ts(3,3): error TS2305: Module '"@rmsm/database"' has no exported member 'Exchange'.
+src/modules/market-data/repositories/mappers/reference-data.mappers.ts(4,3): error TS2305: Module '"@rmsm/database"' has no exported member 'TradingSession'.
+src/modules/market-data/repositories/mappers/reference-data.mappers.ts(5,3): error TS2305: Module '"@rmsm/database"' has no exported member 'SupportedTimeframe'.
+src/modules/market-data/repositories/mappers/reference-data.mappers.ts(6,3): error TS2305: Module '"@rmsm/database"' has no exported member 'Instrument'.
+src/modules/market-data/repositories/mappers/reference-data.mappers.ts(7,3): error TS2305: Module '"@rmsm/database"' has no exported member 'InstrumentAlias'.
+src/modules/market-data/repositories/mappers/time-series.mappers.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketCandle'.
+src/modules/market-data/repositories/mappers/time-series.mappers.ts(1,29): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketQuote'.
+src/modules/market-data/repositories/mappers/time-series.mappers.ts(1,42): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketTick'.
+src/modules/market-data/repositories/mappers/time-series.mappers.ts(1,54): error TS2305: Module '"@rmsm/database"' has no exported member 'CorporateAction'.
+src/modules/market-data/repositories/market-candle.repository.ts(2,28): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/repositories/market-candle.repository.ts(2,44): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataSource'.
+src/modules/market-data/repositories/market-candle.repository.ts(2,62): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketCandle'.
+src/modules/market-data/repositories/market-data-provider-config.repository.ts(2,28): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataProviderType'.
+src/modules/market-data/repositories/market-data-provider-config.repository.ts(2,52): error TS2305: Module '"@rmsm/database"' has no exported member 'AssetClass'.
+src/modules/market-data/repositories/market-quote.repository.ts(2,28): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataSource'.
+src/modules/market-data/repositories/market-tick.repository.ts(2,28): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataSource'.
+src/modules/market-data/repositories/supported-timeframe.repository.ts(2,28): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/repositories/trading-session.repository.ts(2,28): error TS2305: Module '"@rmsm/database"' has no exported member 'TradingSessionType'.
+src/modules/market-data/services/historical-import.service.ts(3,18): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/market-data/services/historical-import.service.ts(3,26): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/services/market-data-admin.service.ts(3,18): error TS2305: Module '"@rmsm/database"' has no exported member 'ImportJobStatus'.
+src/modules/market-data/services/market-data.service.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'AssetClass'.
+src/modules/market-data/services/market-data.service.ts(3,27): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/services/market-data.service.ts(3,43): error TS2305: Module '"@rmsm/database"' has no exported member 'InstrumentStatus'.
+src/modules/market-data/services/provider-orchestration.service.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'MarketDataProviderType'.
+src/modules/market-data/services/synchronization.service.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/utils/normalizers/candle.normalizer.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/utils/normalizers/corporate-action.normalizer.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'CorporateActionType'.
+src/modules/market-data/utils/normalizers/instrument.normalizer.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'AssetClass'.
+src/modules/market-data/utils/normalizers/provider-metadata.normalizer.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'AssetClass'.
+src/modules/market-data/utils/normalizers/provider-metadata.normalizer.ts(1,27): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/utils/normalizers/trading-session.normalizer.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'TradingSessionType'.
+src/modules/market-data/validation/data-quality-rules.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/market-data/validation/provider-data.validator.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'AssetClass'.
+src/modules/market-data/validation/provider-data.validator.ts(2,27): error TS2305: Module '"@rmsm/database"' has no exported member 'CandleInterval'.
+src/modules/notifications/admin-notification.controller.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailProvider'.
+src/modules/notifications/admin-notification.controller.ts(3,30): error TS2305: Module '"@rmsm/database"' has no exported member 'SmsProvider'.
+src/modules/notifications/admin-notification.controller.ts(3,43): error TS2305: Module '"@rmsm/database"' has no exported member 'PushProvider'.
+src/modules/notifications/admin-notification.controller.ts(3,57): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationQueue'.
+src/modules/notifications/constants.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+src/modules/notifications/device-token.controller.ts(4,15): error TS2305: Module '"@rmsm/database"' has no exported member 'DeviceToken'.
+src/modules/notifications/interfaces/providers/email-provider.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailProviderType'.
+src/modules/notifications/interfaces/providers/push-provider.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'PushProviderType'.
+src/modules/notifications/interfaces/providers/push-provider.interface.ts(1,33): error TS2305: Module '"@rmsm/database"' has no exported member 'DevicePlatform'.
+src/modules/notifications/interfaces/providers/sms-provider.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'SmsProviderType'.
+src/modules/notifications/interfaces/queue-adapter.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationPriority'.
+src/modules/notifications/interfaces/repositories/notification-config.repository.interface.ts(3,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationTemplate'.
+src/modules/notifications/interfaces/repositories/notification-config.repository.interface.ts(4,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationCategory'.
+src/modules/notifications/interfaces/repositories/notification-config.repository.interface.ts(5,3): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailProvider'.
+src/modules/notifications/interfaces/repositories/notification-config.repository.interface.ts(6,3): error TS2305: Module '"@rmsm/database"' has no exported member 'SmsProvider'.
+src/modules/notifications/interfaces/repositories/notification-config.repository.interface.ts(7,3): error TS2305: Module '"@rmsm/database"' has no exported member 'PushProvider'.
+src/modules/notifications/interfaces/repositories/notification-config.repository.interface.ts(8,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationChannel'.
+src/modules/notifications/interfaces/repositories/notification-core.repository.interface.ts(3,3): error TS2305: Module '"@rmsm/database"' has no exported member 'Notification'.
+src/modules/notifications/interfaces/repositories/notification-core.repository.interface.ts(4,3): error TS2724: '"@rmsm/database"' has no exported member named 'NotificationDelivery'. Did you mean 'NotificationWithDeliveries'?
+src/modules/notifications/interfaces/repositories/notification-core.repository.interface.ts(5,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationEvent'.
+src/modules/notifications/interfaces/repositories/notification-core.repository.interface.ts(6,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationLog'.
+src/modules/notifications/interfaces/repositories/notification-core.repository.interface.ts(7,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationAttachment'.
+src/modules/notifications/interfaces/repositories/notification-core.repository.interface.ts(8,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationStatus'.
+src/modules/notifications/interfaces/repositories/notification-core.repository.interface.ts(9,3): error TS2305: Module '"@rmsm/database"' has no exported member 'DeliveryStatus'.
+src/modules/notifications/interfaces/repositories/notification-scheduling.repository.interface.ts(3,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationQueue'.
+src/modules/notifications/interfaces/repositories/notification-scheduling.repository.interface.ts(4,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationSchedule'.
+src/modules/notifications/interfaces/repositories/notification-scheduling.repository.interface.ts(5,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationDigest'.
+src/modules/notifications/interfaces/repositories/notification-scheduling.repository.interface.ts(6,3): error TS2305: Module '"@rmsm/database"' has no exported member 'QueueStatus'.
+src/modules/notifications/interfaces/repositories/notification-user.repository.interface.ts(3,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationPreference'.
+src/modules/notifications/interfaces/repositories/notification-user.repository.interface.ts(4,3): error TS2305: Module '"@rmsm/database"' has no exported member 'DeviceToken'.
+src/modules/notifications/interfaces/repositories/notification-user.repository.interface.ts(5,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationWebhook'.
+src/modules/notifications/interfaces/repositories/notification-user.repository.interface.ts(6,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationChannel'.
+src/modules/notifications/interfaces/services/notification-channel.service.interface.ts(1,15): error TS2724: '"@rmsm/database"' has no exported member named 'NotificationDelivery'. Did you mean 'NotificationWithDeliveries'?
+src/modules/notifications/interfaces/services/notification-core.service.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'Notification'.
+src/modules/notifications/interfaces/services/notification-core.service.interface.ts(1,29): error TS2724: '"@rmsm/database"' has no exported member named 'NotificationDelivery'. Did you mean 'NotificationWithDeliveries'?
+src/modules/notifications/interfaces/services/notification-core.service.interface.ts(1,51): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationChannel'.
+src/modules/notifications/interfaces/services/notification-core.service.interface.ts(1,72): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationPriority'.
+src/modules/notifications/interfaces/services/notification-core.service.interface.ts(1,94): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationType'.
+src/modules/notifications/interfaces/services/notification-infra.service.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailProviderType'.
+src/modules/notifications/interfaces/services/notification-infra.service.interface.ts(1,34): error TS2305: Module '"@rmsm/database"' has no exported member 'SmsProviderType'.
+src/modules/notifications/interfaces/services/notification-infra.service.interface.ts(1,51): error TS2305: Module '"@rmsm/database"' has no exported member 'PushProviderType'.
+src/modules/notifications/interfaces/services/notification-infra.service.interface.ts(1,69): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationTemplate'.
+src/modules/notifications/interfaces/services/notification-infra.service.interface.ts(1,91): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationChannel'.
+src/modules/notifications/interfaces/services/notification-scheduling.service.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationSchedule'.
+src/modules/notifications/interfaces/services/notification-scheduling.service.interface.ts(1,37): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationDigest'.
+src/modules/notifications/interfaces/template-engine.interface.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'TemplateFormat'.
+src/modules/notifications/notification-preference.controller.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationPreference'.
+src/modules/notifications/notification-template.controller.ts(4,15): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationTemplate'.
+src/modules/notifications/notification-webhook-subscription.controller.ts(4,15): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationWebhook'.
+src/modules/notifications/notification.controller.ts(17,15): error TS2305: Module '"@rmsm/database"' has no exported member 'Notification'.
+src/modules/notifications/notification.controller.ts(17,29): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationSchedule'.
+src/modules/notifications/providers/email/email-provider.registry.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailProviderType'.
+src/modules/notifications/providers/email/mailgun.provider.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailProviderType'.
+src/modules/notifications/providers/email/resend.provider.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailProviderType'.
+src/modules/notifications/providers/email/sendgrid.provider.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailProviderType'.
+src/modules/notifications/providers/email/ses.provider.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailProviderType'.
+src/modules/notifications/providers/email/smtp.provider.ts(4,15): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailProviderType'.
+src/modules/notifications/providers/provider-factory.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailProviderType'.
+src/modules/notifications/providers/provider-factory.ts(3,34): error TS2305: Module '"@rmsm/database"' has no exported member 'SmsProviderType'.
+src/modules/notifications/providers/provider-factory.ts(3,51): error TS2305: Module '"@rmsm/database"' has no exported member 'PushProviderType'.
+src/modules/notifications/providers/push/apns.provider.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'PushProviderType'.
+src/modules/notifications/providers/push/fcm.provider.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'PushProviderType'.
+src/modules/notifications/providers/push/push-provider.registry.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'PushProviderType'.
+src/modules/notifications/providers/rmsm-template-engine.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'TemplateFormat'.
+src/modules/notifications/providers/sms/aws-sns.provider.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'SmsProviderType'.
+src/modules/notifications/providers/sms/messagebird.provider.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'SmsProviderType'.
+src/modules/notifications/providers/sms/sms-provider.registry.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'SmsProviderType'.
+src/modules/notifications/providers/sms/twilio.provider.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'SmsProviderType'.
+src/modules/notifications/providers/sms/vonage.provider.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'SmsProviderType'.
+src/modules/notifications/repositories/device-token.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'DeviceToken'.
+src/modules/notifications/repositories/device-token.repository.ts(2,31): error TS2305: Module '"@rmsm/database"' has no exported member 'DevicePlatform'.
+src/modules/notifications/repositories/email-provider.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailProvider'.
+src/modules/notifications/repositories/email-provider.repository.ts(2,33): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailProviderType'.
+src/modules/notifications/repositories/email-provider.repository.ts(2,52): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/notifications/repositories/notification-delivery.repository.ts(2,18): error TS2724: '"@rmsm/database"' has no exported member named 'NotificationDelivery'. Did you mean 'NotificationWithDeliveries'?
+src/modules/notifications/repositories/notification-delivery.repository.ts(2,40): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationChannel'.
+src/modules/notifications/repositories/notification-delivery.repository.ts(2,61): error TS2305: Module '"@rmsm/database"' has no exported member 'DeliveryStatus'.
+src/modules/notifications/repositories/notification-digest.repository.ts(3,18): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationDigest'.
+src/modules/notifications/repositories/notification-digest.repository.ts(3,38): error TS2305: Module '"@rmsm/database"' has no exported member 'ScheduleFrequency'.
+src/modules/notifications/repositories/notification-event.repository.ts(3,18): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationEvent'.
+src/modules/notifications/repositories/notification-log.repository.ts(3,18): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationLog'.
+src/modules/notifications/repositories/notification-preference.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationPreference'.
+src/modules/notifications/repositories/notification-preference.repository.ts(2,42): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationChannel'.
+src/modules/notifications/repositories/notification-preference.repository.ts(2,63): error TS2305: Module '"@rmsm/database"' has no exported member 'ScheduleFrequency'.
+src/modules/notifications/repositories/notification-queue.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationQueue'.
+src/modules/notifications/repositories/notification-queue.repository.ts(2,37): error TS2305: Module '"@rmsm/database"' has no exported member 'QueueStatus'.
+src/modules/notifications/repositories/notification-queue.repository.ts(2,50): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationPriority'.
+src/modules/notifications/repositories/notification-schedule.repository.ts(3,18): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationSchedule'.
+src/modules/notifications/repositories/notification-schedule.repository.ts(3,40): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationType'.
+src/modules/notifications/repositories/notification-schedule.repository.ts(3,58): error TS2305: Module '"@rmsm/database"' has no exported member 'ScheduleFrequency'.
+src/modules/notifications/repositories/notification-template.repository.ts(4,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationTemplate'.
+src/modules/notifications/repositories/notification-template.repository.ts(6,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationChannel'.
+src/modules/notifications/repositories/notification-template.repository.ts(7,3): error TS2305: Module '"@rmsm/database"' has no exported member 'TemplateFormat'.
+src/modules/notifications/repositories/notification-webhook.repository.ts(3,18): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationWebhook'.
+src/modules/notifications/repositories/notification.repository.ts(5,3): error TS2305: Module '"@rmsm/database"' has no exported member 'Notification'.
+src/modules/notifications/repositories/notification.repository.ts(7,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationType'.
+src/modules/notifications/repositories/notification.repository.ts(8,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationChannel'.
+src/modules/notifications/repositories/notification.repository.ts(9,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationPriority'.
+src/modules/notifications/repositories/notification.repository.ts(10,3): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationStatus'.
+src/modules/notifications/repositories/notification.repository.ts(11,3): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+src/modules/notifications/repositories/push-provider.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'PushProvider'.
+src/modules/notifications/repositories/push-provider.repository.ts(2,32): error TS2305: Module '"@rmsm/database"' has no exported member 'PushProviderType'.
+src/modules/notifications/repositories/push-provider.repository.ts(2,50): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/notifications/repositories/sms-provider.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'SmsProvider'.
+src/modules/notifications/repositories/sms-provider.repository.ts(2,31): error TS2305: Module '"@rmsm/database"' has no exported member 'SmsProviderType'.
+src/modules/notifications/repositories/sms-provider.repository.ts(2,48): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/notifications/services/__tests__/preference.service.spec.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationPreference'.
+src/modules/notifications/services/delivery.service.ts(2,10): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationChannel'.
+src/modules/notifications/services/delivery.service.ts(2,31): error TS2724: '"@rmsm/database"' has no exported member named 'NotificationDelivery'. Did you mean 'NotificationWithDeliveries'?
+src/modules/notifications/services/digest.service.ts(3,10): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationDigest'.
+src/modules/notifications/services/digest.service.ts(3,30): error TS2305: Module '"@rmsm/database"' has no exported member 'ScheduleFrequency'.
+src/modules/notifications/services/email.service.ts(3,10): error TS2724: '"@rmsm/database"' has no exported member named 'NotificationDelivery'. Did you mean 'NotificationWithDeliveries'?
+src/modules/notifications/services/email.service.ts(3,32): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailProviderType'.
+src/modules/notifications/services/notification-scheduler.service.ts(3,10): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationSchedule'.
+src/modules/notifications/services/notification.service.ts(4,10): error TS2305: Module '"@rmsm/database"' has no exported member 'Notification'.
+src/modules/notifications/services/notification.service.ts(4,24): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationType'.
+src/modules/notifications/services/notification.service.ts(4,42): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationChannel'.
+src/modules/notifications/services/preference.service.ts(2,10): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationChannel'.
+src/modules/notifications/services/preference.service.ts(2,31): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationPreference'.
+src/modules/notifications/services/push.service.ts(3,10): error TS2724: '"@rmsm/database"' has no exported member named 'NotificationDelivery'. Did you mean 'NotificationWithDeliveries'?
+src/modules/notifications/services/push.service.ts(3,32): error TS2305: Module '"@rmsm/database"' has no exported member 'PushProviderType'.
+src/modules/notifications/services/sms.service.ts(3,10): error TS2724: '"@rmsm/database"' has no exported member named 'NotificationDelivery'. Did you mean 'NotificationWithDeliveries'?
+src/modules/notifications/services/sms.service.ts(3,32): error TS2305: Module '"@rmsm/database"' has no exported member 'SmsProviderType'.
+src/modules/notifications/services/template.service.ts(3,10): error TS2305: Module '"@rmsm/database"' has no exported member 'NotificationTemplate'.
+src/modules/notifications/webhook.controller.ts(6,15): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailProviderType'.
+src/modules/notifications/webhook.controller.ts(6,34): error TS2305: Module '"@rmsm/database"' has no exported member 'SmsProviderType'.
+src/modules/notifications/webhook.controller.ts(64,17): error TS1272: A type referenced in a decorated signature must be imported with 'import type' or a namespace import when 'isolatedModules' and 'emitDecoratorMetadata' are enabled.
+src/modules/oauth/oauth.service.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'OAuthProvider'.
+src/modules/onboarding/__tests__/onboarding.service.spec.ts(9,15): error TS2305: Module '"@rmsm/database"' has no exported member 'Organization'.
+src/modules/onboarding/__tests__/onboarding.service.spec.ts(9,29): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationMembership'.
+src/modules/onboarding/__tests__/onboarding.service.spec.ts(9,53): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+src/modules/onboarding/onboarding.service.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+src/modules/organizations/constants.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+src/modules/organizations/decorators/current-org-membership.decorator.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationMembership'.
+src/modules/organizations/decorators/require-org-role.decorator.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+src/modules/organizations/invitation.controller.ts(4,15): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationInvitation'.
+src/modules/organizations/invitation.controller.ts(4,39): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+src/modules/organizations/membership.controller.ts(18,15): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationMembership'.
+src/modules/organizations/organization.controller.ts(18,15): error TS2305: Module '"@rmsm/database"' has no exported member 'Organization'.
+src/modules/organizations/repositories/invitation.repository.ts(4,3): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationInvitation'.
+src/modules/organizations/repositories/invitation.repository.ts(6,3): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+src/modules/organizations/repositories/invitation.repository.ts(7,3): error TS2305: Module '"@rmsm/database"' has no exported member 'InvitationStatus'.
+src/modules/organizations/repositories/invitation.repository.ts(8,3): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/organizations/repositories/membership-event.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationMembershipEvent'.
+src/modules/organizations/repositories/membership-event.repository.ts(2,47): error TS2305: Module '"@rmsm/database"' has no exported member 'MembershipEventAction'.
+src/modules/organizations/repositories/membership-event.repository.ts(2,70): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+src/modules/organizations/repositories/membership-event.repository.ts(2,98): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/organizations/repositories/membership.repository.ts(4,3): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationMembership'.
+src/modules/organizations/repositories/membership.repository.ts(7,3): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+src/modules/organizations/repositories/membership.repository.ts(8,3): error TS2305: Module '"@rmsm/database"' has no exported member 'MembershipStatus'.
+src/modules/organizations/repositories/organization.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'Organization'.
+src/modules/organizations/repositories/organization.repository.ts(2,32): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationStatus'.
+src/modules/organizations/repositories/organization.repository.ts(2,62): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/organizations/services/__tests__/invitation.service.spec.ts(3,3): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationInvitation'.
+src/modules/organizations/services/__tests__/invitation.service.spec.ts(4,3): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationMembership'.
+src/modules/organizations/services/__tests__/membership.service.spec.ts(2,15): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationMembership'.
+src/modules/organizations/services/__tests__/membership.service.spec.ts(2,39): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+src/modules/organizations/services/__tests__/membership.service.spec.ts(2,57): error TS2305: Module '"@rmsm/database"' has no exported member 'MembershipStatus'.
+src/modules/organizations/services/invitation.service.ts(5,3): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationInvitation'.
+src/modules/organizations/services/invitation.service.ts(7,3): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationMembership'.
+src/modules/organizations/services/invitation.service.ts(8,3): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+src/modules/organizations/services/invitation.service.ts(9,3): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/organizations/services/membership.service.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationMembership'.
+src/modules/organizations/services/membership.service.ts(2,74): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+src/modules/organizations/services/membership.service.ts(2,92): error TS2305: Module '"@rmsm/database"' has no exported member 'Organization'.
+src/modules/organizations/services/membership.service.ts(2,106): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/organizations/services/organization.service.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'Organization'.
+src/modules/organizations/services/organization.service.ts(2,32): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationStatus'.
+src/modules/organizations/services/organization.service.ts(2,52): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/rbac/rbac.controller.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'Role'.
+src/modules/rbac/rbac.controller.ts(3,21): error TS2305: Module '"@rmsm/database"' has no exported member 'Permission'.
+src/modules/rbac/rbac.controller.ts(3,33): error TS2305: Module '"@rmsm/database"' has no exported member 'RolePermission'.
+src/modules/rbac/rbac.controller.ts(3,49): error TS2305: Module '"@rmsm/database"' has no exported member 'UserRole'.
+src/modules/rbac/rbac.service.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'Role'.
+src/modules/rbac/rbac.service.ts(2,24): error TS2305: Module '"@rmsm/database"' has no exported member 'Permission'.
+src/modules/rbac/rbac.service.ts(2,36): error TS2305: Module '"@rmsm/database"' has no exported member 'RolePermission'.
+src/modules/rbac/rbac.service.ts(2,52): error TS2305: Module '"@rmsm/database"' has no exported member 'UserRole'.
+src/modules/strategy-engine/infrastructure/__tests__/rule-group.mapper.spec.ts(5,10): error TS2305: Module '"@rmsm/database"' has no exported member 'ComparisonOperatorType'.
+src/modules/strategy-engine/infrastructure/__tests__/rule-group.mapper.spec.ts(6,15): error TS2305: Module '"@rmsm/database"' has no exported member 'RuleGroup'.
+src/modules/strategy-engine/infrastructure/__tests__/rule-group.mapper.spec.ts(6,61): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/strategy-engine/infrastructure/__tests__/strategy-parameter.mapper.spec.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyParameter'.
+src/modules/strategy-engine/infrastructure/events/__tests__/outbox-publisher.service.spec.ts(5,15): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyOutboxEvent'.
+src/modules/strategy-engine/infrastructure/events/outbox-publisher.service.ts(9,15): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyOutboxEvent'.
+src/modules/strategy-engine/infrastructure/mappers/condition.mapper.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'Condition'.
+src/modules/strategy-engine/infrastructure/mappers/condition.mapper.ts(1,42): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/strategy-engine/infrastructure/mappers/condition.mapper.ts(1,50): error TS2305: Module '"@rmsm/database"' has no exported member 'ComparisonOperatorType'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(1,10): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyStatus'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(1,26): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyVersionStatus'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(1,49): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyCategoryCode'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(1,71): error TS2305: Module '"@rmsm/database"' has no exported member 'RuleTreeRole'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(1,85): error TS2305: Module '"@rmsm/database"' has no exported member 'LogicalOperatorType'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(1,106): error TS2305: Module '"@rmsm/database"' has no exported member 'ComparisonOperatorType'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(1,130): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyParameterType'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(1,153): error TS2305: Module '"@rmsm/database"' has no exported member 'ApprovalDecision'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(1,171): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyHistoryActionType'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(40,13): error TS2322: Type 'StrategyStatus' is not assignable to type 'never'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(90,13): error TS2322: Type 'StrategyVersionStatus' is not assignable to type 'never'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(144,13): error TS2322: Type 'StrategyCategoryCode' is not assignable to type 'never'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(187,13): error TS2322: Type 'LogicalOperatorType' is not assignable to type 'never'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(241,13): error TS2322: Type 'ComparisonOperatorType' is not assignable to type 'never'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(290,13): error TS2322: Type 'ApprovalDecision' is not assignable to type 'never'.
+src/modules/strategy-engine/infrastructure/mappers/enum-mappers.util.ts(344,13): error TS2322: Type 'StrategyHistoryActionType' is not assignable to type 'never'.
+src/modules/strategy-engine/infrastructure/mappers/execution-profile.mapper.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'ExecutionProfile'.
+src/modules/strategy-engine/infrastructure/mappers/execution-profile.mapper.ts(1,56): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/strategy-engine/infrastructure/mappers/json-value.util.ts(1,10): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/strategy-engine/infrastructure/mappers/rule-group.mapper.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'RuleGroup'.
+src/modules/strategy-engine/infrastructure/mappers/rule-group.mapper.ts(1,61): error TS2305: Module '"@rmsm/database"' has no exported member 'RuleTreeRole'.
+src/modules/strategy-engine/infrastructure/mappers/strategy-approval.mapper.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyApproval'.
+src/modules/strategy-engine/infrastructure/mappers/strategy-history.mapper.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyHistory'.
+src/modules/strategy-engine/infrastructure/mappers/strategy-history.mapper.ts(1,54): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/strategy-engine/infrastructure/mappers/strategy-history.mapper.ts(1,62): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyHistoryActionType'.
+src/modules/strategy-engine/infrastructure/mappers/strategy-parameter.mapper.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyParameter'.
+src/modules/strategy-engine/infrastructure/mappers/strategy-parameter.mapper.ts(1,58): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyParameterType'.
+src/modules/strategy-engine/infrastructure/mappers/strategy-parameter.mapper.ts(1,81): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/strategy-engine/infrastructure/mappers/strategy-parameter.mapper.ts(30,13): error TS2322: Type 'any' is not assignable to type 'never'.
+src/modules/strategy-engine/infrastructure/mappers/strategy-publication.mapper.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyPublication'.
+src/modules/strategy-engine/infrastructure/mappers/strategy-validation.mapper.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyValidation'.
+src/modules/strategy-engine/infrastructure/mappers/strategy-validation.mapper.ts(1,60): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/strategy-engine/infrastructure/mappers/strategy-version.mapper.ts(1,15): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyVersion'.
+src/modules/strategy-engine/infrastructure/mappers/strategy-version.mapper.ts(1,54): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyParameter'.
+src/modules/strategy-engine/infrastructure/mappers/strategy-version.mapper.ts(1,97): error TS2305: Module '"@rmsm/database"' has no exported member 'RuleGroup'.
+src/modules/strategy-engine/infrastructure/mappers/strategy.mapper.ts(8,40): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/modules/strategy-engine/infrastructure/repositories/category-tag.repository.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyCategory'.
+src/modules/strategy-engine/infrastructure/repositories/category-tag.repository.ts(3,56): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyTag'.
+src/modules/strategy-engine/infrastructure/repositories/strategy-approval.repository.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'ApprovalDecision'.
+src/modules/strategy-engine/infrastructure/repositories/strategy-outbox.repository.ts(2,18): error TS2724: '"@rmsm/database"' has no exported member named 'Prisma'. Did you mean 'prisma'?
+src/modules/strategy-engine/infrastructure/repositories/strategy-outbox.repository.ts(2,26): error TS2305: Module '"@rmsm/database"' has no exported member 'OutboxEventStatus'.
+src/modules/strategy-engine/infrastructure/repositories/strategy-outbox.repository.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyOutboxEvent'.
+src/modules/strategy-engine/infrastructure/repositories/strategy-version.repository.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'StrategyVersion'.
+src/modules/strategy-engine/infrastructure/repositories/strategy-version.repository.ts(50,38): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/modules/strategy-engine/infrastructure/repositories/strategy.repository.ts(34,38): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/modules/users/users.controller.ts(3,15): error TS2305: Module '"@rmsm/database"' has no exported member 'Profile'.
+src/modules/users/users.service.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'Profile'.
+test/factories/email-verification.factory.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'EmailVerification'.
+test/factories/invitation.factory.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationInvitation'.
+test/factories/invitation.factory.ts(2,42): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+test/factories/invitation.factory.ts(2,60): error TS2305: Module '"@rmsm/database"' has no exported member 'InvitationStatus'.
+test/factories/membership.factory.ts(1,18): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationMembership'.
+test/factories/membership.factory.ts(1,42): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+test/factories/membership.factory.ts(1,60): error TS2305: Module '"@rmsm/database"' has no exported member 'MembershipStatus'.
+test/factories/organization.factory.ts(1,18): error TS2305: Module '"@rmsm/database"' has no exported member 'Organization'.
+test/factories/organization.factory.ts(1,32): error TS2305: Module '"@rmsm/database"' has no exported member 'OrganizationRole'.
+test/factories/organization.factory.ts(21,37): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+test/factories/password-reset.factory.ts(2,18): error TS2305: Module '"@rmsm/database"' has no exported member 'PasswordReset'.
+test/factories/user.factory.ts(1,18): error TS2305: Module '"@rmsm/database"' has no exported member 'User'.
+../../packages/database/src/errors/database.errors.ts(2,10): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+../../packages/database/src/errors/database.errors.ts(68,13): error TS18046: 'error' is of type 'unknown'.
+../../packages/database/src/errors/database.errors.ts(76,88): error TS18046: 'error' is of type 'unknown'.
+../../packages/database/src/errors/database.errors.ts(76,104): error TS18046: 'error' is of type 'unknown'.
+../../packages/database/src/errors/database.errors.ts(76,121): error TS18046: 'error' is of type 'unknown'.
+../../packages/database/src/index.ts(1,10): error TS2305: Module '"@prisma/client"' has no exported member 'PrismaClient'.
+../../packages/database/src/index.ts(43,15): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+../../packages/database/src/interfaces/repository.interface.ts(1,15): error TS2305: Module '"@prisma/client"' has no exported member 'PrismaClient'.
+../../packages/database/src/interfaces/repository.interface.ts(1,29): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+../../packages/database/src/transactions/transaction.manager.ts(1,15): error TS2305: Module '"@prisma/client"' has no exported member 'PrismaClient'.
+../../packages/database/src/transactions/transaction.manager.ts(1,29): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+undefined
+C:\Ravi\RMSM_Project\rmsm\apps\api:
+ΓÇëERR_PNPM_RECURSIVE_EXEC_FIRST_FAILΓÇë Command failed with exit code 1: tsc --noEmit

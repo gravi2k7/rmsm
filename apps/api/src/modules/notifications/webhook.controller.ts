@@ -1,4 +1,5 @@
-import { Controller, Param, Post, RawBodyRequest, Req } from "@nestjs/common";
+import { Controller, Param, Post, Req } from "@nestjs/common";
+import type { RawBodyRequest } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
