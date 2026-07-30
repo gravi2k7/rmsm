@@ -952,6 +952,9 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -1230,6 +1233,9 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -1243,7 +1249,7 @@ importers:
         specifier: ^20.14.15
         version: 20.19.43
       typescript:
-        specifier: ^5.5.4
+        specifier: ^5.9.3
         version: 5.9.3
       vitest:
         specifier: ^2.0.5
@@ -1287,7 +1293,7 @@ importers:
         specifier: ^20.14.15
         version: 20.19.43
       typescript:
-        specifier: ^5.5.4
+        specifier: ^5.9.3
         version: 5.9.3
       vitest:
         specifier: ^2.0.5
@@ -1315,7 +1321,7 @@ importers:
         specifier: ^20.14.15
         version: 20.19.43
       typescript:
-        specifier: ^5.5.4
+        specifier: ^5.9.3
         version: 5.9.3
       vitest:
         specifier: ^2.0.5
@@ -1359,7 +1365,7 @@ importers:
         specifier: ^20.14.15
         version: 20.19.43
       typescript:
-        specifier: ^5.5.4
+        specifier: ^5.9.3
         version: 5.9.3
       vitest:
         specifier: ^2.0.5
@@ -1378,7 +1384,7 @@ importers:
         specifier: ^20.14.15
         version: 20.19.43
       typescript:
-        specifier: ^5.5.4
+        specifier: ^5.9.3
         version: 5.9.3
       vitest:
         specifier: ^2.0.5
@@ -1406,7 +1412,7 @@ importers:
         specifier: ^20.14.15
         version: 20.19.43
       typescript:
-        specifier: ^5.5.4
+        specifier: ^5.9.3
         version: 5.9.3
       vitest:
         specifier: ^2.0.5
@@ -1418,6 +1424,9 @@ importers:
         specifier: workspace:*
         version: link:../types
     devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -1438,7 +1447,7 @@ importers:
         specifier: ^20.14.15
         version: 20.19.43
       typescript:
-        specifier: ^5.5.4
+        specifier: ^5.9.3
         version: 5.9.3
       vitest:
         specifier: ^2.0.5
@@ -1446,6 +1455,9 @@ importers:
 
   packages/types:
     devDependencies:
+      '@types/node':
+        specifier: ^20.14.15
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3

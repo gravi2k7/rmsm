@@ -1,6 +1,5 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { PromptRepository } from "../domain/repositories/prompt-repository.interface";
 import type { PromptTemplate } from "../domain/entities/prompt-template.entity";
 import { PromptType } from "../domain/enums/prompt-type.enum";
@@ -17,10 +16,18 @@ const TEMPLATE_CATEGORIES = ["chat", "analysis", "coding", "research", "summary"
  * which would break the moment a consumer imports `@rmsm/ai-prompts`
  * from a different working directory, e.g. `apps/api` running from the
  * repo root).
+ *
+ * Uses CommonJS's `__dirname` rather than `import.meta.url` — this
+ * package now compiles to CommonJS (see `tsconfig.build.json`), same as
+ * every other runtime package in the workspace, and `import.meta` isn't
+ * valid in CJS output. The build script copies `src/templates/` to
+ * `dist/templates/` alongside the compiled JS specifically so this
+ * still resolves correctly at runtime either way: one level up from
+ * `dist/infrastructure/` reaches `dist/`, which is where `templates/`
+ * now lives, mirroring `src/infrastructure/` -> `src/templates/`.
  */
 function defaultTemplatesRoot(): string {
-  const here = fileURLToPath(import.meta.url);
-  return join(here, "..", "..", "templates");
+  return join(__dirname, "..", "templates");
 }
 
 /**
