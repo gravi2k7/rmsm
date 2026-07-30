@@ -31,5 +31,16 @@ describe("MobileNav", () => {
 
     await user.click(screen.getByRole("link", { name: "Login" }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
+
+    // jsdom's own <a> click handling unconditionally schedules a real
+    // `setTimeout(..., 0)` that tries to follow the link's href (see
+    // jsdom's HTMLHyperlinkElementUtils-impl.js#_followAHyperlink) --
+    // it does this regardless of next/link's own `preventDefault()`
+    // call. Left unflushed, that timer fires after this test has
+    // already returned, logging "Not implemented: navigation" and
+    // landing on whatever test happens to be running next in this
+    // worker. Flush it here so it resolves inside this test's own
+    // window instead of leaking into a later one.
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
 });

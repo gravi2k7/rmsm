@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithQueryClient } from "@/test/render-with-query";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DecisionReviewDialog } from "../decision-review-dialog";
 import { useAuthStore } from "@/lib/auth-store";
 import type { Decision } from "../../types";
@@ -11,14 +11,9 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function renderDialog(decision: Decision, onOpenChange = vi.fn()) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return {
     onOpenChange,
-    ...render(
-      <QueryClientProvider client={queryClient}>
-        <DecisionReviewDialog decision={decision} open onOpenChange={onOpenChange} />
-      </QueryClientProvider>,
-    ),
+    ...renderWithQueryClient(<DecisionReviewDialog decision={decision} open onOpenChange={onOpenChange} />),
   };
 }
 

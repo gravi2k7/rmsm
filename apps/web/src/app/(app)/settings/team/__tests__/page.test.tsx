@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { screen } from "@testing-library/react";
+import { renderWithQueryClient } from "@/test/render-with-query";
 import TeamPage from "../page";
 import { useAuthStore } from "@/lib/auth-store";
 import { useSessionStore } from "@/lib/session-store";
@@ -10,12 +10,7 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function renderPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <TeamPage />
-    </QueryClientProvider>,
-  );
+  return renderWithQueryClient(<TeamPage />);
 }
 
 describe("TeamPage (WM-020E)", () => {

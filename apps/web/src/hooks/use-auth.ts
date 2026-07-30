@@ -78,10 +78,41 @@ export function useForgotPassword() {
 /**
  * WM-020C — verifies the token from a `/verify-email?token=...` link
  * (see the WM-020B `register()` flow, which is what issues it).
+ *
+ * Superseded as of WM-020D by `useCompleteOnboarding()` for the actual
+ * `/verify-email` page, which needs the richer organization/workspace
+ * result — kept here, unchanged, since `/auth/verify-email` itself still
+ * exists as a plain verification endpoint for any other caller.
  */
 export function useVerifyEmail() {
   return useMutation({
     mutationFn: (token: string) => api.post<{ message: string }>("/auth/verify-email", { token }, { skipAuth: true }),
+  });
+}
+
+export type OnboardingSource = "invitation_accepted" | "existing_membership" | "created";
+
+export interface OnboardingResult {
+  message: string;
+  organizationId: string;
+  organizationName: string;
+  role: string;
+  source: OnboardingSource;
+}
+
+/**
+ * WM-020D/E — verifies email and completes onboarding in one call:
+ * accepts a pending invitation if `invitationToken` is present (carried
+ * through from the invite link via registration — see `useRegister()`),
+ * otherwise auto-creates the trader's first organization and assigns
+ * them Owner. `companyName`/`invitationToken` are read straight off the
+ * `/verify-email` page's own URL, since that's where the backend embeds
+ * them (see `AuthService.issueEmailVerification()`).
+ */
+export function useCompleteOnboarding() {
+  return useMutation({
+    mutationFn: (payload: { token: string; invitationToken?: string; companyName?: string }) =>
+      api.post<OnboardingResult>("/onboarding/verify-email", payload, { skipAuth: true }),
   });
 }
 
@@ -125,6 +156,10 @@ export interface RegisterPayload {
   email: string;
   password: string;
   acceptTerms: boolean;
+  /** WM-020D — optional; falls back to "<firstName>'s Organization" server-side when omitted. */
+  companyName?: string;
+  /** WM-020E — set when this signup started from an invitation link, so OnboardingService accepts that invitation instead of creating a new organization. */
+  invitationToken?: string;
 }
 
 export function useRegister() {

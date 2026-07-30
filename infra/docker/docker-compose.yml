@@ -11,7 +11,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: rmsm
-      POSTGRES_PASSWORD: rmsm
+      POSTGRES_PASSWORD: rmsm_dev_password
       POSTGRES_DB: rmsm_dev
     ports:
       - "5432:5432"
@@ -49,8 +49,17 @@ services:
     - ../../:/workspace
     - /workspace/node_modules
     - /workspace/apps/api/node_modules
-    - /workspace/packages/database/node_modules
     - /workspace/packages/config/node_modules
+    - /workspace/packages/core/node_modules
+    - /workspace/packages/database/node_modules
+    - /workspace/packages/decision/node_modules
+    - /workspace/packages/execution/node_modules
+    - /workspace/packages/market/node_modules
+    - /workspace/packages/opportunity/node_modules
+    - /workspace/packages/portfolio/node_modules
+    - /workspace/packages/shared/node_modules
+    - /workspace/packages/strategy/node_modules
+    - /workspace/packages/types/node_modules
     networks: [rmsm_network]
     depends_on:
       postgres: { condition: service_healthy }

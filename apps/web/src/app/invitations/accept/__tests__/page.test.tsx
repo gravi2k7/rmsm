@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithQueryClient } from "@/test/render-with-query";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AcceptInvitationPage from "../page";
 import { useAuthStore } from "@/lib/auth-store";
 
@@ -18,12 +18,7 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function renderPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <AcceptInvitationPage />
-    </QueryClientProvider>,
-  );
+  return renderWithQueryClient(<AcceptInvitationPage />);
 }
 
 describe("AcceptInvitationPage (WM-020E)", () => {

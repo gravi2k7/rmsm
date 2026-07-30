@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithQueryClient } from "@/test/render-with-query";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import WatchlistsPage from "../page";
 import { useAuthStore } from "@/lib/auth-store";
 import { useWatchlistStore } from "@/features/watchlists/store";
@@ -11,12 +11,7 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function renderWatchlists() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <WatchlistsPage />
-    </QueryClientProvider>,
-  );
+  return renderWithQueryClient(<WatchlistsPage />);
 }
 
 describe("WatchlistsPage", () => {

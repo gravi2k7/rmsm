@@ -14,11 +14,14 @@
       "persistent": true
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": ["^lint"]  
     },
     "typecheck": {
-      "dependsOn": ["^typecheck", "@rmsm/database#generate"]
-    },
+      "dependsOn": [
+      "^build",
+      "^typecheck",
+      "@rmsm/database#generate"]
+   },
     "test": {
       "dependsOn": ["@rmsm/database#generate"]
     }

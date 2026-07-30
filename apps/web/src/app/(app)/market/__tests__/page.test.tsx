@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithQueryClient } from "@/test/render-with-query";
 import MarketWatchPage from "../page";
 import { useAuthStore } from "@/lib/auth-store";
 import { useWatchlistStore } from "@/features/watchlists/store";
@@ -10,12 +10,7 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function renderMarketWatch() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <MarketWatchPage />
-    </QueryClientProvider>,
-  );
+  return renderWithQueryClient(<MarketWatchPage />);
 }
 
 const SAMPLE_INSTRUMENT = {
