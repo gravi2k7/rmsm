@@ -6,6 +6,7 @@ import { getAuthConfig } from "../config/auth.config";
 import { getDatabaseConfig } from "../config/database.config";
 import { getLoggingConfig } from "../config/logging.config";
 import { getMarketConfig } from "../config/market.config";
+import { getTwelveDataConfig } from "../config/twelve-data.config";
 
 const FIXTURE = validateEnv({
   DATABASE_URL: "postgresql://user:pass@localhost:5432/db",
@@ -89,6 +90,50 @@ describe("getMarketConfig", () => {
       cacheTtlMs: 5000,
       requestTimeoutMs: 10000,
       maxConcurrentRequests: 10,
+    });
+  });
+});
+
+describe("getTwelveDataConfig", () => {
+  it("defaults timeout/retry/base URL, and leaves apiKey undefined when TWELVE_DATA_API_KEY is unset", () => {
+    const config = getTwelveDataConfig(FIXTURE);
+    expect(config).toEqual({
+      apiKey: undefined,
+      baseUrl: "https://api.twelvedata.com",
+      timeoutMs: 10000,
+      retryCount: 3,
+      retryDelayMs: 500,
+    });
+  });
+
+  it("reads TWELVE_DATA_API_KEY when present, never falling back to a default value for a credential", () => {
+    const withKey = validateEnv({
+      DATABASE_URL: "postgresql://user:pass@localhost:5432/db",
+      REDIS_URL: "redis://localhost:6379",
+      JWT_ACCESS_SECRET: "a".repeat(16),
+      JWT_REFRESH_SECRET: "b".repeat(16),
+      TWELVE_DATA_API_KEY: "td-live-key-123",
+    });
+    expect(getTwelveDataConfig(withKey).apiKey).toBe("td-live-key-123");
+  });
+
+  it("respects an overridden TWELVE_DATA_BASE_URL/TIMEOUT/RETRY_COUNT/RETRY_DELAY", () => {
+    const withOverrides = validateEnv({
+      DATABASE_URL: "postgresql://user:pass@localhost:5432/db",
+      REDIS_URL: "redis://localhost:6379",
+      JWT_ACCESS_SECRET: "a".repeat(16),
+      JWT_REFRESH_SECRET: "b".repeat(16),
+      TWELVE_DATA_BASE_URL: "https://staging.twelvedata.example.com",
+      TWELVE_DATA_TIMEOUT: "5000",
+      TWELVE_DATA_RETRY_COUNT: "5",
+      TWELVE_DATA_RETRY_DELAY: "250",
+    });
+    expect(getTwelveDataConfig(withOverrides)).toEqual({
+      apiKey: undefined,
+      baseUrl: "https://staging.twelvedata.example.com",
+      timeoutMs: 5000,
+      retryCount: 5,
+      retryDelayMs: 250,
     });
   });
 });

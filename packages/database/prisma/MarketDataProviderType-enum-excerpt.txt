@@ -1,0 +1,19 @@
+1704:enum MarketDataProviderType {
+1705-  BINANCE
+1706-  POLYGON
+1707-  TWELVE_DATA
+1708-  ALPHA_VANTAGE
+1709-  YAHOO_FINANCE
+1710-  TRADINGVIEW_BRIDGE
+1711-  BROKER_BRIDGE
+1712-  INTERNAL_FEED
+1713-  /// MD-002: CoinGecko — crypto-only (Current Price, Market Cap, 24h
+1714-  /// Volume/Change, High/Low, Circulating/Total Supply via /coins/markets;
+1715-  /// OHLC candles via /coins/{id}/ohlc). Added as a pure enum-value
+1716-  /// addition — no other schema change required.
+1717-  COINGECKO
+1718-}
+1719-
+1720-/// How a given piece of market data reached this system — distinct from
+1721-/// WHICH provider (MarketDataProviderType) sent it; a single provider can
+1722-/// supply data through more than one of these paths (e.g. Polygon live

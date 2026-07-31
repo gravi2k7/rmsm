@@ -5,6 +5,8 @@ import { authSchema } from "../schemas/auth.schema";
 import { loggingSchema } from "../schemas/logging.schema";
 import { aiSchema } from "../schemas/ai.schema";
 import { marketSchema } from "../schemas/market.schema";
+import { twelveDataSchema } from "../schemas/twelve-data.schema";
+import { coinGeckoSchema } from "../schemas/coingecko.schema";
 import { booleanFromString, durationMs } from "./env.parser";
 import { ConfigValidationError } from "../types/config.types";
 
@@ -65,6 +67,8 @@ const mergedEnvSchema = appSchema
   .merge(loggingSchema)
   .merge(aiSchema)
   .merge(marketSchema)
+  .merge(twelveDataSchema)
+  .merge(coinGeckoSchema)
   .merge(platformIntegrationsSchema);
 
 /**
