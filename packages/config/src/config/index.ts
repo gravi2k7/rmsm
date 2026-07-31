@@ -8,3 +8,4 @@ export * from "./twelve-data.config";
 export * from "./coingecko.config";
 export * from "./alphavantage.config";
 export * from "./yahoo-finance.config";
+export * from "./metatrader5.config";
