@@ -10,6 +10,7 @@ import { coinGeckoSchema } from "../schemas/coingecko.schema";
 import { alphaVantageSchema } from "../schemas/alphavantage.schema";
 import { yahooFinanceSchema } from "../schemas/yahoo-finance.schema";
 import { metaTrader5Schema } from "../schemas/metatrader5.schema";
+import { emailSchema } from "../schemas/email.schema";
 import { booleanFromString, durationMs } from "./env.parser";
 import { ConfigValidationError } from "../types/config.types";
 
@@ -75,6 +76,7 @@ const mergedEnvSchema = appSchema
   .merge(alphaVantageSchema)
   .merge(yahooFinanceSchema)
   .merge(metaTrader5Schema)
+  .merge(emailSchema)
   .merge(platformIntegrationsSchema);
 
 /**

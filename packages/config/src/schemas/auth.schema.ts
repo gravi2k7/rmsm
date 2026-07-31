@@ -43,7 +43,8 @@ export const authSchema = z.object({
   OAUTH_MICROSOFT_CALLBACK_URL: z.string().optional(),
 
   // Auth-flow email (verification, password reset)
-  EMAIL_PROVIDER: z.enum(["console", "smtp"]).default("console"),
+  // EM-001 widens this to "resend" — additive; "console" remains the default and every existing value is unaffected.
+  EMAIL_PROVIDER: z.enum(["console", "smtp", "resend"]).default("console"),
   EMAIL_FROM: z.string().default("RMSM AI <no-reply@rmsm.ai>"),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().optional(),

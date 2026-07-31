@@ -62,7 +62,9 @@ export const envSchema = z.object({
   OAUTH_MICROSOFT_CALLBACK_URL: z.string().optional(),
 
   // Email
-  EMAIL_PROVIDER: z.enum(["console", "smtp"]).default("console"),
+  EMAIL_PROVIDER: z
+  .enum(["console", "smtp", "resend"])
+  .default("console"),
   EMAIL_FROM: z.string().default("RMSM AI <no-reply@rmsm.ai>"),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().optional(),

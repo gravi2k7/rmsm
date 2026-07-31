@@ -9,3 +9,4 @@ export * from "./coingecko.schema";
 export * from "./alphavantage.schema";
 export * from "./yahoo-finance.schema";
 export * from "./metatrader5.schema";
+export * from "./email.schema";

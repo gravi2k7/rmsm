@@ -28,7 +28,7 @@ export interface AuthConfig {
     readonly microsoft: { readonly clientId?: string; readonly clientSecret?: string; readonly callbackUrl?: string };
   };
   readonly email: {
-    readonly provider: "console" | "smtp";
+    readonly provider: "console" | "smtp" | "resend";
     readonly from: string;
     readonly smtp: {
       readonly host?: string;
