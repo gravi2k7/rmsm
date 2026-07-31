@@ -6,3 +6,4 @@ export * from "./ai.schema";
 export * from "./market.schema";
 export * from "./twelve-data.schema";
 export * from "./coingecko.schema";
+export * from "./alphavantage.schema";

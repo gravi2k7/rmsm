@@ -6,3 +6,4 @@ export * from "./ai.config";
 export * from "./market.config";
 export * from "./twelve-data.config";
 export * from "./coingecko.config";
+export * from "./alphavantage.config";

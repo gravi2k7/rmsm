@@ -20,6 +20,8 @@ import { ProviderRegistrarService } from "./providers/provider-registrar.service
 import { TwelveDataRegistrarService } from "./providers/twelve-data/twelve-data.module";
 import { CoinGeckoRegistrarService } from "./providers/coingecko/coingecko.module";
 import { CoinGeckoCacheService } from "./providers/coingecko/coingecko.cache";
+import { AlphaVantageRegistrarService } from "./providers/alphavantage/alphavantage.module";
+import { AlphaVantageCacheService } from "./providers/alphavantage/alphavantage.cache";
 import { ProviderOrchestrationService } from "./services/provider-orchestration.service";
 import { MarketDataMetricsService } from "./services/market-data-metrics.service";
 import { MarketDataService } from "./services/market-data.service";
@@ -83,6 +85,8 @@ import { SynchronizationController } from "./controllers/synchronization.control
     TwelveDataRegistrarService,
     CoinGeckoCacheService,
     CoinGeckoRegistrarService,
+    AlphaVantageCacheService,
+    AlphaVantageRegistrarService,
     ProviderOrchestrationService,
     MarketDataMetricsService,
     MarketDataService,
