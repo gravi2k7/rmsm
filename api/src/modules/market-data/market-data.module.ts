@@ -22,6 +22,8 @@ import { CoinGeckoRegistrarService } from "./providers/coingecko/coingecko.modul
 import { CoinGeckoCacheService } from "./providers/coingecko/coingecko.cache";
 import { AlphaVantageRegistrarService } from "./providers/alphavantage/alphavantage.module";
 import { AlphaVantageCacheService } from "./providers/alphavantage/alphavantage.cache";
+import { YahooFinanceRegistrarService } from "./providers/yahoo-finance/yahoo-finance.module";
+import { YahooFinanceCacheService } from "./providers/yahoo-finance/yahoo-finance.cache";
 import { ProviderOrchestrationService } from "./services/provider-orchestration.service";
 import { MarketDataMetricsService } from "./services/market-data-metrics.service";
 import { MarketDataService } from "./services/market-data.service";
@@ -87,6 +89,8 @@ import { SynchronizationController } from "./controllers/synchronization.control
     CoinGeckoRegistrarService,
     AlphaVantageCacheService,
     AlphaVantageRegistrarService,
+    YahooFinanceCacheService,
+    YahooFinanceRegistrarService,
     ProviderOrchestrationService,
     MarketDataMetricsService,
     MarketDataService,
