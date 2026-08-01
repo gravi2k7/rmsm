@@ -566,6 +566,13 @@ model Organization {
   deviceTokens           DeviceToken[]
   notificationWebhooks   NotificationWebhook[]
 
+  // ── Module 005 (Enterprise Operations Suite) additions ────────────────
+  // License Management/Assignment (Domain 1 + Domain 2) — an organization
+  // may have zero or more licenses assigned to it. Platform-wide,
+  // unassigned licenses have organizationId = null on the License side
+  // and therefore don't appear here.
+  licenses License[]
+
   @@index([status])
   @@index([slug])
   @@map("organizations")
@@ -793,7 +800,16 @@ model FeatureFlag {
   name        String
   description String?
   type        FeatureType
+  /// Module 005 addition (additive, defaulted true — no existing row
+  /// changes meaning). Domain 1's "Feature Flag Management" is a platform
+  /// admin on/off toggle; Domain 2's FeatureService reads plan
+  /// entitlements from this same model. Both are legitimately the same
+  /// underlying concept (does this key work right now) rather than two
+  /// competing tables — see admin/services/feature-flag-admin.service.ts.
+  isEnabled   Boolean     @default(true)
+  updatedById String?
   createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   planFeatures PlanFeature[]
 
@@ -2720,4 +2736,143 @@ model StrategyOutboxEvent {
   @@index([organizationId, aggregateId])
   @@index([correlationId])
   @@map("strategy_outbox_events")
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// Module 005 — Enterprise Operations Suite, Domain 1: Enterprise
+// Administration.
+//
+// Design resolutions (flagged, same discipline as every prior module):
+//
+// 1. No pre-existing platform-admin/config infrastructure exists anywhere
+//    in the schema (confirmed: zero License/SystemAnnouncement/
+//    MaintenanceWindow/PlatformSetting models before this addition — only
+//    the minimal Module 001 `SystemHealth` row). These four models are
+//    therefore genuinely new, additive tables — not a redesign of
+//    anything completed.
+//
+// 2. License is shared by Domain 1 ("License Management" — platform-wide
+//    CRUD/issuance, /admin/licenses) and Domain 2 ("License Assignment" /
+//    "Enterprise Licensing", /billing/licenses) — one model, one
+//    repository, one service (LicensingModule), consumed by both
+//    AdminModule and BillingModule, instead of two competing tables. See
+//    LicensingModule's own doc comment for why it's a standalone module
+//    (avoids an Admin↔Billing circular dependency).
+//
+// 3. Storage Management: this repo has no blob/file-storage subsystem
+//    (`NotificationAttachment.storageKey` is explicitly documented as
+//    "this schema doesn't own file storage" — confirmed via grep, no
+//    multer/S3/disk-storage code exists anywhere in api/src). Rather than
+//    fabricate a fake storage backend (explicitly forbidden — "no mock
+//    services"), Storage Management is implemented honestly as Postgres
+//    table-size monitoring (pg_total_relation_size over the largest,
+//    genuinely-growing tables — audit logs, notifications, market data)
+//    via a raw-SQL repository method. This is real, reused infrastructure
+//    (the existing `prisma` client), not a placeholder.
+//
+// 4. MaintenanceWindow is modeled as a single evolving row (id =
+//    "singleton", upserted), not a table of historical windows — the
+//    feature is "is maintenance mode on right now, and what's the
+//    message," not a scheduling system. Simpler and matches what
+//    MaintenanceModeMiddleware actually needs to check on every request.
+// ═════════════════════════════════════════════════════════════════════════
+
+enum AnnouncementSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model PlatformSetting {
+  id          String   @id @default(uuid())
+  /// e.g. "app.name", "app.support_email", "feature.max_upload_mb" —
+  /// dotted namespace, enforced in application code (ConfigurationService),
+  /// not the database.
+  key         String   @unique
+  value       Json
+  category    String
+  description String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@map("platform_settings")
+}
+
+model SystemAnnouncement {
+  id          String               @id @default(uuid())
+  title       String
+  message     String
+  severity    AnnouncementSeverity @default(INFO)
+  isActive    Boolean              @default(true)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([isActive, startsAt, endsAt])
+  @@map("system_announcements")
+}
+
+model MaintenanceWindow {
+  /// Fixed singleton id — see design note 4 above. Enforced in the
+  /// repository layer (always reads/writes id = "singleton"), not by a
+  /// database constraint, matching this codebase's established pattern
+  /// for other singleton-shaped config rows.
+  id          String    @id @default("singleton")
+  isEnabled   Boolean   @default(false)
+  message     String?
+  enabledById String?
+  enabledAt   DateTime?
+  disabledAt  DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@map("maintenance_windows")
+}
+
+enum LicenseType {
+  PLATFORM
+  ENTERPRISE
+  TRIAL
+}
+
+enum LicenseStatus {
+  UNASSIGNED
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+model License {
+  id             String        @id @default(uuid())
+  key            String        @unique
+  type           LicenseType
+  /// Null = unlimited/not seat-bound (e.g. a PLATFORM license). Set for
+  /// ENTERPRISE licenses assigned to an organization with a seat cap —
+  /// intentionally a separate concept from Organization.seatsLimit
+  /// (Module 003's reserved-but-unenforced field): License.seats is the
+  /// entitlement this license grants; Organization.seatsLimit remains
+  /// each org's own, independently-set enforcement cap. Not merged.
+  seats          Int?
+  /// Null = unassigned platform license (available to be assigned).
+  organizationId String?
+  status         LicenseStatus @default(UNASSIGNED)
+  issuedAt       DateTime      @default(now())
+  expiresAt      DateTime?
+  assignedAt     DateTime?
+  assignedById   String?
+  revokedAt      DateTime?
+  revokedById    String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([status])
+  @@map("licenses")
 }

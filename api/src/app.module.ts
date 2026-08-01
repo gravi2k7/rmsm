@@ -1,4 +1,4 @@
-import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from "@nestjs/common";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { loadConfig } from "@rmsm/config";
@@ -24,7 +24,10 @@ import { BrokerModule } from "./modules/broker/broker.module";
 import { IndicatorEngineModule } from "./modules/indicator-engine/indicator-engine.module";
 import { StrategyEngineModule } from "./modules/strategy-engine/strategy-engine.module";
 import { AiModule } from "./modules/ai/ai.module";
+import { AdminModule } from "./modules/admin/admin.module";
+import { LicensingModule } from "./modules/licensing/licensing.module";
 import { JwtAuthGuard } from "./modules/auth/guards/jwt-auth.guard";
+import { MaintenanceModeMiddleware } from "./modules/admin/middleware/maintenance-mode.middleware";
 
 const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
 
@@ -62,6 +65,11 @@ const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
     IndicatorEngineModule,
     StrategyEngineModule,
     AiModule,
+    // Module 005: LicensingModule before AdminModule/BillingModule's own
+    // /billing/licenses wiring — both depend on it, it depends on neither
+    // (see licensing.module.ts).
+    LicensingModule,
+    AdminModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
@@ -79,5 +87,16 @@ export class AppModule implements NestModule {
     // @Public() ones — an unauthenticated request that fails is exactly
     // the kind of thing a correlation id most needs to help debug.
     consumer.apply(RequestIdMiddleware).forRoutes("*");
+
+    // Module 005 Domain 1: Maintenance Mode enforcement. Excludes /admin/*
+    // (an operator must still be able to reach POST /admin/maintenance-mode/disable
+    // while maintenance mode is on) — GET/HEAD/OPTIONS requests everywhere
+    // else already pass through unblocked inside the middleware itself
+    // (see MaintenanceModeMiddleware's own doc comment), so /health's
+    // GET-only routes need no explicit exclusion.
+    consumer
+      .apply(MaintenanceModeMiddleware)
+      .exclude({ path: "admin/(.*)", method: RequestMethod.ALL })
+      .forRoutes("*");
   }
 }

@@ -87,6 +87,26 @@ const DEFAULT_PERMISSIONS: { key: string; group: string; description: string }[]
 
   // ── AI Phase 5.1, Milestone 1: AI-201 Gateway ──────────────────────
   { key: "ai-gateway.use", group: "ai-gateway", description: "Call the AI Gateway — chat, stream, embed, moderate." },
+
+  // ── Module 005, Domain 1: Enterprise Administration ────────────────
+  { key: "admin.dashboard.read", group: "admin", description: "View the platform System Dashboard / Platform Statistics." },
+  { key: "admin.configuration.manage", group: "admin", description: "View/update platform settings and environment configuration." },
+  { key: "admin.feature-flags.manage", group: "admin", description: "Create/update/toggle/delete platform feature flags." },
+  { key: "admin.health.read", group: "admin", description: "View the aggregate platform Health Dashboard." },
+  { key: "admin.queue.read", group: "admin", description: "View background job / queue / scheduler monitoring." },
+  { key: "admin.cache.manage", group: "admin", description: "View cache statistics and clear cached keys." },
+  { key: "admin.storage.read", group: "admin", description: "View database/storage monitoring." },
+  { key: "admin.license.manage", group: "admin", description: "Issue, assign, and revoke platform licenses." },
+  { key: "admin.announcement.manage", group: "admin", description: "Create/update/delete system announcements." },
+  { key: "admin.maintenance.manage", group: "admin", description: "Enable/disable platform maintenance mode." },
+
+  // ── Module 005, Domain 2: Billing & Subscription (additions) ───────
+  { key: "billing.coupon.manage", group: "billing", description: "Create and deactivate coupons (platform-wide coupon management)." },
+  { key: "billing.license.read", group: "billing", description: "View licenses assigned to an organization." },
+
+  // ── Module 005, Domain 3: Notification Platform (additions) ────────
+  { key: "notification.category.manage", group: "notification", description: "Create/update platform and per-organization notification categories." },
+  { key: "notification.webhook.manage", group: "notification", description: "Manage an organization's outbound webhook subscriptions." },
 ];
 
 // Role -> permission key grants for the roles that should have elevated
@@ -160,9 +180,13 @@ const ROLE_GRANTS: Record<string, string[]> = {
     ...BILLING_READ_PERMISSIONS,
     ...BILLING_MANAGE_PERMISSIONS,
     "billing.admin.manage",
+    "billing.coupon.manage",
+    "billing.license.read",
     "notification.read",
     ...NOTIFICATION_MANAGE_PERMISSIONS,
     "notification.admin.manage",
+    "notification.category.manage",
+    "notification.webhook.manage",
     "market-data.read",
     "market-data.admin.manage",
     "indicator-engine.read",
@@ -171,6 +195,19 @@ const ROLE_GRANTS: Record<string, string[]> = {
     "strategy-engine.write",
     "strategy-engine.approve",
     "ai-gateway.use",
+    // Module 005, Domain 1: Enterprise Administration — platform
+    // operational tier, same as billing.admin.manage/notification.admin.manage
+    // above.
+    "admin.dashboard.read",
+    "admin.configuration.manage",
+    "admin.feature-flags.manage",
+    "admin.health.read",
+    "admin.queue.read",
+    "admin.cache.manage",
+    "admin.storage.read",
+    "admin.license.manage",
+    "admin.announcement.manage",
+    "admin.maintenance.manage",
   ],
   SUPPORT: ["users.read", "sessions.read", "sessions.revoke"],
   ANALYST: ["users.read", "audit.read", ...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read", "indicator-engine.read", "indicator-engine.execute", "strategy-engine.read", "strategy-engine.write", "ai-gateway.use"],
