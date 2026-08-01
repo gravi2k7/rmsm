@@ -69,6 +69,11 @@ model User {
   failedLoginAttempts Int        @default(0)
   lockedUntil         DateTime?
   lastLoginAt         DateTime?
+  /// Module 004 addition (additive, defaulted false — no existing row or
+  /// caller affected). Set by an admin's "Force Password Change" action;
+  /// checked by the login flow to require a password change before a
+  /// session is issued rather than after.
+  mustChangePassword  Boolean    @default(false)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -262,6 +267,11 @@ model Session {
   lastSeenAt  DateTime  @default(now())
   expiresAt   DateTime
   revokedAt   DateTime?
+  /// Module 004 addition (additive, nullable — defaults to "not trusted").
+  /// Set by an admin/user explicitly marking a device as trusted; read-only
+  /// informational flag today (no MFA-skip or other enforcement is wired
+  /// to it yet — that would be a distinct, larger change).
+  trustedAt   DateTime?
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   refreshTokens RefreshToken[]

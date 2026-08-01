@@ -3,6 +3,7 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { loadConfig } from "@rmsm/config";
 import { AppConfigModule } from "./config/app-config.module";
+import { EventsModule } from "./common/events/events.module";
 import { QueueModule } from "./queue/queue.module";
 import { HealthModule } from "./health/health.module";
 import { GlobalExceptionFilter } from "./common/filters/http-exception.filter";
@@ -12,6 +13,7 @@ import { EmailModule } from "./modules/email/email.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { RbacModule } from "./modules/rbac/rbac.module";
+import { AuditModule } from "./modules/audit/audit.module";
 import { OAuthModule } from "./modules/oauth/oauth.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { OrganizationDashboardModule } from "./modules/organizations/dashboard/organization-dashboard.module";
@@ -35,6 +37,7 @@ const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
 @Module({
   imports: [
     AppConfigModule,
+    EventsModule,
     ThrottlerModule.forRoot([{ ttl: RATE_LIMIT_TTL_MS, limit: RATE_LIMIT_MAX }]),
     QueueModule,
     HealthModule,
@@ -42,6 +45,10 @@ const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
     AuthModule,
     UsersModule,
     RbacModule,
+    // Module 004 Domain 4: read-only audit search/export surface over the
+    // pre-existing AuditLog write path (AuthModule's AuditService/
+    // AuditLogRepository).
+    AuditModule,
     OAuthModule,
     OrganizationsModule,
     BillingModule,

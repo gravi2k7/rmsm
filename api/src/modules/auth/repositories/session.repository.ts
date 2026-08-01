@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { prisma, Session, Prisma } from "@rmsm/database";
+import { paginate, type PaginatedResult, type OffsetPaginationQuery } from "@rmsm/database";
 
 @Injectable()
 export class SessionRepository {
@@ -54,5 +55,62 @@ export class SessionRepository {
     return prisma.session.count({
       where: { userId: { in: userIds }, revokedAt: null, expiresAt: { gt: new Date() } },
     });
+  }
+
+  /**
+   * Module 004 addition — single-user variant of `countActiveByUserIds`,
+   * used by the admin Session Security Dashboard (Domain 3) and by
+   * concurrent-session-limit reporting (informational only today; no
+   * enforcement is wired in — see the `trustedAt` column comment for the
+   * same "reporting, not enforcement" pattern).
+   */
+  countActiveForUser(userId: string): Promise<number> {
+    return prisma.session.count({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+    });
+  }
+
+  /**
+   * Module 004 addition — admin-wide session listing (Domain 3's "Active
+   * Sessions" admin view), optionally scoped to one user. Uses the
+   * canonical `paginate()` helper (see `LoginHistoryRepository` for the
+   * precedent). `status` is a derived filter (Session has no `status`
+   * column): "active" = not revoked and not expired, "revoked" = has
+   * `revokedAt`, "expired" = `expiresAt` in the past and not revoked.
+   */
+  findManyAdmin(
+    filters: { userId?: string; status?: "active" | "revoked" | "expired" },
+    query: OffsetPaginationQuery,
+  ): Promise<PaginatedResult<Session>> {
+    const now = new Date();
+    let statusWhere: Prisma.SessionWhereInput = {};
+    if (filters.status === "active") {
+      statusWhere = { revokedAt: null, expiresAt: { gt: now } };
+    } else if (filters.status === "revoked") {
+      statusWhere = { revokedAt: { not: null } };
+    } else if (filters.status === "expired") {
+      statusWhere = { revokedAt: null, expiresAt: { lte: now } };
+    }
+    const where: Prisma.SessionWhereInput = {
+      ...(filters.userId ? { userId: filters.userId } : {}),
+      ...statusWhere,
+    };
+    return paginate(
+      {
+        findMany: (args) => prisma.session.findMany({ ...args, orderBy: { lastSeenAt: "desc" } }),
+        count: (args) => prisma.session.count(args),
+      },
+      where,
+      query,
+    );
+  }
+
+  /**
+   * Module 004 addition — mark/unmark a device as "trusted" (Domain 3's
+   * Trusted Devices feature). Purely informational today; see the
+   * `trustedAt` column comment in schema.prisma.
+   */
+  setTrusted(id: string, trusted: boolean): Promise<Session> {
+    return prisma.session.update({ where: { id }, data: { trustedAt: trusted ? new Date() : null } });
   }
 }
