@@ -14,6 +14,7 @@ import { UsersModule } from "./modules/users/users.module";
 import { RbacModule } from "./modules/rbac/rbac.module";
 import { OAuthModule } from "./modules/oauth/oauth.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
+import { OrganizationDashboardModule } from "./modules/organizations/dashboard/organization-dashboard.module";
 import { BillingModule } from "./modules/billing/billing.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { MarketDataModule } from "./modules/market-data/market-data.module";
@@ -44,6 +45,10 @@ const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
     OAuthModule,
     OrganizationsModule,
     BillingModule,
+    // Module 003: depends on both OrganizationsModule and BillingModule
+    // (which itself depends on OrganizationsModule) — must be registered
+    // after both so Nest's module graph resolves without ambiguity.
+    OrganizationDashboardModule,
     NotificationsModule,
     MarketDataModule,
     BrokerModule,

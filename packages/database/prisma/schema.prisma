@@ -470,6 +470,24 @@ model Organization {
   currency    String             @default("USD")
   country     String?
   website     String?
+
+  /// Module 003 additions (additive, all nullable/defaulted — no existing
+  /// row or caller is affected). Distinct from `name`: `name` is the
+  /// canonical/legal name used in slugging and uniqueness-adjacent UX;
+  /// `displayName` is a free-form, purely cosmetic override shown in the
+  /// UI when present, falling back to `name` when null.
+  displayName   String?
+  email         String?
+  phone         String?
+  addressLine1  String?
+  addressLine2  String?
+  city          String?
+  state         String?
+  postalCode    String?
+  /// Mirrors the existing `Profile.locale` precedent (packages/database
+  /// schema, Users module) — same default, same purpose, applied at the
+  /// organization level for org-wide UI/notification localization.
+  locale        String             @default("en-US")
   /// Free-form JSON for org-level settings (branding, default permissions,
   /// workspace preferences) — kept as JSON rather than dozens of nullable
   /// columns since this set is expected to grow across future modules
@@ -1710,6 +1728,11 @@ enum MarketDataProviderType {
   TRADINGVIEW_BRIDGE
   BROKER_BRIDGE
   INTERNAL_FEED
+  /// MD-002: CoinGecko — crypto-only (Current Price, Market Cap, 24h
+  /// Volume/Change, High/Low, Circulating/Total Supply via /coins/markets;
+  /// OHLC candles via /coins/{id}/ohlc). Added as a pure enum-value
+  /// addition — no other schema change required.
+  COINGECKO
 }
 
 /// How a given piece of market data reached this system — distinct from
