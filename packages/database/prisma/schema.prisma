@@ -1846,6 +1846,19 @@ model MarketDataProviderConfig {
   rateLimitPerMinute     Int?
   supportedAssetClasses  AssetClass[]
   isActive               Boolean                @default(true)
+  /// FIP-001: resolution order among multiple enabled providers capable
+  /// of serving the same request — lower number wins. Read by
+  /// ProviderResolverService (which already had an organization-
+  /// preference / capability-match precedence; this adds a tiebreak
+  /// ahead of "first candidate found") and by ProviderFailoverService
+  /// when trying alternates after a primary provider's circuit opens.
+  priority               Int                    @default(100)
+  /// FIP-001 "Connection testing" — set by ProviderCredentialService's
+  /// on-demand test-connection call, not by every ordinary API request
+  /// (that would make this column contended and stale-vs-live
+  /// indistinguishable). Null until the first test runs.
+  lastConnectionTestAt     DateTime?
+  lastConnectionTestStatus String?
   createdById            String?
   updatedById            String?
   createdAt              DateTime               @default(now())
@@ -1858,6 +1871,7 @@ model MarketDataProviderConfig {
   quotes            MarketQuote[]
   ticks             MarketTick[]
   corporateActions  CorporateAction[]
+  repairedGaps      DataGap[]
 
   @@index([type, isActive])
   @@map("market_data_provider_configs")
@@ -1951,6 +1965,14 @@ model Instrument {
   /// 0.01 for most equities, much smaller for some crypto pairs.
   tickSize     Decimal?         @db.Decimal(20, 10)
   lotSize      Decimal?         @db.Decimal(20, 10)
+  /// FIP-001: monetary value of one tick/point for one standard lot of
+  /// this instrument (e.g. ~$1 per pip per standard lot for most USD-
+  /// quoted forex pairs) — a distinct concept from tickSize (the
+  /// smallest price increment) and lotSize (the contract size); needed
+  /// for position-sizing/risk calculations the Strategy/Risk platforms
+  /// consume, not derivable from tickSize+lotSize alone without also
+  /// knowing the quote currency's conversion rate.
+  pointValue   Decimal?         @db.Decimal(20, 10)
   listedAt     DateTime?
   delistedAt   DateTime?
   createdAt    DateTime          @default(now())
@@ -1964,6 +1986,8 @@ model Instrument {
   corporateActions CorporateAction[]
   dataQualityIssues DataQualityIssue[]
   dataGaps   DataGap[]
+  derivedIndicatorSnapshots DerivedIndicatorSnapshot[]
+  aiSnapshots MarketDataAiSnapshot[]
 
   @@unique([exchangeId, symbol])
   @@index([assetClass, status])
@@ -2046,6 +2070,7 @@ model MarketCandle {
   importJob   DataImportJob?            @relation(fields: [importJobId], references: [id], onDelete: SetNull)
   supersedes  MarketCandle?             @relation("CandleCorrection", fields: [supersedesId], references: [id], onDelete: SetNull)
   supersededBy MarketCandle?            @relation("CandleCorrection")
+  qualityMetadata CandleQualityMetadata?
 
   /// The prompt's explicit idempotency requirement: "prevent duplicate
   /// candles by an appropriate unique constraint, such as instrument,
@@ -2162,15 +2187,54 @@ model DataImportJob {
   recordsProcessed    Int              @default(0)
   recordsFailed       Int              @default(0)
   errorSummary        String?
+
+  // FIP-001 additions — batching, resume, scheduling, retry. All
+  // nullable/defaulted so the Phase-3 single-shot import path (still
+  // used for small ranges) is unaffected.
+  instrumentId        String?
+  interval            CandleInterval?
+  /// Requested range, distinct from what's actually been imported so
+  /// far (resumeCursor) — kept even after completion, for import
+  /// history/statistics ("what range did this job cover").
+  dateRangeStart       DateTime?
+  dateRangeEnd         DateTime?
+  /// True when this job's own request semantics are "import whatever's
+  /// new since we last synced this instrument/interval/provider", not
+  /// a fixed [dateRangeStart, dateRangeEnd] window.
+  isIncremental        Boolean          @default(false)
+  /// Queue ordering hint for ImportSchedulerService — lower runs first.
+  /// Independent of MarketDataProviderConfig.priority (that's provider
+  /// selection; this is job scheduling).
+  priority             Int              @default(100)
+  /// Null = run as soon as the scheduler queue reaches it. Set for a
+  /// caller-requested future run time.
+  scheduledFor         DateTime?
+  /// The eventTime of the last successfully-persisted batch — a
+  /// RUNNING job that's interrupted (process restart, crash) can be
+  /// resumed by re-requesting [resumeCursor, dateRangeEnd] instead of
+  /// re-fetching/re-validating the whole original range from scratch.
+  resumeCursor         DateTime?
+  /// Points at the original job a retry-of-a-failed-batch job was
+  /// spawned from — null for an ordinary top-level job. Self-relation,
+  /// not a new join table, since a retry job needs at most one parent.
+  parentJobId          String?
+  totalBatches         Int?
+  completedBatches     Int              @default(0)
+  retryCount           Int              @default(0)
+
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 
   provider          MarketDataProviderConfig @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  parentJob         DataImportJob?           @relation("ImportJobRetry", fields: [parentJobId], references: [id], onDelete: SetNull)
+  retryJobs         DataImportJob[]          @relation("ImportJobRetry")
   candles           MarketCandle[]
   dataQualityIssues DataQualityIssue[]
 
   @@index([providerId, status])
   @@index([status])
+  @@index([scheduledFor, status])
+  @@index([instrumentId, interval])
   @@map("data_import_jobs")
 }
 
@@ -2206,12 +2270,125 @@ model DataGap {
   status       DataGapStatus @default(DETECTED)
   detectedAt   DateTime      @default(now())
   backfilledAt DateTime?
+  /// FIP-001 "automatic gap repair using alternate providers" — which
+  /// provider's data actually filled this gap, distinct from whatever
+  /// provider originally left it (that provider isn't recorded here;
+  /// it's implicit in the candles bordering the gap). Null until
+  /// GapRepairService succeeds.
+  repairedByProviderId String?
+  repairAttempts        Int      @default(0)
 
   instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  repairedByProvider MarketDataProviderConfig? @relation(fields: [repairedByProviderId], references: [id], onDelete: SetNull)
 
   @@index([instrumentId, interval, status])
   @@index([status])
   @@map("data_gaps")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// FIP-001 — Market Data Platform Production Activation
+//
+// Design notes:
+// - CandleQualityMetadata is a separate 1:1 table, not columns bolted
+//   onto MarketCandle, deliberately: MarketCandle is the hot ingestion
+//   path (Domain 4/5's normalize-then-validate write happens for every
+//   single candle), while quality/confidence scoring (Domain 6) is a
+//   second pass that can lag behind ingestion or be recomputed later
+//   without touching the immutable OHLCV row itself.
+// - MarketDataAiSnapshot and DerivedIndicatorSnapshot are similarly
+//   separate from MarketCandle for the same reason: derived/AI-readiness
+//   data is recomputable and versioned independently of the raw candle
+//   it was computed from.
+// - All three key off (instrumentId, interval, eventTime) rather than a
+//   MarketCandle foreign key, matching MarketCandle's own idempotency
+//   key shape (minus `source`, since quality/derived/AI data describes
+//   the canonical bar for that instrument/interval/time, not one
+//   provider's specific delivery of it).
+// ─────────────────────────────────────────────────────────────────────────
+
+enum CandleValidationStatus {
+  PENDING
+  VALID
+  FLAGGED
+  REJECTED
+}
+
+model CandleQualityMetadata {
+  id                   String                  @id @default(uuid())
+  candleId             String                  @unique
+  /// 0-100. Composite of completeness (no gaps around this bar),
+  /// consistency (OHLC relationships hold), and freshness.
+  qualityScore         Decimal                 @db.Decimal(5, 2)
+  /// 0-100. How confident the pipeline is this value is correct — lower
+  /// than qualityScore when, e.g., only one provider has ever reported
+  /// this bar (nothing to cross-check against).
+  confidenceScore      Decimal                 @db.Decimal(5, 2)
+  validationStatus     CandleValidationStatus  @default(PENDING)
+  /// Mirrors MarketCandle.normalizationVersion's own precedent — lets a
+  /// future rescoring pass identify "every row scored before the fix".
+  importVersion        Int                     @default(1)
+  sourceProviderType   MarketDataProviderType
+  importTimestamp      DateTime
+  processingTimestamp  DateTime                @default(now())
+  processingDurationMs Int
+
+  candle MarketCandle @relation(fields: [candleId], references: [id], onDelete: Cascade)
+
+  @@index([validationStatus])
+  @@map("candle_quality_metadata")
+}
+
+model DerivedIndicatorSnapshot {
+  id            String         @id @default(uuid())
+  instrumentId  String
+  interval      CandleInterval
+  eventTime     DateTime
+  /// The indicator-engine IndicatorDefinition.identifier this snapshot
+  /// was computed from (e.g. "rsi", "macd", "vwap") — not a foreign key,
+  /// since the indicator registry (indicator-engine module) is
+  /// in-memory/code-defined, not a database table.
+  indicatorKey  String
+  /// The indicator's named outputs for this bar (e.g. MACD's
+  /// {macd, signal, histogram}) — shape varies per indicator, same
+  /// reasoning as IndicatorResult's own output shape upstream.
+  outputs       Json
+  computedAt    DateTime       @default(now())
+
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@unique([instrumentId, interval, eventTime, indicatorKey])
+  @@index([instrumentId, interval, eventTime])
+  @@map("derived_indicator_snapshots")
+}
+
+model MarketDataAiSnapshot {
+  id             String         @id @default(uuid())
+  instrumentId   String
+  interval       CandleInterval
+  eventTime      DateTime
+  trend          String?
+  volatility     String?
+  liquidity      String?
+  /// 0-100 — this snapshot's own confidence in its regime/trend call,
+  /// distinct from CandleQualityMetadata.confidenceScore (that's about
+  /// the underlying price data; this is about the derived AI reading).
+  confidence     Decimal?       @db.Decimal(5, 2)
+  session        String?
+  spread         Decimal?       @db.Decimal(20, 10)
+  marketRegime   String?
+  /// Free-form flag list (e.g. ["price_spike", "volume_anomaly"]) — a
+  /// Json array, not a joined table, since this is descriptive metadata
+  /// for a future AI module to read, not something this phase queries
+  /// relationally.
+  anomalyFlags   Json?
+  computedAt     DateTime       @default(now())
+
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@unique([instrumentId, interval, eventTime])
+  @@index([instrumentId, interval, eventTime])
+  @@map("market_data_ai_snapshots")
 }
 
 // ─────────────────────────────────────────────────────────────────────────

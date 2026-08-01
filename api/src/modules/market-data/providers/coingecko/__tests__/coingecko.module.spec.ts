@@ -24,6 +24,10 @@ function buildConfigRow(overrides: Partial<MarketDataProviderConfigModel> = {}):
     rateLimitPerMinute: null,
     supportedAssetClasses: ["CRYPTO"],
     isActive: true,
+    // FIP-001 additions to MarketDataProviderConfigModel.
+    priority: 100,
+    lastConnectionTestAt: null,
+    lastConnectionTestStatus: null,
     createdById: null,
     updatedById: null,
     createdAt: new Date(),

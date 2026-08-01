@@ -35,7 +35,7 @@ export class TwelveDataRateLimiter implements ProviderRateLimitPolicy {
   async getWaitTimeMs(): Promise<number> {
     this.evictExpired();
     if (this.callTimestamps.length < this.requestsPerMinute) return 0;
-    const oldest = this.callTimestamps[0];
+    const oldest = this.callTimestamps[0]!;
     return Math.max(0, oldest + WINDOW_MS - Date.now());
   }
 
@@ -46,7 +46,7 @@ export class TwelveDataRateLimiter implements ProviderRateLimitPolicy {
 
   private evictExpired(): void {
     const cutoff = Date.now() - WINDOW_MS;
-    while (this.callTimestamps.length > 0 && this.callTimestamps[0] < cutoff) {
+    while (this.callTimestamps.length > 0 && this.callTimestamps[0]! < cutoff) {
       this.callTimestamps.shift();
     }
   }

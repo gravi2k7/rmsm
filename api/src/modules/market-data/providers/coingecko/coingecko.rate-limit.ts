@@ -19,7 +19,7 @@ export class CoinGeckoRateLimiter implements ProviderRateLimitPolicy {
   async getWaitTimeMs(): Promise<number> {
     this.evictExpired();
     if (this.callTimestamps.length < this.requestsPerMinute) return 0;
-    const oldest = this.callTimestamps[0];
+    const oldest = this.callTimestamps[0]!;
     return Math.max(0, oldest + CoinGeckoRateLimiter.WINDOW_MS - Date.now());
   }
 
@@ -30,7 +30,7 @@ export class CoinGeckoRateLimiter implements ProviderRateLimitPolicy {
 
   private evictExpired(): void {
     const cutoff = Date.now() - CoinGeckoRateLimiter.WINDOW_MS;
-    while (this.callTimestamps.length > 0 && this.callTimestamps[0] < cutoff) {
+    while (this.callTimestamps.length > 0 && this.callTimestamps[0]! < cutoff) {
       this.callTimestamps.shift();
     }
   }

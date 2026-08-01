@@ -60,7 +60,7 @@ export class YahooFinanceMapper {
       candles.push({
         providerSymbol,
         interval,
-        eventTime: new Date(timestamps[i] * 1000),
+        eventTime: new Date(timestamps[i]! * 1000), // loop bound is timestamps.length, so timestamps[i] is always defined here
         open: String(open),
         high: String(high),
         low: String(low),

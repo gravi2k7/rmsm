@@ -21,7 +21,7 @@ export class YahooFinanceRateLimiter implements ProviderRateLimitPolicy {
   async getWaitTimeMs(): Promise<number> {
     this.evict();
     if (this.timestamps.length < this.requestsPerMinute) return 0;
-    return Math.max(0, this.timestamps[0] + MINUTE_MS - Date.now());
+    return Math.max(0, this.timestamps[0]! + MINUTE_MS - Date.now());
   }
 
   recordCall(): void {
@@ -31,7 +31,7 @@ export class YahooFinanceRateLimiter implements ProviderRateLimitPolicy {
 
   private evict(): void {
     const cutoff = Date.now() - MINUTE_MS;
-    while (this.timestamps.length > 0 && this.timestamps[0] < cutoff) {
+    while (this.timestamps.length > 0 && this.timestamps[0]! < cutoff) {
       this.timestamps.shift();
     }
   }

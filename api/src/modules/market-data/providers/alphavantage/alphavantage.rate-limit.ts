@@ -45,12 +45,12 @@ export class AlphaVantageRateLimiter implements ProviderRateLimitPolicy {
   private waitFor(timestamps: number[], limit: number, windowMs: number): number {
     this.evict(timestamps, windowMs);
     if (timestamps.length < limit) return 0;
-    return Math.max(0, timestamps[0] + windowMs - Date.now());
+    return Math.max(0, timestamps[0]! + windowMs - Date.now());
   }
 
   private evict(timestamps: number[], windowMs: number): void {
     const cutoff = Date.now() - windowMs;
-    while (timestamps.length > 0 && timestamps[0] < cutoff) {
+    while (timestamps.length > 0 && timestamps[0]! < cutoff) {
       timestamps.shift();
     }
   }

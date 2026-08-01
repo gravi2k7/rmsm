@@ -74,6 +74,17 @@ const DEFAULT_PERMISSIONS: { key: string; group: string; description: string }[]
   { key: "market-data.read", group: "market-data", description: "Read exchanges, instruments, candles, quotes, ticks, and corporate actions." },
   { key: "market-data.admin.manage", group: "market-data", description: "View platform-wide provider configuration and synchronization/import status." },
 
+  // ── FIP-001 additions (additive) — Market Data Platform Production
+  // Activation. Distinct from market-data.admin.manage (that permission's
+  // own description is read/view-scoped) because these are genuine
+  // mutating actions: registering/testing provider credentials,
+  // triggering or scheduling historical imports, and repairing data
+  // gaps. Same platform-tier, no organizationId, as every other
+  // market-data.* permission (ADR-021's reasoning applies unchanged). ──
+  { key: "market-data.provider.manage", group: "market-data", description: "Register/configure market data providers, set provider priority, and run connection tests." },
+  { key: "market-data.import.trigger", group: "market-data", description: "Trigger, schedule, resume, or retry historical market data imports." },
+  { key: "market-data.gap.manage", group: "market-data", description: "Trigger automatic gap repair and review gap reports." },
+
   // ── AI-102, Phase 4 addition (additive) — no organizationId on
   // AI-102 either (ADR-021's own reasoning applies unchanged: indicator
   // metadata/execution is global product data, not per-tenant) ──
@@ -189,6 +200,9 @@ const ROLE_GRANTS: Record<string, string[]> = {
     "notification.webhook.manage",
     "market-data.read",
     "market-data.admin.manage",
+    "market-data.provider.manage",
+    "market-data.import.trigger",
+    "market-data.gap.manage",
     "indicator-engine.read",
     "indicator-engine.execute",
     "strategy-engine.read",

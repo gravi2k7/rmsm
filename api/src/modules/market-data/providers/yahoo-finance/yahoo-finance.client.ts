@@ -223,7 +223,9 @@ export class YahooFinanceClient {
       const unavailableError: YahooFinanceApiError = { isProviderUnavailable: true, message: "Yahoo Finance did not return a session cookie" };
       throw unavailableError;
     }
-    const cookie = setCookie.split(";")[0];
+    // String.prototype.split always returns at least one element, so index 0 always
+    // exists here — noUncheckedIndexedAccess just can't infer that from the split() signature.
+    const cookie = setCookie.split(";")[0]!;
 
     const crumbRes = await fetch(`${this.config.baseUrl}/v1/test/getcrumb`, { headers: { Cookie: cookie, "User-Agent": "Mozilla/5.0 (compatible; RMSM-MarketData/1.0)" } });
     if (!crumbRes.ok) {

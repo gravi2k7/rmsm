@@ -61,7 +61,9 @@ export class CoinGeckoProvider implements MarketDataProvider {
       const cacheKey = `quotes:${[...ids].sort().join(",")}`;
       const entries = await this.cache.getOrSet(cacheKey, () => this.client.getMarkets(ids));
       return providerSymbols.map((symbol, index) => {
-        const id = ids[index];
+        // ids = providerSymbols.map(...) just above, so ids.length === providerSymbols.length —
+        // ids[index] is always defined here, noUncheckedIndexedAccess just can't see that.
+        const id = ids[index]!;
         const entry = entries.find((e) => e.id === id);
         if (!entry) throw this.unknownSymbolError(symbol, id);
         return this.mapper.toNormalizedQuote(entry);
