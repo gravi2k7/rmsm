@@ -17,14 +17,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@rmsm/core": "workspace:*",
-    "@prisma/client": "^5.18.0"
+    "@prisma/client": "^5.22.0",
+    "@rmsm/core": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^20.14.15",
     "prisma": "^5.18.0",
     "tsx": "^4.16.5",
     "typescript": "^5.5.4",
-    "@types/node": "^20.14.15",
     "vitest": "^2.0.5"
   },
   "exports": {
