@@ -6,6 +6,7 @@
  * Idempotent — safe to re-run (upsert throughout).
  */
 import { PrismaClient } from "@prisma/client";
+import { bootstrapAdministrator } from "../src/seed/bootstrap-admin";
 
 const prisma = new PrismaClient();
 
@@ -427,6 +428,19 @@ async function main() {
       create: { code: category.code as never, displayName: category.displayName, description: category.description, sortOrder: category.sortOrder },
     });
   }
+
+  // ── AUTH-004: Bootstrap Administrator ────────────────────────────────
+  // Must run after role seeding above (it looks up the SUPER_ADMIN role
+  // by name) and is the last step before the summary log — everything
+  // this account might reference (roles, and if BOOTSTRAP_ADMIN_ORGANIZATION
+  // is set, its own freshly-created organization) already exists by now.
+  await bootstrapAdministrator(prisma, {
+    email: process.env.BOOTSTRAP_ADMIN_EMAIL,
+    password: process.env.BOOTSTRAP_ADMIN_PASSWORD,
+    firstName: process.env.BOOTSTRAP_ADMIN_FIRST_NAME,
+    lastName: process.env.BOOTSTRAP_ADMIN_LAST_NAME,
+    organization: process.env.BOOTSTRAP_ADMIN_ORGANIZATION,
+  });
 
   // eslint-disable-next-line no-console -- seed script CLI output, not app runtime logging
   console.log(

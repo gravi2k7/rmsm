@@ -3,3 +3,4 @@ export * from "./result";
 export * from "./password-policy";
 export * from "./slug";
 export * from "./json";
+export * from "./password-hash";

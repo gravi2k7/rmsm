@@ -1258,11 +1258,14 @@ importers:
   packages/database:
     dependencies:
       '@prisma/client':
-        specifier: ^5.22.0
+        specifier: ^5.18.0
         version: 5.22.0(prisma@5.22.0)
       '@rmsm/core':
         specifier: workspace:*
         version: link:../core
+      '@rmsm/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       '@types/node':
         specifier: ^20.14.15
@@ -1423,6 +1426,9 @@ importers:
       '@rmsm/types':
         specifier: workspace:*
         version: link:../types
+      argon2:
+        specifier: ^0.41.1
+        version: 0.41.1
     devDependencies:
       '@types/node':
         specifier: ^20.14.15
