@@ -48,12 +48,25 @@ describe("DatabaseHealthCheck", () => {
 });
 
 describe("MemoryHealthCheck", () => {
-  it("reports 'up' with real memory metadata under normal conditions", async () => {
+  it("reports 'up' with memory metadata when heap usage is below the threshold", async () => {
+  const spy = vi.spyOn(process, "memoryUsage").mockReturnValue({
+    rss: 100,
+    heapTotal: 100,
+    heapUsed: 40,
+    external: 0,
+    arrayBuffers: 0,
+  });
+
+  try {
     const result = await new MemoryHealthCheck().check();
+
     expect(result.name).toBe("memory");
     expect(result.status).toBe("up");
     expect(typeof result.meta?.heapUsedRatio).toBe("number");
-  });
+  } finally {
+    spy.mockRestore();
+  }
+});
 
   it("reports 'degraded' when heap usage exceeds the configured threshold", async () => {
     const spy = vi.spyOn(process, "memoryUsage").mockReturnValue({

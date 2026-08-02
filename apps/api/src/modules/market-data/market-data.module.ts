@@ -35,6 +35,8 @@ import { SynchronizationController } from "./controllers/synchronization.control
 import { MarketDataProviderBootstrapService } from "./bootstrap/market-data-provider-bootstrap.service";
 import { ProviderConnectionTestService } from "./services/provider-connection-test.service";
 import { TwelveDataRegistrarService } from "./providers/twelve-data/twelve-data.module";
+import { AlphaVantageRegistrarService } from "./providers/alphavantage/alphavantage.module";
+import { AlphaVantageCacheService } from "./providers/alphavantage/alphavantage.cache";
 
 /**
  * AI-101 Phase 2A: 13 repositories, domain-model layer (ADR-025).
@@ -92,6 +94,14 @@ import { TwelveDataRegistrarService } from "./providers/twelve-data/twelve-data.
     ProviderDiagnosticsService,
     ProviderRegistrarService,
     TwelveDataRegistrarService,
+    ProviderRegistrarService,
+    TwelveDataRegistrarService,
+    ProviderRegistrarService,
+    TwelveDataRegistrarService,
+    AlphaVantageCacheService,
+    AlphaVantageRegistrarService,
+    ProviderOrchestrationService,
+    AlphaVantageRegistrarService,
   ],
   exports: [
     MarketDataProviderConfigRepository,

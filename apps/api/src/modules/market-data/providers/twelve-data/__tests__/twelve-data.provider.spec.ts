@@ -16,7 +16,7 @@ function buildClientMock(): jest.Mocked<Pick<TwelveDataClient, "getTimeSeries" |
   };
 }
 
-function buildProvider(apiKey: string | undefined = "test-api-key") {
+function buildProvider(apiKey?: string) {
   const client = buildClientMock();
   const mapper = new TwelveDataMapper();
   const errorMapper = new TwelveDataErrorMapper();
@@ -29,7 +29,7 @@ function buildProvider(apiKey: string | undefined = "test-api-key") {
 
 describe("TwelveDataProvider", () => {
   it("has type TWELVE_DATA and correct capability metadata", () => {
-    const { provider } = buildProvider();
+    const { provider } = buildProvider("test-api-key");
     expect(provider.type).toBe("TWELVE_DATA");
     expect(provider.metadata.supportsHistorical).toBe(true);
     expect(provider.metadata.supportsQuotes).toBe(true);
@@ -40,7 +40,7 @@ describe("TwelveDataProvider", () => {
   });
 
   it("only exposes historicalDataClient/quoteClient/symbolSearchClient/healthProvider — never tickProvider/corporateActionProvider/etc, per MD-001's capability scope", () => {
-    const { provider } = buildProvider();
+    const { provider } = buildProvider("test-api-key");
     const asInterface: MarketDataProvider = provider;
     expect(provider.historicalDataClient).toBeDefined();
     expect(provider.quoteClient).toBeDefined();
@@ -64,7 +64,7 @@ describe("TwelveDataProvider", () => {
 
   describe("historicalDataClient.fetchCandles", () => {
     it("delegates to the client and normalizes the result via the mapper", async () => {
-      const { provider, client } = buildProvider();
+      const { provider, client } = buildProvider("test-api-key");
       client.getTimeSeries.mockResolvedValue({
         status: "ok",
         values: [{ datetime: "2026-01-02", open: "1", high: "2", low: "0.5", close: "1.5", volume: "100" }],
@@ -94,7 +94,7 @@ describe("TwelveDataProvider", () => {
 
   describe("quoteClient", () => {
     it("fetchLatestQuote delegates to the client and maps the result", async () => {
-      const { provider, client } = buildProvider();
+      const { provider, client } = buildProvider("test-api-key");
       client.getQuote.mockResolvedValue({ symbol: "AAPL", close: "150.00", status: "ok" });
 
       const quote = await provider.quoteClient!.fetchLatestQuote("AAPL");
@@ -105,7 +105,7 @@ describe("TwelveDataProvider", () => {
     });
 
     it("fetchLatestQuotes fans out to fetchLatestQuote for every symbol", async () => {
-      const { provider, client } = buildProvider();
+      const { provider, client } = buildProvider("test-api-key");
       client.getQuote.mockImplementation((symbol: string) => Promise.resolve({ symbol, close: "1.00", status: "ok" }));
 
       const quotes = await provider.quoteClient!.fetchLatestQuotes(["AAPL", "MSFT"]);
@@ -117,7 +117,7 @@ describe("TwelveDataProvider", () => {
 
   describe("symbolSearchClient.search", () => {
     it("delegates to the client and maps + truncates to the requested limit", async () => {
-      const { provider, client } = buildProvider();
+      const { provider, client } = buildProvider("test-api-key");
       client.getSymbolSearch.mockResolvedValue({
         status: "ok",
         data: [
