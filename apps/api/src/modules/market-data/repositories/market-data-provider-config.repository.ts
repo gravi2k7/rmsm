@@ -43,6 +43,21 @@ export class MarketDataProviderConfigRepository {
     const rows = await client.marketDataProviderConfig.findMany({ where: { isActive: true } });
     return rows.map(toMarketDataProviderConfigModel);
   }
+  async listActiveByPriority(
+  client: DbClient = prisma,
+): Promise<MarketDataProviderConfigModel[]> {
+  const rows = await client.marketDataProviderConfig.findMany({
+    where: { isActive: true },
+    orderBy: [
+      { priority: "asc" },
+      { name: "asc" },
+    ],
+  });
+
+  return rows.map(toMarketDataProviderConfigModel);
+}
+
+
 
   async deactivate(id: string, client: DbClient = prisma): Promise<MarketDataProviderConfigModel> {
     const row = await client.marketDataProviderConfig.update({ where: { id }, data: { isActive: false } });

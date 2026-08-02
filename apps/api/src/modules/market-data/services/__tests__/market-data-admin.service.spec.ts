@@ -9,6 +9,7 @@ import type { DataImportJobRepository } from "../../repositories/data-import-job
 import type { MarketDataMetricsService } from "../market-data-metrics.service";
 import type { ProviderRegistryService } from "../../providers/provider-registry.service";
 import type { ProviderOrchestrationService } from "../provider-orchestration.service";
+import type { ProviderConnectionTestService } from "../provider-connection-test.service";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { prisma } = require("@rmsm/database") as { prisma: { $queryRaw: jest.Mock } };
@@ -34,9 +35,19 @@ describe("MarketDataAdminService", () => {
     const providerOrchestration = {
       getCircuitState: jest.fn((type: string) => overrides.circuitStates?.[type] ?? "closed"),
     } as unknown as ProviderOrchestrationService;
-    return new MarketDataAdminService(providerConfigRepository, importJobRepository, metrics, providerRegistry, providerOrchestration);
-  }
+    const providerConnectionTestService = {
+     testConnection: jest.fn(),
+    } as unknown as ProviderConnectionTestService;
 
+  return new MarketDataAdminService(
+  providerConfigRepository,
+  importJobRepository,
+  metrics,
+  providerRegistry,
+  providerOrchestration,
+  providerConnectionTestService,
+   );
+  }
   it("reports ok status when failed import count is at or below the threshold and no circuits are open", async () => {
     const service = buildService({ failedJobCount: 20 });
     const health = await service.getSynchronizationHealth();

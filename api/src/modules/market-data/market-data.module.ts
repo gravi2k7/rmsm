@@ -50,6 +50,7 @@ import { MonitoringDashboardService } from "./services/monitoring-dashboard.serv
 import { ImportSchedulerProcessor } from "./workers/import-scheduler.processor";
 import { ImportPollProcessor } from "./workers/import-poll.processor";
 import { ImportCronRegistrar } from "./workers/import-cron.registrar";
+import { MarketDataProviderBootstrapService } from "./bootstrap/market-data-provider-bootstrap.service";
 import { ExchangeController } from "./controllers/exchange.controller";
 import { InstrumentController } from "./controllers/instrument.controller";
 import { MarketCandleController } from "./controllers/market-candle.controller";
@@ -159,6 +160,7 @@ import { MonitoringController } from "./controllers/monitoring.controller";
     ImportSchedulerProcessor,
     ImportPollProcessor,
     ImportCronRegistrar,
+    MarketDataProviderBootstrapService,
   ],
   exports: [
     MarketDataProviderConfigRepository,

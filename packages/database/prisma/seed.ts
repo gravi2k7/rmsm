@@ -7,6 +7,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 import { bootstrapAdministrator } from "../src/seed/bootstrap-admin";
+import { bootstrapMarketDataProviders } from "../src/seed/bootstrap-market-data-providers";
 
 const prisma = new PrismaClient();
 
@@ -492,6 +493,12 @@ async function main() {
     lastName: process.env.BOOTSTRAP_ADMIN_LAST_NAME,
     organization: process.env.BOOTSTRAP_ADMIN_ORGANIZATION,
   });
+
+  // ── FIP-001 follow-up: bootstrap default Market Data provider configs ─
+  // Independent of the admin account above — does not need roles/users
+  // to exist first, and its own idempotency gate (table-emptiness) makes
+  // ordering relative to everything else in this file irrelevant.
+  await bootstrapMarketDataProviders(prisma);
 
   // eslint-disable-next-line no-console -- seed script CLI output, not app runtime logging
   console.log(

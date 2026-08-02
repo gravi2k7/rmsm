@@ -8,6 +8,7 @@ import { ProviderRegistryService } from "../providers/provider-registry.service"
 import { ProviderOrchestrationService } from "./provider-orchestration.service";
 import type { MarketDataProviderConfigModel } from "../interfaces/models/reference-data.models";
 import type { DataImportJobModel } from "../interfaces/models/operational.models";
+import { ProviderConnectionTestService } from "./provider-connection-test.service"; 
 
 export interface ProviderHealthEntry {
   type: string;
@@ -39,13 +40,15 @@ export interface SynchronizationHealth {
  */
 @Injectable()
 export class MarketDataAdminService {
-  constructor(
-    private readonly providerConfigRepository: MarketDataProviderConfigRepository,
-    private readonly importJobRepository: DataImportJobRepository,
-    private readonly metrics: MarketDataMetricsService,
-    private readonly providerRegistry: ProviderRegistryService,
-    private readonly providerOrchestration: ProviderOrchestrationService,
-  ) {}
+ constructor(
+  private readonly providerConfigRepository: MarketDataProviderConfigRepository,
+  private readonly importJobRepository: DataImportJobRepository,
+  private readonly metrics: MarketDataMetricsService,
+  private readonly providerRegistry: ProviderRegistryService,
+  private readonly providerOrchestration: ProviderOrchestrationService,
+
+  private readonly providerConnectionTestService: ProviderConnectionTestService,
+) {}
 
   listProviderConfigs(): Promise<MarketDataProviderConfigModel[]> {
     return this.providerConfigRepository.listActive();
@@ -55,6 +58,9 @@ export class MarketDataAdminService {
     const config = await this.providerConfigRepository.findById(id);
     if (!config) throw new NotFoundError("MarketDataProviderConfig", id);
     return config;
+  }
+  async testProviderConnection(id: string) {
+  return this.providerConnectionTestService.testConnection(id);
   }
 
   async getImportJob(id: string): Promise<DataImportJobModel> {

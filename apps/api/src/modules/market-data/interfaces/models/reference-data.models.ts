@@ -31,22 +31,30 @@ import type {
  * second time under a different name would be needless duplication for
  * no isolation benefit.
  */
-
 export interface MarketDataProviderConfigModel {
   id: string;
   type: MarketDataProviderType;
   name: string;
   baseUrl: string | null;
   credentialReference: string | null;
+
+  priority: number;
+
   rateLimitPerMinute: number | null;
+
+  lastConnectionTestAt: Date | null;
+  lastConnectionTestStatus: string | null;
+
   supportedAssetClasses: AssetClass[];
+
   isActive: boolean;
+
   createdById: string | null;
   updatedById: string | null;
+
   createdAt: Date;
   updatedAt: Date;
 }
-
 export interface ExchangeModel {
   id: string;
   code: string;

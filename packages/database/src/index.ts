@@ -28,6 +28,12 @@ export * from "./filters";
 export * from "./errors";
 export * from "./repositories";
 
+// Exported so `apps/api` can call it from an OnModuleInit startup hook
+// (`MarketDataProviderBootstrapService`), not just from `prisma/seed.ts`'s
+// own CLI entrypoint. `./seed/bootstrap-admin` stays un-exported here —
+// nothing outside this package's own seed script needs it.
+export * from "./seed/bootstrap-market-data-providers";
+
 // ─────────────────────────────────────────────────────────────────────────
 // Named relation-payload types.
 //

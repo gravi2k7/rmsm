@@ -49,7 +49,7 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -qO- http://localhost:3001/health || exit 1
 
-CMD ["sh", "-c", "pnpm --filter @rmsm/database generate && pnpm exec turbo run build --filter=@rmsm/core --filter=@rmsm/market --filter=@rmsm/decision --filter=@rmsm/execution --filter=@rmsm/opportunity --filter=@rmsm/portfolio --filter=@rmsm/strategy && pnpm --filter @rmsm/api dev"]
+CMD ["sh", "-c", "pnpm --filter @rmsm/database generate && pnpm exec turbo run build --filter=@rmsm/database --filter=@rmsm/core --filter=@rmsm/market --filter=@rmsm/decision --filter=@rmsm/execution --filter=@rmsm/opportunity --filter=@rmsm/portfolio --filter=@rmsm/strategy && pnpm --filter @rmsm/api dev"]
 # Prisma's client is generated on every container start (not baked into
 # the image) because dev mode bind-mounts the host's schema.prisma
 # directly — a schema edit on the host should be picked up on container
