@@ -11,7 +11,7 @@ RUN apk add --no-cache \
     && rm -rf /var/cache/apk/*
 
 RUN corepack enable
-
+RUN corepack prepare pnpm@9.0.0 --activate
 RUN addgroup -g 1001 -S rmsm \
     && adduser -u 1001 -S rmsm -G rmsm -h /workspace -s /bin/bash
 WORKDIR /workspace
@@ -49,7 +49,8 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -qO- http://localhost:3001/health || exit 1
 
-CMD ["sh", "-c", "pnpm --filter @rmsm/database generate && pnpm exec turbo run build --filter=@rmsm/database --filter=@rmsm/core --filter=@rmsm/market --filter=@rmsm/decision --filter=@rmsm/execution --filter=@rmsm/opportunity --filter=@rmsm/portfolio --filter=@rmsm/strategy && pnpm --filter @rmsm/api dev"]
+CMD ["sh","-c","./scripts/build-api-deps.sh && pnpm --filter @rmsm/api run dev"]
+
 # Prisma's client is generated on every container start (not baked into
 # the image) because dev mode bind-mounts the host's schema.prisma
 # directly — a schema edit on the host should be picked up on container
@@ -72,10 +73,18 @@ COPY . .
 RUN --mount=type=cache,id=rmsm-pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --offline --frozen-lockfile
 
-RUN pnpm --filter @rmsm/database generate
+RUN chmod +x scripts/build-api-deps.sh
 
-RUN --mount=type=cache,id=rmsm-turbo-cache,target=/workspace/.turbo \
-    pnpm turbo run build
+RUN ./scripts/build-api-deps.sh
+
+# ----------------------------------------------------
+# Deploy
+# ----------------------------------------------------
+
+FROM build AS deploy
+
+RUN pnpm --filter @rmsm/api --prod deploy /deploy
+
 
 FROM base AS production
 
@@ -85,27 +94,13 @@ ENV NODE_ENV=production \
 
 WORKDIR /workspace
 
+COPY --from=deploy /deploy/ ./
 
-COPY --from=build /workspace/package.json ./package.json
-COPY --from=build /workspace/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=build /workspace/node_modules ./node_modules
-COPY --from=build /workspace/packages ./packages
-COPY --from=build /workspace/apps/api/dist ./apps/api/dist
-COPY --from=build /workspace/apps/api/package.json ./apps/api/package.json
-COPY --from=build /workspace/apps/api/tsconfig.json ./apps/api/tsconfig.json
-
-# The same reusable entrypoint docker/runtime-node.Dockerfile uses,
-# copied from the platform's checked-in scripts. Runs
-# `node -r ts-node/register apps/api/dist/main.js` — required because
-# several workspace packages are consumed straight from their own
-# src/*.ts at runtime (see docker/README.md's compatibility notes).
 COPY docker/scripts/start-node.sh /usr/local/bin/start-node.sh
+
 RUN chmod +x /usr/local/bin/start-node.sh
 
 EXPOSE 3001
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:3001/health || exit 1
 
 USER rmsm
 
