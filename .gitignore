@@ -60,3 +60,8 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+# ==========================
+# Infrastructure Secrets
+# ==========================
+infra/docker/**/.env
+!.env.example
