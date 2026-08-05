@@ -15,8 +15,8 @@ import { QueueEventTracker } from "../services/queue-event-tracker.service";
  *  - "sweep-schedules": the periodic repeatable job (registered by
  *    NotificationCronRegistrar) that evaluates every due
  *    NotificationSchedule and fires the notifications they describe.
- *    QueueEventTracker deliberately ignores this job name (Section: its
- *    own class comment) — sweep jobs have no NotificationQueue row to
+ *    QueueEventTracker deliberately ignores this job name (see its own
+ *    class comment) — sweep jobs have no NotificationQueue row to
  *    update.
  */
 @Processor("scheduled")
@@ -35,16 +35,25 @@ export class ScheduledQueueProcessor extends WorkerHost {
   async process(job: Job): Promise<void> {
     if (job.name === "sweep-schedules") {
       const result = await this.scheduler.processDueSchedules(new Date());
-      this.logger.log(`Schedule sweep: ${result.processed} processed, ${result.failed} failed.`);
+
+      this.logger.log(
+        `Schedule sweep: ${result.processed} processed, ${result.failed} failed.`,
+      );
+
       return;
     }
 
     const notificationId = (job.data as { notificationId: string }).notificationId;
+
     const notification = await this.notificationRepository.findById(notificationId);
+
     if (!notification) {
-      this.logger.warn(`Scheduled queue job ${job.id}: notification ${notificationId} not found — skipping.`);
+      this.logger.warn(
+        `Scheduled queue job ${job.id}: notification ${notificationId} not found — skipping.`,
+      );
       return;
     }
+
     await this.notificationService.dispatch(notification);
   }
 

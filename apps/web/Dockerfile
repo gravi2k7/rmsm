@@ -11,11 +11,18 @@ RUN --mount=type=cache,id=rmsm-pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm fetch
 
 FROM deps AS dev
+
 COPY . .
+
+RUN --mount=type=cache,id=rmsm-pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --offline --frozen-lockfile
+
 EXPOSE 3000
+
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD wget -qO- http://localhost:3000/api/health || exit 1
-CMD ["pnpm", "--filter", "@rmsm/web", "dev"]
+
+CMD ["pnpm","--filter","@rmsm/web","dev"]
 
 FROM deps AS build
 

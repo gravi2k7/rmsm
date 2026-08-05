@@ -3,33 +3,37 @@ import { BullModule } from "@nestjs/bullmq";
 import { loadConfig } from "@rmsm/config";
 
 /**
- * Global BullMQ connection setup. No queues/processors are registered yet —
- * per Module 001 scope ("No jobs yet"). Future modules register queues via
- * BullModule.registerQueue({ name: "..." }) against this shared connection.
+ * Global BullMQ connection setup.
+ * Future modules register queues via:
+ * BullModule.registerQueue({ name: "..." })
  */
 @Global()
 @Module({
   imports: [
     BullModule.forRootAsync({
       useFactory: () => {
-        const { REDIS_URL } = loadConfig();
-        const url = new URL(REDIS_URL);
+  const { REDIS_URL } = loadConfig();
 
-        return {
-          connection: {
-            host: url.hostname,
-            port: Number(url.port || 6379),
+  const url = new URL(REDIS_URL);
 
-            username: url.username || undefined,
-            password: url.password || undefined,
+  console.log("REDIS_URL:", REDIS_URL);
+  console.log("PASSWORD RAW:", url.password);
+  console.log("PASSWORD DECODED:", decodeURIComponent(url.password));
 
-            // BullMQ recommended settings
-            maxRetriesPerRequest: null,
-            enableReadyCheck: true,
-            lazyConnect: false,
-          },
-        };
-      },
+  return {
+    connection: {
+      host: url.hostname,
+      port: Number(url.port || 6379),
+
+      password: decodeURIComponent(url.password),
+
+      enableReadyCheck: false,
+      lazyConnect: false,
+      maxRetriesPerRequest: null,
+           
+    },
+  };
+},
     }),
   ],
   exports: [BullModule],

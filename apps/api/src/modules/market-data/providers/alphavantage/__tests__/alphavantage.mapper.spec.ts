@@ -92,21 +92,45 @@ describe("AlphaVantageMapper", () => {
   });
 
   describe("toNormalizedSymbolSearchResults", () => {
-    it("maps SYMBOL_SEARCH matches to NormalizedSymbolSearchResult, classifying asset class from the type field", () => {
-      const matches: AlphaVantageSearchMatch[] = [
-        { "1. symbol": "IBM", "2. name": "International Business Machines", "3. type": "Equity", "4. region": "United States", "8. currency": "USD" },
-        { "1. symbol": "SPY", "2. name": "SPDR S&P 500 ETF", "3. type": "ETF", "4. region": "United States", "8. currency": "USD" },
-      ];
-      const results = mapper.toNormalizedSymbolSearchResults(matches);
+  it("maps SYMBOL_SEARCH matches to NormalizedSymbolSearchResult, classifying asset class from the type field", () => {
+    const matches: AlphaVantageSearchMatch[] = [
+      {
+        "1. symbol": "IBM",
+        "2. name": "International Business Machines",
+        "3. type": "Equity",
+        "4. region": "United States",
+        "8. currency": "USD",
+      },
+      {
+        "1. symbol": "SPY",
+        "2. name": "SPDR S&P 500 ETF",
+        "3. type": "ETF",
+        "4. region": "United States",
+        "8. currency": "USD",
+      },
+    ];
 
-      expect(results[0]).toEqual({ providerSymbol: "IBM", name: "International Business Machines", assetClass: "EQUITY", currency: "USD" });
-      expect(results[1].assetClass).toBe("ETF");
+    const results = mapper.toNormalizedSymbolSearchResults(matches);
+
+    expect(results).toHaveLength(2);
+
+    expect(results[0]).toBeDefined();
+    expect(results[1]).toBeDefined();
+
+    expect(results[0]!).toEqual({
+      providerSymbol: "IBM",
+      name: "International Business Machines",
+      assetClass: "EQUITY",
+      currency: "USD",
     });
 
-    it("returns an empty array for no matches", () => {
-      expect(mapper.toNormalizedSymbolSearchResults([])).toEqual([]);
-    });
+    expect(results[1]!.assetClass).toBe("ETF");
   });
+
+  it("returns an empty array for no matches", () => {
+    expect(mapper.toNormalizedSymbolSearchResults([])).toEqual([]);
+  });
+});
 
   describe("toCompanyOverview", () => {
     it("maps OVERVIEW response fields into AlphaVantageCompanyOverview", () => {

@@ -17,21 +17,34 @@ export class NotificationCronRegistrar implements OnModuleInit {
   private readonly logger = new Logger(NotificationCronRegistrar.name);
 
   constructor(
-    @InjectQueue("scheduled") private readonly scheduledQueue: Queue,
-    @InjectQueue("digest") private readonly digestQueue: Queue,
+    @InjectQueue("scheduled")
+    private readonly scheduledQueue: Queue,
+
+    @InjectQueue("digest")
+    private readonly digestQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
     await this.scheduledQueue.add(
       "sweep-schedules",
       {},
-      { repeat: { every: 60_000 }, jobId: "sweep-schedules-repeatable" },
+      {
+        repeat: { every: 60_000 },
+        jobId: "sweep-schedules-repeatable",
+      },
     );
+
     await this.digestQueue.add(
       "sweep-digests",
       {},
-      { repeat: { every: 60 * 60_000 }, jobId: "sweep-digests-repeatable" },
+      {
+        repeat: { every: 60 * 60_000 },
+        jobId: "sweep-digests-repeatable",
+      },
     );
-    this.logger.log("Registered repeatable sweep jobs: schedules every 60s, digests every 60m.");
+
+    this.logger.log(
+      "Registered repeatable sweep jobs: schedules every 60s, digests every 60m.",
+    );
   }
 }
