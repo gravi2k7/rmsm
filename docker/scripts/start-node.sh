@@ -3,7 +3,7 @@ set -euo pipefail
 
 : "${APP_NAME:?APP_NAME must be set}"
 
-ENTRYPOINT_FILE="dist/main.js"
+ENTRYPOINT_FILE="/workspace/apps/api/dist/main.js"
 
 if [ ! -f "${ENTRYPOINT_FILE}" ]; then
     echo "[start-node] ${ENTRYPOINT_FILE} not found."

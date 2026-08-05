@@ -77,24 +77,14 @@ RUN chmod +x scripts/build-api-deps.sh
 
 RUN ./scripts/build-api-deps.sh
 
-# ----------------------------------------------------
-# Deploy
-# ----------------------------------------------------
 
-FROM build AS deploy
-
-RUN pnpm --filter @rmsm/api --prod deploy /deploy
-
-
-FROM base AS production
+FROM build AS production
 
 ENV NODE_ENV=production \
     APP_NAME=api \
     APP_PORT=3001
 
 WORKDIR /workspace
-
-COPY --from=deploy /deploy/ ./
 
 COPY docker/scripts/start-node.sh /usr/local/bin/start-node.sh
 

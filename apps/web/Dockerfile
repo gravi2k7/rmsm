@@ -4,12 +4,11 @@ RUN corepack enable
 WORKDIR /workspace
 
 FROM base AS deps
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
-COPY apps/web/package.json apps/web/package.json
-COPY packages/ui/package.json packages/ui/package.json
-COPY packages/shared/package.json packages/shared/package.json
-COPY packages/types/package.json packages/types/package.json
-RUN pnpm install --frozen-lockfile --filter @rmsm/web...
+
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+
+RUN --mount=type=cache,id=rmsm-pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm fetch
 
 FROM deps AS dev
 COPY . .
@@ -19,21 +18,21 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
 CMD ["pnpm", "--filter", "@rmsm/web", "dev"]
 
 FROM deps AS build
+
 COPY . .
-# WM-021 — @rmsm/shared and @rmsm/types now ship real dist/ builds
-# (no longer in this app's `transpilePackages`, see next.config.mjs), so
-# they need to be built before `next build` resolves them as ordinary
-# pre-compiled packages. `turbo run build --filter=@rmsm/web...` builds
-# them (and @rmsm/ui, which stays source-based but this is harmless/
-# fast for it) in dependency order, then builds the app itself last --
-# same topological graph the root `pnpm build` uses.
-RUN pnpm exec turbo run build --filter=@rmsm/web...
+
+RUN --mount=type=cache,id=rmsm-pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --offline --frozen-lockfile
+
+RUN pnpm --filter @rmsm/database generate
+
+RUN --mount=type=cache,id=rmsm-turbo-cache,target=/workspace/.turbo \
+    pnpm turbo run build
 
 FROM node:24-alpine AS production
 WORKDIR /workspace
 ENV NODE_ENV=production
 COPY --from=build /workspace/apps/web/.next ./apps/web/.next
-COPY --from=build /workspace/apps/web/public ./apps/web/public
 COPY --from=build /workspace/apps/web/package.json ./apps/web/package.json
 COPY --from=build /workspace/apps/web/next.config.mjs ./apps/web/next.config.mjs
 COPY --from=build /workspace/node_modules ./node_modules

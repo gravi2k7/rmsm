@@ -1,0 +1,201 @@
+services:
+  api:
+    build:
+      context: ../../..
+      dockerfile: apps/api/Dockerfile
+      target: production
+
+    image: ${API_IMAGE}
+    container_name: rmsm-api
+    restart: unless-stopped
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    env_file:
+      - .env
+
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      APP_ENV: ${APP_ENV}
+      TZ: ${TZ}
+
+      DATABASE_HOST: ${POSTGRES_HOST}
+      DATABASE_PORT: ${POSTGRES_PORT}
+      DATABASE_NAME: ${POSTGRES_DB}
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+    ports:
+      - "${API_PORT}:3001"
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+    networks:
+      - rmsm-core
+      - rmsm-data
+
+  web:
+    build:
+      context: ../../..
+      dockerfile: apps/web/Dockerfile
+      target: production
+
+    image: ${WEB_IMAGE}
+    container_name: rmsm-web
+    restart: unless-stopped
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    env_file:
+      - .env
+
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      APP_ENV: ${APP_ENV}
+      TZ: ${TZ}
+
+    ports:
+      - "${WEB_PORT}:3000"
+
+    depends_on:
+      api:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+    networks:
+      - rmsm-core
+
+  admin:
+    build:
+      context: ../../..
+      dockerfile: apps/admin/Dockerfile
+      target: production
+
+    image: ${ADMIN_IMAGE}
+    container_name: rmsm-admin
+    restart: unless-stopped
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    env_file:
+      - .env
+
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      APP_ENV: ${APP_ENV}
+      TZ: ${TZ}
+
+    ports:
+      - "${ADMIN_PORT}:3002"
+
+    depends_on:
+      api:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3002/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+    networks:
+      - rmsm-core
+
+  ai:
+    build:
+      context: ../../..
+      dockerfile: apps/ai/Dockerfile
+      target: production
+
+    image: ${AI_IMAGE}
+    container_name: rmsm-ai
+    restart: unless-stopped
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    env_file:
+      - .env
+
+    environment:
+      TZ: ${TZ}
+
+    ports:
+      - "${AI_PORT}:8000"
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+    networks:
+      - rmsm-core
+
+  #workers:
+  #  image: ${WORKER_IMAGE}
+  #  container_name: rmsm-workers
+  #  restart: unless-stopped
+
+  #  logging:
+  #    driver: json-file
+  #    options:
+  #      max-size: "10m"
+  #      max-file: "5"
+
+  #  env_file:
+  #    - .env
+
+  #  environment:
+  #    NODE_ENV: ${NODE_ENV}
+  #    APP_ENV: ${APP_ENV}
+  #    TZ: ${TZ}
+
+  #  networks:
+  #    - rmsm-core
+  #    - rmsm-data
+
+networks:
+  rmsm-core:
+    external: true
+
+  rmsm-data:
+    external: true
