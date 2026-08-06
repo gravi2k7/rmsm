@@ -42,17 +42,17 @@ FROM node:24-alpine AS production
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=3002
+ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-COPY --from=build --chown=node:node /workspace/apps/admin/.next/standalone ./
-COPY --from=build --chown=node:node /workspace/apps/admin/.next/static ./apps/admin/.next/static
+COPY --from=build --chown=node:node /workspace/apps/web/.next/standalone ./
+COPY --from=build --chown=node:node /workspace/apps/web/.next/static ./apps/web/.next/static
 
 USER node
 
-EXPOSE 3002
+EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget -qO- http://localhost:3002/api/health || exit 1
+  CMD wget -qO- http://localhost:3000/api/health || exit 1
 
-CMD ["node", "apps/admin/server.js"]
+CMD ["node", "apps/web/server.js"]
