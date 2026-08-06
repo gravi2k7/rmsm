@@ -20,7 +20,7 @@ RUN --mount=type=cache,id=rmsm-pnpm-store,target=/root/.local/share/pnpm/store \
 EXPOSE 3002
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget -qO- http://localhost:3002/api/health || exit 1
+  CMD wget -qO- http://127.0.0.1:3002/api/health || exit 1
 
 CMD ["pnpm","--filter","@rmsm/admin","dev"]
 
@@ -52,6 +52,6 @@ USER node
 EXPOSE 3002
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget -qO- http://localhost:3002/api/health || exit 1
+  CMD wget -qO- http://127.0.0.1:3002/api/health || exit 1
 
 CMD ["node", "apps/admin/server.js"]
