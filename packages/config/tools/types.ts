@@ -44,3 +44,14 @@ export interface EnvVariableMetadata {
    */
   description?: string;
 }
+
+export interface ValidationIssue {
+  variable: string;
+  message: string;
+  severity: "error" | "warning";
+}
+
+export interface ValidationResult {
+  errors: ValidationIssue[];
+  warnings: ValidationIssue[];
+}

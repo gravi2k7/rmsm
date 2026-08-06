@@ -1,4 +1,3 @@
-import { z } from "zod";
 import {
   ZodBoolean,
   ZodDefault,
@@ -14,6 +13,9 @@ import {
 import { envSchema } from "../src/env/env.validator";
 import type { EnvVariableMetadata } from "./types";
 
+/**
+ * Removes wrapper types so we can inspect the underlying schema.
+ */
 function unwrapSchema(schema: ZodTypeAny): ZodTypeAny {
   let current = schema;
 
@@ -39,6 +41,9 @@ function unwrapSchema(schema: ZodTypeAny): ZodTypeAny {
   return current;
 }
 
+/**
+ * Determines the primitive type.
+ */
 function detectType(schema: ZodTypeAny): string {
   const unwrapped = unwrapSchema(schema);
 
@@ -65,6 +70,52 @@ function detectType(schema: ZodTypeAny): string {
   return unwrapped._def.typeName;
 }
 
+/**
+ * Returns true if the schema has a default value.
+ */
+function hasDefault(schema: ZodTypeAny): boolean {
+  let current = schema;
+
+  while (current instanceof ZodEffects) {
+    current = current.innerType();
+  }
+
+  return current instanceof ZodDefault;
+}
+
+/**
+ * Returns true if the schema is optional.
+ */
+function isOptional(schema: ZodTypeAny): boolean {
+  let current = schema;
+
+  while (current instanceof ZodEffects) {
+    current = current.innerType();
+  }
+
+  return current instanceof ZodOptional;
+}
+
+/**
+ * Extracts the runtime default value.
+ */
+function getDefaultValue(schema: ZodTypeAny): unknown {
+  let current = schema;
+
+  while (current instanceof ZodEffects) {
+    current = current.innerType();
+  }
+
+  if (current instanceof ZodDefault) {
+    return current._def.defaultValue();
+  }
+
+  return undefined;
+}
+
+/**
+ * Extract metadata from the RMSM environment schema.
+ */
 export function extractMetadata(): EnvVariableMetadata[] {
   const rootSchema =
     envSchema instanceof ZodEffects
@@ -78,19 +129,14 @@ export function extractMetadata(): EnvVariableMetadata[] {
   return Object.entries(rootSchema.shape)
     .map(([name, schema]) => {
       const required =
-        !(schema instanceof ZodOptional) &&
-        !(schema instanceof ZodDefault);
-
-      const defaultValue =
-        schema instanceof ZodDefault
-          ? schema._def.defaultValue()
-          : undefined;
+        !isOptional(schema) &&
+        !hasDefault(schema);
 
       return {
         name,
         type: detectType(schema),
         required,
-        defaultValue,
+        defaultValue: getDefaultValue(schema),
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

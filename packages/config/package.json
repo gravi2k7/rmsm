@@ -10,7 +10,8 @@
     "lint": "eslint . --ext .ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "generate:env": "tsx tools/generate-env.ts"
+    "generate:env": "tsx tools/generate-env.ts",
+    "validate:env": "tsx tools/validate-env.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
