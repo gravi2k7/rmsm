@@ -22,7 +22,6 @@
 # in. Verify with `docker compose -f docker-compose.prod.yml config` and
 # a real `up` before relying on it.
 
-version: "3.9"
 
 networks:
   rmsm_network:
@@ -114,7 +113,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health"]
       interval: 15s
       timeout: 5s
       retries: 5
