@@ -27,6 +27,7 @@ CMD ["pnpm","--filter","@rmsm/web","dev"]
 
 FROM deps AS build
 
+
 COPY . .
 
 RUN --mount=type=cache,id=rmsm-pnpm-store,target=/root/.local/share/pnpm/store \
