@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1
+
 FROM node:24-alpine AS base
 RUN corepack enable
 WORKDIR /workspace
@@ -37,14 +38,21 @@ RUN --mount=type=cache,id=rmsm-turbo-cache,target=/workspace/.turbo \
     pnpm turbo run build
 
 FROM node:24-alpine AS production
-WORKDIR /workspace
+
+WORKDIR /app
+
 ENV NODE_ENV=production
-COPY --from=build /workspace/apps/web/.next ./apps/web/.next
-COPY --from=build /workspace/apps/web/package.json ./apps/web/package.json
-COPY --from=build /workspace/apps/web/next.config.mjs ./apps/web/next.config.mjs
-COPY --from=build /workspace/node_modules ./node_modules
-EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget -qO- http://localhost:3000/api/health || exit 1
+ENV PORT=3002
+ENV HOSTNAME=0.0.0.0
+
+COPY --from=build --chown=node:node /workspace/apps/admin/.next/standalone ./
+COPY --from=build --chown=node:node /workspace/apps/admin/.next/static ./apps/admin/.next/static
+
 USER node
-CMD ["node_modules/.bin/next", "start", "--prefix", "apps/web"]
+
+EXPOSE 3002
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:3002/api/health || exit 1
+
+CMD ["node", "apps/admin/server.js"]
