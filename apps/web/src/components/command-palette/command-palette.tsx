@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useCommandPaletteStore } from "@/lib/command-palette-store";
 import {
   LayoutDashboard,
   TrendingUp,
@@ -54,7 +55,14 @@ const STATIC_COMMANDS: StaticCommand[] = [
  */
 export function CommandPalette() {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  // Open/closed state now lives in a shared store instead of local
+  // `useState` — this is the only behavioral change from before. It lets
+  // `Topnav`'s new visible Search button open the same palette the
+  // Ctrl/Cmd+K shortcut below already did; the shortcut itself, the
+  // Escape-to-close behavior, and every result/query behavior below are
+  // unchanged.
+  const open = useCommandPaletteStore((s) => s.open);
+  const setOpen = useCommandPaletteStore((s) => s.setOpen);
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query, 250);
 
@@ -62,13 +70,13 @@ export function CommandPalette() {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setOpen((o) => !o);
+        useCommandPaletteStore.getState().toggle();
       }
       if (e.key === "Escape") setOpen(false);
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [setOpen]);
 
   useEffect(() => {
     if (!open) setQuery("");

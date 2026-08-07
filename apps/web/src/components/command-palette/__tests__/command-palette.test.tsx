@@ -4,6 +4,7 @@ import { renderWithQueryClient } from "@/test/render-with-query";
 import userEvent from "@testing-library/user-event";
 import { CommandPalette } from "../command-palette";
 import { useAuthStore } from "@/lib/auth-store";
+import { useCommandPaletteStore } from "@/lib/command-palette-store";
 
 const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -23,6 +24,12 @@ describe("CommandPalette", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     pushMock.mockClear();
+    // `open` moved from local `useState` to a module-singleton
+    // `useCommandPaletteStore` (Phase 2 — lets Topnav's Search button open
+    // the same palette). The store no longer resets itself on unmount the
+    // way local state did, so each test that opens the palette must close
+    // it again or the next test's Cmd+K toggle would close instead of open.
+    useCommandPaletteStore.setState({ open: false });
   });
 
   it("is closed by default", () => {

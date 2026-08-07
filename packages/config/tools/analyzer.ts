@@ -14,13 +14,28 @@ import { envSchema } from "../src/env/env.validator";
 import type { EnvVariableMetadata } from "./types";
 
 /**
+ * Unwraps leading `ZodEffects` layers (e.g. `.refine()`/`.superRefine()`),
+ * leaving any `ZodDefault`/`ZodOptional` wrapper intact. Shared by every
+ * helper below that only needs to see past effects, not past defaults or
+ * optionality.
+ */
+function unwrapEffects(schema: ZodTypeAny): ZodTypeAny {
+  let current = schema;
+
+  while (current instanceof ZodEffects) {
+    current = current.innerType();
+  }
+
+  return current;
+}
+
+/**
  * Removes wrapper types so we can inspect the underlying schema.
  */
 function unwrapSchema(schema: ZodTypeAny): ZodTypeAny {
   let current = schema;
 
-  // eslint-disable-next-line no-constant-condition
-while (true) {
+  for (;;) {
     if (current instanceof ZodEffects) {
       current = current.innerType();
       continue;
@@ -75,37 +90,21 @@ function detectType(schema: ZodTypeAny): string {
  * Returns true if the schema has a default value.
  */
 function hasDefault(schema: ZodTypeAny): boolean {
-  let current = schema;
-
-  while (current instanceof ZodEffects) {
-    current = current.innerType();
-  }
-
-  return current instanceof ZodDefault;
+  return unwrapEffects(schema) instanceof ZodDefault;
 }
 
 /**
  * Returns true if the schema is optional.
  */
 function isOptional(schema: ZodTypeAny): boolean {
-  let current = schema;
-
-  while (current instanceof ZodEffects) {
-    current = current.innerType();
-  }
-
-  return current instanceof ZodOptional;
+  return unwrapEffects(schema) instanceof ZodOptional;
 }
 
 /**
  * Extracts the runtime default value.
  */
 function getDefaultValue(schema: ZodTypeAny): unknown {
-  let current = schema;
-
-  while (current instanceof ZodEffects) {
-    current = current.innerType();
-  }
+  const current = unwrapEffects(schema);
 
   if (current instanceof ZodDefault) {
     return current._def.defaultValue();
@@ -118,10 +117,7 @@ function getDefaultValue(schema: ZodTypeAny): unknown {
  * Extract metadata from the RMSM environment schema.
  */
 export function extractMetadata(): EnvVariableMetadata[] {
-  const rootSchema =
-    envSchema instanceof ZodEffects
-      ? envSchema.innerType()
-      : envSchema;
+  const rootSchema = unwrapEffects(envSchema);
 
   if (!(rootSchema instanceof ZodObject)) {
     throw new Error("Unexpected schema type.");

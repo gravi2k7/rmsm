@@ -45,9 +45,34 @@ export function StatCard({
   );
 }
 
-export function WidgetCard({ title, icon, children, action }: { title: string; icon?: ReactNode; children: ReactNode; action?: ReactNode }) {
+export function WidgetCard({
+  title,
+  icon,
+  children,
+  action,
+  isLoading,
+  isError,
+  errorMessage,
+  className,
+}: {
+  title: string;
+  icon?: ReactNode;
+  children: ReactNode;
+  action?: ReactNode;
+  /** UD-001.1 Phase 3 addition — when provided, `WidgetCard` renders the
+   * loading/error state itself (mirroring `StatCard`'s existing pattern)
+   * instead of every widget re-implementing its own skeleton/error
+   * markup. Optional: omitting both (the default) renders `children`
+   * unconditionally, exactly as before this change. */
+  isLoading?: boolean;
+  isError?: boolean;
+  errorMessage?: ReactNode;
+  /** UD-001.1 Phase 3 — grid-span utility classes, same purpose as
+   * `StatCard`'s new `className`. */
+  className?: string;
+}) {
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="flex items-center gap-2 text-sm font-medium">
           {icon}
@@ -55,7 +80,18 @@ export function WidgetCard({ title, icon, children, action }: { title: string; i
         </CardTitle>
         {action}
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-16 w-full" />
+        ) : isError ? (
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <AlertCircle className="h-4 w-4" aria-hidden="true" />
+            {errorMessage ?? "Unavailable"}
+          </div>
+        ) : (
+          children
+        )}
+      </CardContent>
     </Card>
   );
 }

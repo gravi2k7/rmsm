@@ -100,7 +100,14 @@ describe("DashboardPage", () => {
     expect(screen.getByText(/your trading workspace/i)).toBeInTheDocument();
   });
 
-  it("shows the honest 'coming soon' state for Notifications rather than fake data", async () => {
+  it("shows an honest 'no session' state for Notifications rather than fake data", async () => {
+    // UD-001.1 Phase 3: SystemStatusWidget replaced the old static "coming
+    // soon" placeholder with a real unread count from useNotifications() --
+    // gated by useRequestContext() the same way NotificationCenter and the
+    // /notifications page already are. This test never connects a session
+    // (no useSessionStore.organizationId), so the honest state to assert is
+    // now "No session" rather than a fabricated count -- same spirit as the
+    // original test (no fake data), updated for the now-real widget.
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async (url: string) => {
@@ -124,7 +131,7 @@ describe("DashboardPage", () => {
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText(/coming soon/i)).toBeInTheDocument();
+      expect(screen.getByText(/no session/i)).toBeInTheDocument();
     });
   });
 });
