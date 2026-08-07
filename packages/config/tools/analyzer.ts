@@ -19,7 +19,8 @@ import type { EnvVariableMetadata } from "./types";
 function unwrapSchema(schema: ZodTypeAny): ZodTypeAny {
   let current = schema;
 
-  while (true) {
+  // eslint-disable-next-line no-constant-condition
+while (true) {
     if (current instanceof ZodEffects) {
       current = current.innerType();
       continue;
