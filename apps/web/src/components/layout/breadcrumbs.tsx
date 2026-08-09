@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronRight } from "lucide-react";
-import { NAV_ITEMS } from "@/lib/nav-items";
+import { flattenNavigationItems } from "@/lib/navigation";
 
 /** Derives breadcrumbs from the current pathname rather than requiring
  * every page to declare its own. */
@@ -12,7 +12,10 @@ export function Breadcrumbs() {
   const segments = pathname.split("/").filter(Boolean);
   if (segments.length === 0) return null;
 
-  const topLevelItem = NAV_ITEMS.find((item) => item.href === `/${segments[0]}`);
+  // Flattened (including nested `children`) so a breadcrumb still
+  // resolves a matching label for items nested under a future parent
+  // menu, not just today's top-level-only registry.
+  const topLevelItem = flattenNavigationItems().find((item) => item.href === `/${segments[0]}`);
   const crumbs = [
     { label: topLevelItem?.label ?? segments[0], href: topLevelItem?.href ?? `/${segments[0]}` },
     ...segments.slice(1).map((segment, i) => ({
