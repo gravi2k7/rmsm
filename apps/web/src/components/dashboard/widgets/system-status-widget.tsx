@@ -34,7 +34,11 @@ export function SystemStatusWidget() {
   const health = useApiHealth();
   const ctx = useRequestContext();
   const notificationsQuery = useNotifications();
-  const unreadCount = ctx ? (notificationsQuery.data?.items.filter((n) => n.readAt === null && n.archivedAt === null).length ?? 0) : undefined;
+  const unreadCount = ctx
+  ? (notificationsQuery.data?.items?.filter(
+      (n) => n.readAt === null && n.archivedAt === null,
+    ).length ?? 0)
+  : undefined;
 
   const checkEntries = health.checks ? Object.entries(health.checks) : [];
 
