@@ -24,10 +24,16 @@ import type {
  * missing one.
  */
 
-export function toMarketDataProviderConfigModel(row: MarketDataProviderConfig): MarketDataProviderConfigModel {
-  return { ...row };
+export function toMarketDataProviderConfigModel(
+  row: MarketDataProviderConfig,
+): MarketDataProviderConfigModel {
+  return {
+    ...row,
+    priority: row.priority,
+    lastConnectionTestAt: row.lastConnectionTestAt,
+    lastConnectionTestStatus: row.lastConnectionTestStatus,
+  };
 }
-
 export function toExchangeModel(row: Exchange): ExchangeModel {
   return { ...row };
 }
