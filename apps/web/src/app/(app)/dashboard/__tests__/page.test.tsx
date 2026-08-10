@@ -3,6 +3,7 @@ import { screen, waitFor } from "@testing-library/react";
 import { renderWithQueryClient } from "@/test/render-with-query";
 import DashboardPage from "../page";
 import { useAuthStore } from "@/lib/auth-store";
+import { useSessionStore } from "@/lib/session-store";
 
 function paginated<T>(items: T[]) {
   return { items, total: items.length, page: 1, pageSize: 500 };
@@ -17,19 +18,24 @@ function renderDashboard() {
 }
 
 describe("DashboardPage", () => {
-  beforeEach(() => {
-    useAuthStore.setState({
-      accessToken: "token",
-      refreshToken: "refresh",
-      user: {
-        sub: "u1",
-        email: "trader@example.com",
-        roles: ["TRADER"],
-        permissions: [],
-        sessionId: "s1",
-      },
-    });
+ beforeEach(() => {
+  useAuthStore.setState({
+    accessToken: "token",
+    refreshToken: "refresh",
+    user: {
+      sub: "u1",
+      email: "trader@example.com",
+      roles: ["TRADER"],
+      permissions: [],
+      sessionId: "s1",
+    },
   });
+
+  useSessionStore.setState({
+    organizationId: "org-1",
+    accessToken: "token",
+  });
+ });
 
   afterEach(() => {
     vi.restoreAllMocks();
@@ -100,31 +106,42 @@ describe("DashboardPage", () => {
     expect(screen.getByText(/your trading workspace/i)).toBeInTheDocument();
   });
 
-  it("shows the honest 'coming soon' state for Notifications rather than fake data", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockImplementation(async (url: string) => {
-        if (url.includes("/health/ready"))
-          return jsonResponse({ status: "ok", checks: {} });
-        if (url.includes("/health")) return jsonResponse({ status: "ok" });
-        if (url.includes("/portfolio"))
-          return jsonResponse({
-            cashBalance: 0,
-            equity: 0,
-            buyingPower: 0,
-            marginUsed: 0,
-            marginAvailable: 0,
-            openPositionCount: 0,
-            closedPositionCount: 0,
-          });
-        return jsonResponse(paginated([]));
-      }),
-    );
+  it("shows the real Notifications unread state rather than fake data", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/health/ready")) {
+        return jsonResponse({ status: "ok", checks: {} });
+      }
 
-    renderDashboard();
+      if (url.includes("/health")) {
+        return jsonResponse({ status: "ok" });
+      }
 
-    await waitFor(() => {
-      expect(screen.getByText(/coming soon/i)).toBeInTheDocument();
+      if (url.includes("/portfolio")) {
+        return jsonResponse({
+          cashBalance: 0,
+          equity: 0,
+          buyingPower: 0,
+          marginUsed: 0,
+          marginAvailable: 0,
+          openPositionCount: 0,
+          closedPositionCount: 0,
+        });
+      }
+
+      if (url.includes("/notifications/organizations/")) {
+        return jsonResponse({ items: [], total: 0 });
+      }
+
+      return jsonResponse(paginated([]));
+    }),
+  );
+
+  renderDashboard();
+
+  await waitFor(() => {
+  expect(screen.getByText("0 unread")).toBeInTheDocument();
     });
   });
 });
