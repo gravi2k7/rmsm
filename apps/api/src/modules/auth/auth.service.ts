@@ -86,9 +86,20 @@ export class AuthService {
     }
 
     const passwordHash = await this.passwordService.hash(password);
-    const user = await this.userRepository.create({ email, passwordHash, firstName, lastName });
 
-    await this.issueEmailVerification(user.id, email, { companyName, invitationToken });
+    const user = await this.userRepository.create({
+     email,
+     passwordHash,
+      firstName,
+     lastName,
+      });
+
+    await this.userRepository.assignRoleByName(user.id, "FREE_USER");
+
+    await this.issueEmailVerification(user.id, email, {
+  companyName,
+  invitationToken,
+    });
     await this.auditService.log("user.registered", { userId: user.id, ...ctx });
 
     return { message: "If that email is available, an account has been created." };

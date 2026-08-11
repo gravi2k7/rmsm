@@ -9,7 +9,9 @@ import { AppError, ValidationError } from "@rmsm/shared";
 // entirely, independent of environment.
 jest.mock("@rmsm/database", () => ({
   prisma: {
-    emailVerification: { create: jest.fn().mockResolvedValue({ id: "ev-1" }) },
+    emailVerification: {
+      create: jest.fn().mockResolvedValue({ id: "ev-1" }),
+    },
   },
 }));
 
@@ -23,14 +25,36 @@ describe("AuthService.register (WM-020B)", () => {
 
   function buildService(overrides?: { existingUser?: unknown }) {
     const userRepository = {
-      findByEmail: jest.fn().mockResolvedValue(overrides?.existingUser ?? null),
-      create: jest.fn().mockResolvedValue({ id: "user-1", email: "jane@acme.example", profile: {} }),
+      findByEmail: jest
+        .fn()
+        .mockResolvedValue(overrides?.existingUser ?? null),
+
+      create: jest.fn().mockResolvedValue({
+        id: "user-1",
+        email: "jane@acme.example",
+        profile: {},
+      }),
+
+      // WM-020B: every newly registered user receives the
+      // platform FREE_USER role.
+      assignRoleByName: jest.fn().mockResolvedValue({
+        id: "user-role-1",
+        userId: "user-1",
+        roleId: "free-user-role-1",
+      }),
     };
+
     const passwordService = {
       hash: jest.fn().mockResolvedValue("argon2-hash"),
     };
-    const auditService = { log: jest.fn().mockResolvedValue(undefined) };
-    const emailService = { send: jest.fn().mockResolvedValue(undefined) };
+
+    const auditService = {
+      log: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const emailService = {
+      send: jest.fn().mockResolvedValue(undefined),
+    };
 
     const service = new AuthService(
       userRepository as never,
@@ -44,33 +68,77 @@ describe("AuthService.register (WM-020B)", () => {
       config,
     );
 
-    return { service, userRepository, passwordService, auditService, emailService };
+    return {
+      service,
+      userRepository,
+      passwordService,
+      auditService,
+      emailService,
+    };
   }
 
-  it("hashes the password, persists the user with firstName/lastName, and issues email verification", async () => {
-    const { service, userRepository, passwordService, auditService, emailService } = buildService();
+  it("hashes the password, persists the user with firstName/lastName, assigns FREE_USER, and issues email verification", async () => {
+    const {
+      service,
+      userRepository,
+      passwordService,
+      auditService,
+      emailService,
+    } = buildService();
 
     const result = await service.register(
-      { email: "jane@acme.example", password: "Str0ng!Passw0rd123", firstName: "Jane", lastName: "Trader" },
-      { ipAddress: "127.0.0.1", userAgent: "vitest" },
+      {
+        email: "jane@acme.example",
+        password: "Str0ng!Passw0rd123",
+        firstName: "Jane",
+        lastName: "Trader",
+      },
+      {
+        ipAddress: "127.0.0.1",
+        userAgent: "vitest",
+      },
     );
 
-    expect(passwordService.hash).toHaveBeenCalledWith("Str0ng!Passw0rd123");
+    expect(passwordService.hash).toHaveBeenCalledWith(
+      "Str0ng!Passw0rd123",
+    );
+
     expect(userRepository.create).toHaveBeenCalledWith({
       email: "jane@acme.example",
       passwordHash: "argon2-hash",
       firstName: "Jane",
       lastName: "Trader",
     });
+
+    expect(userRepository.assignRoleByName).toHaveBeenCalledWith(
+      "user-1",
+      "FREE_USER",
+    );
+
     expect(emailService.send).toHaveBeenCalledTimes(1);
-    expect(auditService.log).toHaveBeenCalledWith("user.registered", expect.objectContaining({ userId: "user-1" }));
-    expect(result).toEqual({ message: expect.stringContaining("account has been created") });
+
+    expect(auditService.log).toHaveBeenCalledWith(
+      "user.registered",
+      expect.objectContaining({
+        userId: "user-1",
+      }),
+    );
+
+    expect(result).toEqual({
+      message: expect.stringContaining("account has been created"),
+    });
   });
 
   it("supports the legacy email/password-only path (no firstName/lastName)", async () => {
     const { service, userRepository } = buildService();
 
-    await service.register({ email: "legacy@acme.example", password: "Str0ng!Passw0rd123" }, {});
+    await service.register(
+      {
+        email: "legacy@acme.example",
+        password: "Str0ng!Passw0rd123",
+      },
+      {},
+    );
 
     expect(userRepository.create).toHaveBeenCalledWith({
       email: "legacy@acme.example",
@@ -78,29 +146,70 @@ describe("AuthService.register (WM-020B)", () => {
       firstName: undefined,
       lastName: undefined,
     });
+
+    expect(userRepository.assignRoleByName).toHaveBeenCalledWith(
+      "user-1",
+      "FREE_USER",
+    );
   });
 
   it("rejects a duplicate email with a 400 EMAIL_ALREADY_EXISTS error and never calls create()", async () => {
-    const { service, userRepository } = buildService({ existingUser: { id: "existing-user" } });
+    const { service, userRepository } = buildService({
+      existingUser: {
+        id: "existing-user",
+      },
+    });
 
     await expect(
-      service.register({ email: "taken@acme.example", password: "Str0ng!Passw0rd123" }, {}),
-    ).rejects.toMatchObject({ statusCode: 400, code: "EMAIL_ALREADY_EXISTS" });
+      service.register(
+        {
+          email: "taken@acme.example",
+          password: "Str0ng!Passw0rd123",
+        },
+        {},
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: "EMAIL_ALREADY_EXISTS",
+    });
 
     expect(userRepository.create).not.toHaveBeenCalled();
+    expect(userRepository.assignRoleByName).not.toHaveBeenCalled();
   });
 
   it("rejects a weak password before ever touching the repository (delegates to PasswordService's policy)", async () => {
     const { service, userRepository, passwordService } = buildService();
-    passwordService.hash.mockRejectedValue(new ValidationError("Password does not meet security requirements.", { failures: ["Must contain a symbol."] }));
 
-    await expect(service.register({ email: "weak@acme.example", password: "notstrongenough" }, {})).rejects.toBeInstanceOf(ValidationError);
+    passwordService.hash.mockRejectedValue(
+      new ValidationError(
+        "Password does not meet security requirements.",
+        {
+          failures: ["Must contain a symbol."],
+        },
+      ),
+    );
+
+    await expect(
+      service.register(
+        {
+          email: "weak@acme.example",
+          password: "notstrongenough",
+        },
+        {},
+      ),
+    ).rejects.toBeInstanceOf(ValidationError);
 
     expect(userRepository.create).not.toHaveBeenCalled();
+    expect(userRepository.assignRoleByName).not.toHaveBeenCalled();
   });
 
   it("EMAIL_ALREADY_EXISTS is an AppError with the shape the global exception filter maps to a 400 response", () => {
-    const error = new AppError("An account with this email already exists.", "EMAIL_ALREADY_EXISTS", 400);
+    const error = new AppError(
+      "An account with this email already exists.",
+      "EMAIL_ALREADY_EXISTS",
+      400,
+    );
+
     expect(error.statusCode).toBe(400);
     expect(error.code).toBe("EMAIL_ALREADY_EXISTS");
   });
