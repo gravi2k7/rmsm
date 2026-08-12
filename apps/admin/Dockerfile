@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1
 FROM node:24-alpine AS base
+
+RUN apk add --no-cache openssl
+
 RUN corepack enable
 WORKDIR /workspace
 
@@ -20,7 +23,7 @@ RUN --mount=type=cache,id=rmsm-pnpm-store,target=/root/.local/share/pnpm/store \
 EXPOSE 3002
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:3002/api/health || exit 1
+  CMD wget -qO- http://127.0.0.1:3002/admin/api/health || exit 1
 
 CMD ["pnpm","--filter","@rmsm/admin","dev"]
 

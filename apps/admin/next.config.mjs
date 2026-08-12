@@ -4,6 +4,8 @@ const nextConfig = {
 
   output: "standalone",
 
+  basePath: "/admin",
+
   transpilePackages: ["@rmsm/ui"],
 
   eslint: {

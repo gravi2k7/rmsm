@@ -9,7 +9,20 @@ vi.mock("next/navigation", () => ({
 
 describe("NavList", () => {
   beforeEach(() => {
-    useAuthStore.setState({ accessToken: "token", refreshToken: "refresh", user: { sub: "u1", email: "a@b.com", roles: [], permissions: [], sessionId: "s1" } });
+    localStorage.clear();
+    useAuthStore.persist.clearStorage();
+
+    useAuthStore.setState({
+      accessToken: "token",
+      refreshToken: "refresh",
+      user: {
+        sub: "u1",
+        email: "a@b.com",
+        roles: [],
+        permissions: [],
+        sessionId: "s1",
+      },
+    });
   });
 
   it("hides the Enterprise Operations group entirely when the user has none of its permissions", () => {

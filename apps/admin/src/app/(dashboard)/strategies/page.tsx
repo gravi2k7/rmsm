@@ -12,34 +12,79 @@ import { CreateStrategyDialog } from "@/features/strategies/components/create-st
 import type { Strategy } from "@/features/strategies/types";
 
 const columns: ColumnDef<Strategy, unknown>[] = [
-  { accessorKey: "name", header: "Name" },
-  { accessorKey: "riskTolerance", header: "Risk" },
-  { accessorKey: "timeframe", header: "Timeframe" },
-  { accessorKey: "maxLeverage", header: "Max Leverage" },
-  { accessorKey: "status", header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status} /> },
-  { accessorKey: "enabled", header: "Enabled", cell: ({ row }) => (row.original.enabled ? "Yes" : "No") },
+  {
+    accessorKey: "name",
+    header: "Name",
+  },
+  {
+    accessorKey: "category",
+    header: "Category",
+    cell: ({ row }) => row.original.category.replace(/_/g, " "),
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => (
+      <StatusBadge status={row.original.status} />
+    ),
+  },
+  {
+    accessorKey: "tags",
+    header: "Tags",
+    cell: ({ row }) =>
+      row.original.tags.length > 0
+        ? row.original.tags.join(", ")
+        : "—",
+  },
+  {
+    accessorKey: "currentPublishedVersionId",
+    header: "Published Version",
+    cell: ({ row }) =>
+      row.original.currentPublishedVersionId ?? "—",
+  },
+  {
+    accessorKey: "createdAt",
+    header: "Created",
+    cell: ({ row }) =>
+      new Date(row.original.createdAt).toLocaleDateString(),
+  },
 ];
 
 export default function StrategiesPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const strategies = useStrategies({ pageSize: 50, search: search || undefined });
+
+  const strategies = useStrategies({
+    pageSize: 50,
+    searchText: search || undefined,
+  });
 
   return (
     <div>
-      <PageHeader title="Strategies" description="Create, configure, and manage trading strategies." actions={<CreateStrategyDialog />} />
+      <PageHeader
+        title="Strategies"
+        description="Create, configure, and manage trading strategies."
+        actions={<CreateStrategyDialog />}
+      />
 
       <div className="mb-4 max-w-sm">
-        <Input placeholder="Search strategies…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search strategies" />
+        <Input
+          placeholder="Search strategies…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="Search strategies"
+        />
       </div>
 
       <DataTable
         columns={columns}
-        data={strategies.data?.items}
+        data={strategies.data?.data ?? []}
         isLoading={strategies.isLoading}
         error={strategies.error}
         onRetry={() => strategies.refetch()}
-        onRowClick={(row) => router.push(`/strategies/${row.id}`)}
+        onRowClick={(row) =>
+          router.push(`/strategies/${row.id}`)
+        }
         emptyTitle="No strategies yet"
         emptyDescription="Create your first strategy to get started."
       />

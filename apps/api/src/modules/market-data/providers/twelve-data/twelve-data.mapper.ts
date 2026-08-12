@@ -1,9 +1,29 @@
 import { Injectable } from "@nestjs/common";
 import type { AssetClass, CandleInterval } from "@rmsm/database";
-import type { NormalizedCandle, NormalizedQuote, NormalizedSymbolSearchResult } from "../../interfaces/normalized-market-data.interface";
+import type {
+  NormalizedCandle,
+  NormalizedQuote,
+  NormalizedSymbolSearchResult,
+} from "../../interfaces/normalized-market-data.interface";
+import type {
+  NormalizedExchangeInfo,
+  NormalizedInstrumentReference,
+} from "../../interfaces/reference-data-provider.interface";
 import type {
   TwelveDataCandleValue,
+  TwelveDataCommodityItem,
+  TwelveDataCommoditiesResponse,
+  TwelveDataCryptocurrencyItem,
+  TwelveDataCryptocurrenciesResponse,
+  TwelveDataEtfItem,
+  TwelveDataEtfResponse,
+  TwelveDataExchangeItem,
+  TwelveDataExchangesResponse,
+  TwelveDataForexPairItem,
+  TwelveDataForexPairsResponse,
   TwelveDataQuoteResponse,
+  TwelveDataStockItem,
+  TwelveDataStockResponse,
   TwelveDataSymbolSearchItem,
   TwelveDataSymbolSearchResponse,
   TwelveDataTimeSeriesResponse,
@@ -83,6 +103,126 @@ export class TwelveDataMapper {
       assetClass: this.toAssetClass(item.instrument_type),
       exchangeCode: item.mic_code ?? item.exchange,
       currency: item.currency,
+    };
+  }
+
+  toNormalizedExchanges(
+    response: TwelveDataExchangesResponse,
+  ): NormalizedExchangeInfo[] {
+    return (response.data ?? []).map((item) =>
+      this.toNormalizedExchange(item),
+    );
+  }
+
+  toNormalizedExchange(
+    item: TwelveDataExchangeItem,
+  ): NormalizedExchangeInfo {
+    return {
+      code: item.code,
+      name: item.name || item.title,
+      timezone: item.timezone,
+      country: item.country,
+    };
+  }
+
+  toNormalizedStocks(
+    response: TwelveDataStockResponse,
+  ): NormalizedInstrumentReference[] {
+    return (response.data ?? [])
+      .filter((item) => Boolean(item.currency))
+      .map((item) => this.toNormalizedStock(item));
+  }
+
+  toNormalizedStock(
+    item: TwelveDataStockItem,
+  ): NormalizedInstrumentReference {
+    return {
+      providerSymbol: item.symbol,
+      name: item.name,
+      assetClass: "EQUITY",
+      currency: item.currency!,
+      exchangeCode: item.mic_code ?? item.exchange,
+    };
+  }
+
+  toNormalizedEtfs(
+    response: TwelveDataEtfResponse,
+  ): NormalizedInstrumentReference[] {
+    return (response.data ?? [])
+      .filter((item) => Boolean(item.currency))
+      .map((item) => this.toNormalizedEtf(item));
+  }
+
+  toNormalizedEtf(
+    item: TwelveDataEtfItem,
+  ): NormalizedInstrumentReference {
+    return {
+      providerSymbol: item.symbol,
+      name: item.name,
+      assetClass: "ETF",
+      currency: item.currency!,
+      exchangeCode: item.mic_code ?? item.exchange,
+      isin: item.isin,
+      cusip: item.cusip,
+    };
+  }
+
+  toNormalizedForexPairs(
+    response: TwelveDataForexPairsResponse,
+  ): NormalizedInstrumentReference[] {
+    return (response.data ?? [])
+      .filter((item) => Boolean(item.currency_quote))
+      .map((item) => this.toNormalizedForexPair(item));
+  }
+
+  toNormalizedForexPair(
+    item: TwelveDataForexPairItem,
+  ): NormalizedInstrumentReference {
+    return {
+      providerSymbol: item.symbol,
+      name: item.symbol,
+      assetClass: "FOREX",
+      currency: item.currency_quote!,
+    };
+  }
+
+  toNormalizedCryptocurrencies(
+    response: TwelveDataCryptocurrenciesResponse,
+  ): NormalizedInstrumentReference[] {
+    return (response.data ?? [])
+      .filter((item) => Boolean(item.currency_quote))
+      .map((item) => this.toNormalizedCryptocurrency(item));
+  }
+
+  toNormalizedCryptocurrency(
+    item: TwelveDataCryptocurrencyItem,
+  ): NormalizedInstrumentReference {
+    return {
+      providerSymbol: item.symbol,
+      name: item.symbol,
+      assetClass: "CRYPTO",
+      currency: item.currency_quote!,
+      exchangeCode: item.available_exchanges?.[0],
+    };
+  }
+
+  toNormalizedCommodities(
+    response: TwelveDataCommoditiesResponse,
+  ): NormalizedInstrumentReference[] {
+    return (response.data ?? [])
+      .filter((item) => Boolean(item.currency))
+      .map((item) => this.toNormalizedCommodity(item));
+  }
+
+  toNormalizedCommodity(
+    item: TwelveDataCommodityItem,
+  ): NormalizedInstrumentReference {
+    return {
+      providerSymbol: item.symbol,
+      name: item.name || item.symbol,
+      assetClass: "COMMODITY",
+      currency: item.currency!,
+      exchangeCode: item.exchange,
     };
   }
 

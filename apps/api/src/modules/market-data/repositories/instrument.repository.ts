@@ -38,6 +38,33 @@ export class InstrumentRepository {
     return toInstrumentModel(row);
   }
 
+  async upsert(
+    data: CreateInstrumentInput,
+    client: DbClient = prisma,
+  ): Promise<InstrumentModel> {
+    const row = await client.instrument.upsert({
+      where: {
+        exchangeId_symbol: {
+          exchangeId: data.exchangeId,
+          symbol: data.symbol,
+        },
+      },
+      update: {
+        name: data.name,
+        assetClass: data.assetClass,
+        currency: data.currency,
+        isin: data.isin,
+        cusip: data.cusip,
+        tickSize: data.tickSize,
+        lotSize: data.lotSize,
+        listedAt: data.listedAt,
+      },
+      create: data,
+    });
+
+    return toInstrumentModel(row);
+  }
+
   async findById(id: string, client: DbClient = prisma): Promise<InstrumentModel | null> {
     const row = await client.instrument.findUnique({ where: { id } });
     return row ? toInstrumentModel(row) : null;

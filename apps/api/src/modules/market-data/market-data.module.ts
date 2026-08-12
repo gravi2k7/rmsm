@@ -24,6 +24,7 @@ import { MarketDataAdminService } from "./services/market-data-admin.service";
 import { ProviderDiagnosticsService } from "./services/provider-diagnostics.service";
 import { HistoricalImportService } from "./services/historical-import.service";
 import { SynchronizationService } from "./services/synchronization.service";
+import { ReferenceDataSynchronizationService } from "./services/reference-data-synchronization.service";
 import { ExchangeController } from "./controllers/exchange.controller";
 import { InstrumentController } from "./controllers/instrument.controller";
 import { MarketCandleController } from "./controllers/market-candle.controller";
@@ -90,6 +91,7 @@ import { AlphaVantageCacheService } from "./providers/alphavantage/alphavantage.
     MarketDataAdminService,
     HistoricalImportService,
     SynchronizationService,
+    ReferenceDataSynchronizationService,
     MarketDataProviderBootstrapService,
     ProviderDiagnosticsService,
     ProviderRegistrarService,
@@ -127,6 +129,7 @@ import { AlphaVantageCacheService } from "./providers/alphavantage/alphavantage.
     MarketDataAdminService,
     HistoricalImportService,
     SynchronizationService,
+    ReferenceDataSynchronizationService,
     ProviderDiagnosticsService,
     
   ],

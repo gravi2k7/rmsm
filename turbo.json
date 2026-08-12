@@ -23,7 +23,7 @@
       "@rmsm/database#generate"]
    },
     "test": {
-      "dependsOn": ["@rmsm/database#generate"]
+      "dependsOn": ["^build", "@rmsm/database#generate"]
     }
   }
 }

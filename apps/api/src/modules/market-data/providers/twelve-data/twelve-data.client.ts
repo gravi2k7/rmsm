@@ -66,6 +66,100 @@ export interface TwelveDataSymbolSearchResponse {
   message?: string;
 }
 
+export interface TwelveDataExchangeItem {
+  title: string;
+  name: string;
+  code: string;
+  country?: string;
+  timezone: string;
+}
+
+export interface TwelveDataExchangesResponse {
+  data?: TwelveDataExchangeItem[];
+  status?: string;
+  code?: number;
+  message?: string;
+}
+
+export interface TwelveDataStockItem {
+  symbol: string;
+  name: string;
+  currency?: string;
+  exchange?: string;
+  mic_code?: string;
+  country?: string;
+  type?: string;
+}
+
+export interface TwelveDataStockResponse {
+  data?: TwelveDataStockItem[];
+  status?: string;
+  code?: number;
+  message?: string;
+}
+
+export interface TwelveDataForexPairItem {
+  symbol: string;
+  currency_group?: string;
+  currency_base?: string;
+  currency_quote?: string;
+}
+
+export interface TwelveDataForexPairsResponse {
+  data?: TwelveDataForexPairItem[];
+  status?: string;
+  code?: number;
+  message?: string;
+}
+
+export interface TwelveDataCryptocurrencyItem {
+  symbol: string;
+  available_exchanges?: string[];
+  currency_base?: string;
+  currency_quote?: string;
+}
+
+export interface TwelveDataCryptocurrenciesResponse {
+  data?: TwelveDataCryptocurrencyItem[];
+  status?: string;
+  code?: number;
+  message?: string;
+}
+
+export interface TwelveDataEtfItem {
+  symbol: string;
+  name: string;
+  currency?: string;
+  exchange?: string;
+  mic_code?: string;
+  country?: string;
+  figi_code?: string;
+  isin?: string;
+  cusip?: string;
+}
+
+export interface TwelveDataEtfResponse {
+  data?: TwelveDataEtfItem[];
+  status?: string;
+  code?: number;
+  message?: string;
+}
+
+export interface TwelveDataCommodityItem {
+  symbol: string;
+  name?: string;
+  currency?: string;
+  exchange?: string;
+  country?: string;
+}
+
+export interface TwelveDataCommoditiesResponse {
+  data?: TwelveDataCommodityItem[];
+  status?: string;
+  code?: number;
+  message?: string;
+}
+
 const TWELVE_DATA_INTERVAL_MAP: Partial<Record<CandleInterval, string>> = {
   ONE_MINUTE: "1min",
   FIVE_MINUTES: "5min",
@@ -141,6 +235,45 @@ export class TwelveDataClient {
     return this.request<TwelveDataSymbolSearchResponse>("/symbol_search", {
       symbol: query,
       ...(limit ? { outputsize: String(limit) } : {}),
+    });
+  }
+
+  async getExchanges(): Promise<TwelveDataExchangesResponse> {
+    return this.request<TwelveDataExchangesResponse>("/exchanges", {});
+  }
+
+  async getStocks(page?: number, outputsize?: number): Promise<TwelveDataStockResponse> {
+    return this.request<TwelveDataStockResponse>("/stocks", {
+      ...(page ? { page: String(page) } : {}),
+      ...(outputsize ? { outputsize: String(outputsize) } : {}),
+    });
+  }
+
+  async getForexPairs(page?: number, outputsize?: number): Promise<TwelveDataForexPairsResponse> {
+    return this.request<TwelveDataForexPairsResponse>("/forex_pairs", {
+      ...(page ? { page: String(page) } : {}),
+      ...(outputsize ? { outputsize: String(outputsize) } : {}),
+    });
+  }
+
+  async getCryptocurrencies(page?: number, outputsize?: number): Promise<TwelveDataCryptocurrenciesResponse> {
+    return this.request<TwelveDataCryptocurrenciesResponse>("/cryptocurrencies", {
+      ...(page ? { page: String(page) } : {}),
+      ...(outputsize ? { outputsize: String(outputsize) } : {}),
+    });
+  }
+
+  async getEtfs(page?: number, outputsize?: number): Promise<TwelveDataEtfResponse> {
+    return this.request<TwelveDataEtfResponse>("/etf", {
+      ...(page ? { page: String(page) } : {}),
+      ...(outputsize ? { outputsize: String(outputsize) } : {}),
+    });
+  }
+
+  async getCommodities(page?: number, outputsize?: number): Promise<TwelveDataCommoditiesResponse> {
+    return this.request<TwelveDataCommoditiesResponse>("/commodities", {
+      ...(page ? { page: String(page) } : {}),
+      ...(outputsize ? { outputsize: String(outputsize) } : {}),
     });
   }
 

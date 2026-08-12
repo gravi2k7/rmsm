@@ -2,10 +2,24 @@
 
 import { useRouter } from "next/navigation";
 import { Moon, Sun, LogOut, User as UserIcon, Menu } from "lucide-react";
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@rmsm/ui";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@rmsm/ui";
 import { useThemeStore } from "@/lib/theme-store";
 import { useAuthStore } from "@/lib/auth-store";
 import { useLogout } from "@/hooks/use-auth";
+import { useOrganizationContext } from "@/components/providers/organization-provider";
 import { Breadcrumbs } from "./breadcrumbs";
 
 export function Topnav({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
@@ -14,6 +28,12 @@ export function Topnav({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
   const toggleTheme = useThemeStore((s) => s.toggle);
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
+  const {
+    organizations,
+    organizationId,
+    isLoading: organizationsLoading,
+    setOrganizationId,
+  } = useOrganizationContext();
 
   async function handleLogout() {
     await logout.mutateAsync();
@@ -29,6 +49,32 @@ export function Topnav({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
       <div className="flex-1">
         <Breadcrumbs />
       </div>
+
+      <Select
+        value={organizationId ?? undefined}
+        onValueChange={setOrganizationId}
+        disabled={organizationsLoading || organizations.length === 0}
+      >
+        <SelectTrigger
+          className="w-[220px]"
+          aria-label="Select organization"
+        >
+          <SelectValue
+            placeholder={
+              organizationsLoading
+                ? "Loading organizations…"
+                : "Select organization"
+            }
+          />
+        </SelectTrigger>
+        <SelectContent>
+          {organizations.map((organization) => (
+            <SelectItem key={organization.id} value={organization.id}>
+              {organization.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}>
         {theme === "light" ? <Moon className="h-4 w-4" aria-hidden="true" /> : <Sun className="h-4 w-4" aria-hidden="true" />}

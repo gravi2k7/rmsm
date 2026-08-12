@@ -7,11 +7,31 @@ import type { TwelveDataClient } from "../twelve-data.client";
 import type { HistoricalDataRequest } from "../../../interfaces/historical-data-client.interface";
 import type { MarketDataProvider } from "../../../interfaces/market-data-provider.interface";
 
-function buildClientMock(): jest.Mocked<Pick<TwelveDataClient, "getTimeSeries" | "getQuote" | "getSymbolSearch" | "ping">> {
+function buildClientMock(): jest.Mocked<
+  Pick<
+    TwelveDataClient,
+    | "getTimeSeries"
+    | "getQuote"
+    | "getSymbolSearch"
+    | "getExchanges"
+    | "getStocks"
+    | "getForexPairs"
+    | "getCryptocurrencies"
+    | "getEtfs"
+    | "getCommodities"
+    | "ping"
+  >
+> {
   return {
     getTimeSeries: jest.fn(),
     getQuote: jest.fn(),
     getSymbolSearch: jest.fn(),
+    getExchanges: jest.fn(),
+    getStocks: jest.fn(),
+    getForexPairs: jest.fn(),
+    getCryptocurrencies: jest.fn(),
+    getEtfs: jest.fn(),
+    getCommodities: jest.fn(),
     ping: jest.fn(),
   };
 }
@@ -39,7 +59,7 @@ describe("TwelveDataProvider", () => {
     expect(provider.metadata.rateLimits.requestsPerMinute).toBe(8);
   });
 
-  it("only exposes historicalDataClient/quoteClient/symbolSearchClient/healthProvider — never tickProvider/corporateActionProvider/etc, per MD-001's capability scope", () => {
+  it("exposes historical/quote/search/reference-data/health capabilities but not unsupported capabilities", () => {
     const { provider } = buildProvider("test-api-key");
     const asInterface: MarketDataProvider = provider;
     expect(provider.historicalDataClient).toBeDefined();
@@ -48,8 +68,224 @@ describe("TwelveDataProvider", () => {
     expect(provider.healthProvider).toBeDefined();
     expect(asInterface.tickProvider).toBeUndefined();
     expect(asInterface.corporateActionProvider).toBeUndefined();
-    expect(asInterface.referenceDataProvider).toBeUndefined();
+    expect(asInterface.referenceDataProvider).toBeDefined();
     expect(asInterface.instrumentProvider).toBeUndefined();
+  });
+
+  describe("referenceDataProvider", () => {
+    it("fetchExchanges delegates to the client and normalizes the result", async () => {
+      const { provider, client } = buildProvider("test-api-key");
+
+      client.getExchanges.mockResolvedValue({
+        status: "ok",
+        data: [
+          {
+            title: "NASDAQ Stock Market",
+            name: "NASDAQ",
+            code: "XNAS",
+            country: "United States",
+            timezone: "America/New_York",
+          },
+        ],
+      });
+
+      const exchanges =
+        await provider.referenceDataProvider!.fetchExchanges();
+
+      expect(client.getExchanges).toHaveBeenCalledWith();
+      expect(exchanges).toEqual([
+        {
+          code: "XNAS",
+          name: "NASDAQ",
+          country: "United States",
+          timezone: "America/New_York",
+        },
+      ]);
+    });
+
+    it("fetchInstrumentUniverse loads all reference catalogs and normalizes them", async () => {
+      const { provider, client } = buildProvider("test-api-key");
+
+      client.getStocks.mockResolvedValue({
+        status: "ok",
+        data: [
+          {
+            symbol: "AAPL",
+            name: "Apple Inc",
+            currency: "USD",
+            exchange: "NASDAQ",
+            mic_code: "XNAS",
+            country: "United States",
+            type: "Common Stock",
+          },
+        ],
+      });
+
+      client.getEtfs.mockResolvedValue({
+        status: "ok",
+        data: [
+          {
+            symbol: "SPY",
+            name: "SPDR S&P 500 ETF Trust",
+            currency: "USD",
+            exchange: "NYSE Arca",
+            mic_code: "ARCX",
+            country: "United States",
+            isin: "US78462F1030",
+          },
+        ],
+      });
+
+      client.getForexPairs.mockResolvedValue({
+        status: "ok",
+        data: [
+          {
+            symbol: "EUR/USD",
+            currency_group: "EUR",
+            currency_base: "EUR",
+            currency_quote: "USD",
+          },
+        ],
+      });
+
+      client.getCryptocurrencies.mockResolvedValue({
+        status: "ok",
+        data: [
+          {
+            symbol: "BTC/USD",
+            available_exchanges: ["Coinbase"],
+            currency_base: "BTC",
+            currency_quote: "USD",
+          },
+        ],
+      });
+
+      client.getCommodities.mockResolvedValue({
+        status: "ok",
+        data: [
+          {
+            symbol: "XAU/USD",
+            name: "Gold",
+            currency: "USD",
+            exchange: "COMEX",
+            country: "United States",
+          },
+        ],
+      });
+
+      const instruments =
+        await provider.referenceDataProvider!.fetchInstrumentUniverse();
+
+      expect(client.getStocks).toHaveBeenCalledWith(1, 5000);
+      expect(client.getEtfs).toHaveBeenCalledWith(1, 5000);
+      expect(client.getForexPairs).toHaveBeenCalledWith(1, 5000);
+      expect(client.getCryptocurrencies).toHaveBeenCalledWith(1, 5000);
+      expect(client.getCommodities).toHaveBeenCalledWith(1, 5000);
+
+      expect(instruments).toHaveLength(5);
+
+      expect(instruments.map((instrument) => instrument.providerSymbol)).toEqual([
+        "AAPL",
+        "SPY",
+        "EUR/USD",
+        "BTC/USD",
+        "XAU/USD",
+      ]);
+
+      expect(instruments[0]).toMatchObject({
+        providerSymbol: "AAPL",
+        name: "Apple Inc",
+        assetClass: "EQUITY",
+        currency: "USD",
+        exchangeCode: "XNAS",
+      });
+
+      expect(instruments[1]).toMatchObject({
+        providerSymbol: "SPY",
+        assetClass: "ETF",
+        exchangeCode: "ARCX",
+        isin: "US78462F1030",
+      });
+
+      expect(instruments[2]).toMatchObject({
+        providerSymbol: "EUR/USD",
+        assetClass: "FOREX",
+        currency: "USD",
+      });
+
+      expect(instruments[3]).toMatchObject({
+        providerSymbol: "BTC/USD",
+        assetClass: "CRYPTO",
+        currency: "USD",
+        exchangeCode: "Coinbase",
+      });
+
+      expect(instruments[4]).toMatchObject({
+        providerSymbol: "XAU/USD",
+        assetClass: "COMMODITY",
+        currency: "USD",
+        exchangeCode: "COMEX",
+      });
+    });
+
+    it("fetchInstrumentUniverse filters normalized instruments by exchange code", async () => {
+      const { provider, client } = buildProvider("test-api-key");
+
+      client.getStocks.mockResolvedValue({
+        status: "ok",
+        data: [
+          {
+            symbol: "AAPL",
+            name: "Apple Inc",
+            currency: "USD",
+            exchange: "NASDAQ",
+            mic_code: "XNAS",
+            country: "United States",
+            type: "Common Stock",
+          },
+          {
+            symbol: "MSFT",
+            name: "Microsoft Corporation",
+            currency: "USD",
+            exchange: "NASDAQ",
+            mic_code: "XNAS",
+            country: "United States",
+            type: "Common Stock",
+          },
+        ],
+      });
+
+      client.getEtfs.mockResolvedValue({
+        status: "ok",
+        data: [],
+      });
+
+      client.getForexPairs.mockResolvedValue({
+        status: "ok",
+        data: [],
+      });
+
+      client.getCryptocurrencies.mockResolvedValue({
+        status: "ok",
+        data: [],
+      });
+
+      client.getCommodities.mockResolvedValue({
+        status: "ok",
+        data: [],
+      });
+
+      const instruments =
+        await provider.referenceDataProvider!.fetchInstrumentUniverse(
+          "xnas",
+        );
+
+      expect(instruments).toHaveLength(2);
+      expect(instruments.map((instrument) => instrument.providerSymbol)).toEqual([
+        "AAPL",
+        "MSFT",
+      ]);
+    });
   });
 
   describe("enabled", () => {

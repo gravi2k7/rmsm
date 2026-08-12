@@ -1,13 +1,40 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiOkResponse, ApiTags, ApiPropertyOptional } from "@nestjs/swagger";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiOkResponse,
+  ApiTags,
+  ApiPropertyOptional,
+} from "@nestjs/swagger";
 import { IsEnum, IsOptional } from "class-validator";
-import { MarketDataAdminService } from "../services/market-data-admin.service";
-import { ImportJobResponseDto } from "../dto/responses/import-job-response.dto";
-import { SynchronizationHealthResponseDto } from "../dto/responses/synchronization-health-response.dto";
+import type { AccessTokenPayload } from "../../auth/services/token.service";
+import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { RequirePermissions } from "../../auth/decorators/permissions.decorator";
 import { PermissionsGuard } from "../../auth/guards/permissions.guard";
+import { MarketDataAdminService } from "../services/market-data-admin.service";
+import { HistoricalImportService } from "../services/historical-import.service";
+import { ReferenceDataSynchronizationService } from "../services/reference-data-synchronization.service";
+import { ImportJobResponseDto } from "../dto/responses/import-job-response.dto";
+import { SynchronizationHealthResponseDto } from "../dto/responses/synchronization-health-response.dto";
+import { ImportHistoricalCandlesDto } from "../dto/import-historical-candles.dto";
 
-const IMPORT_JOB_STATUS_VALUES = ["PENDING", "RUNNING", "COMPLETED", "FAILED", "PARTIAL", "CANCELLED"] as const;
+const IMPORT_JOB_STATUS_VALUES = [
+  "PENDING",
+  "RUNNING",
+  "COMPLETED",
+  "FAILED",
+  "PARTIAL",
+  "CANCELLED",
+] as const;
 
 class ImportJobStatusQueryDto {
   @ApiPropertyOptional({ enum: IMPORT_JOB_STATUS_VALUES })
@@ -17,21 +44,62 @@ class ImportJobStatusQueryDto {
 }
 
 /**
- * Administrative endpoints only, per Phase 4's explicit scope — "No
- * scheduler implementation" here either; this surface only reports on
- * synchronization/import activity that already happened
- * (`HistoricalImportService`, Phase 3), it never triggers anything.
+ * Administrative synchronization/import surface.
+ *
+ * Reporting endpoints expose existing synchronization state.
+ * The POST import endpoint invokes the existing HistoricalImportService,
+ * which owns the provider-agnostic fetch → validate → deduplicate →
+ * persist transaction.
  */
 @ApiTags("Market Data — Synchronization")
 @ApiBearerAuth()
 @UseGuards(PermissionsGuard)
 @Controller("market-data/synchronizations")
 export class SynchronizationController {
-  constructor(private readonly adminService: MarketDataAdminService) {}
+  constructor(
+    private readonly adminService: MarketDataAdminService,
+    private readonly historicalImportService: HistoricalImportService,
+    private readonly referenceDataSynchronizationService: ReferenceDataSynchronizationService,
+  ) {}
+
+  @Post("import")
+  @RequirePermissions("market-data.import.trigger")
+  @ApiOperation({
+    operationId: "importHistoricalCandles",
+    summary: "Import historical market candles.",
+    description:
+      "Fetches historical candles through the configured provider, validates and deduplicates them, then persists them atomically.",
+  })
+  @ApiOkResponse({ type: ImportJobResponseDto })
+  async importHistoricalCandles(
+    @Body() dto: ImportHistoricalCandlesDto,
+    @CurrentUser() user: AccessTokenPayload,
+  ): Promise<ImportJobResponseDto> {
+    const from = new Date(dto.from);
+    const to = new Date(dto.to);
+
+    if (from >= to) {
+      throw new Error("The 'from' date must be earlier than the 'to' date.");
+    }
+
+    return this.historicalImportService.importHistoricalCandles(
+      {
+        instrumentId: dto.instrumentId,
+        providerConfigId: dto.providerConfigId,
+        interval: dto.interval,
+        from,
+        to,
+      },
+      user.sub,
+    );
+  }
 
   @Get("health")
   @RequirePermissions("market-data.admin.manage")
-  @ApiOperation({ operationId: "getSynchronizationHealth", summary: "A coarse, all-time-count-based health signal for import activity." })
+  @ApiOperation({
+    operationId: "getSynchronizationHealth",
+    summary: "A coarse, all-time-count-based health signal for import activity.",
+  })
   @ApiOkResponse({ type: SynchronizationHealthResponseDto })
   health(): Promise<SynchronizationHealthResponseDto> {
     return this.adminService.getSynchronizationHealth();
@@ -39,8 +107,13 @@ export class SynchronizationController {
 
   @Get("metrics")
   @RequirePermissions("market-data.admin.manage")
-  @ApiOperation({ operationId: "getSynchronizationMetrics", summary: "In-memory counters for this running instance only (MarketDataMetricsService's own scope note)." })
-  @ApiOkResponse({ description: "A flat map of counter name to count." })
+  @ApiOperation({
+    operationId: "getSynchronizationMetrics",
+    summary: "In-memory synchronization metrics.",
+  })
+  @ApiOkResponse({
+    description: "A flat map of counter name to count.",
+  })
   metrics(): Record<string, number> {
     return this.adminService.getMetrics();
   }
@@ -50,18 +123,26 @@ export class SynchronizationController {
   @ApiOperation({
     operationId: "listImportJobs",
     summary: "List import jobs, optionally filtered by status.",
-    description: "DataImportJobRepository.findByStatus() (Phase 2A) requires a status — there is no \"list all\" repository method, and Phase 4 forbids repository changes. Defaults to RUNNING when the status query param is omitted (a judgment call — shows what's currently in-flight — not a spec'd default), rather than silently picking something without saying so.",
   })
   @ApiOkResponse({ type: [ImportJobResponseDto] })
-  listImportJobs(@Query() query: ImportJobStatusQueryDto): Promise<ImportJobResponseDto[]> {
-    return this.adminService.listImportJobsByStatus(query.status ?? "RUNNING");
+  listImportJobs(
+    @Query() query: ImportJobStatusQueryDto,
+  ): Promise<ImportJobResponseDto[]> {
+    return this.adminService.listImportJobsByStatus(
+      query.status ?? "RUNNING",
+    );
   }
 
   @Get("import-jobs/:id")
   @RequirePermissions("market-data.admin.manage")
-  @ApiOperation({ operationId: "getImportJob", summary: "Get one import job's status by id." })
+  @ApiOperation({
+    operationId: "getImportJob",
+    summary: "Get one import job's status by id.",
+  })
   @ApiOkResponse({ type: ImportJobResponseDto })
-  getImportJob(@Param("id", ParseUUIDPipe) id: string): Promise<ImportJobResponseDto> {
+  getImportJob(
+    @Param("id", ParseUUIDPipe) id: string,
+  ): Promise<ImportJobResponseDto> {
     return this.adminService.getImportJob(id);
   }
 }

@@ -17,6 +17,23 @@ export class ExchangeRepository {
     return toExchangeModel(row);
   }
 
+  async upsert(
+    data: CreateExchangeInput,
+    client: DbClient = prisma,
+  ): Promise<ExchangeModel> {
+    const row = await client.exchange.upsert({
+      where: { code: data.code },
+      update: {
+        name: data.name,
+        timezone: data.timezone,
+        country: data.country,
+      },
+      create: data,
+    });
+
+    return toExchangeModel(row);
+  }
+
   async findById(id: string, client: DbClient = prisma): Promise<ExchangeModel | null> {
     const row = await client.exchange.findUnique({ where: { id } });
     return row ? toExchangeModel(row) : null;
