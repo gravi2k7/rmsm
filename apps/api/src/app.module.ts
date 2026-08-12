@@ -21,6 +21,7 @@ import { IndicatorEngineModule } from "./modules/indicator-engine/indicator-engi
 import { StrategyEngineModule } from "./modules/strategy-engine/strategy-engine.module";
 import { AiModule } from "./modules/ai/ai.module";
 import { JwtAuthGuard } from "./modules/auth/guards/jwt-auth.guard";
+import { OnboardingModule } from "./modules/onboarding/onboarding.module";
 
 const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
 
@@ -33,21 +34,24 @@ const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
 @Module({
   imports: [
     AppConfigModule,
-    ThrottlerModule.forRoot([{ ttl: RATE_LIMIT_TTL_MS, limit: RATE_LIMIT_MAX }]),
-    QueueModule,
-    HealthModule,
-    EmailModule,
-    AuthModule,
-    UsersModule,
-    RbacModule,
-    OAuthModule,
-    OrganizationsModule,
-    BillingModule,
-    NotificationsModule,
-    MarketDataModule,
-    IndicatorEngineModule,
-    StrategyEngineModule,
-    AiModule,
+  ThrottlerModule.forRoot([
+    { ttl: RATE_LIMIT_TTL_MS, limit: RATE_LIMIT_MAX },
+  ]),
+  QueueModule,
+  HealthModule,
+  EmailModule,
+  AuthModule,
+  OnboardingModule,
+  UsersModule,
+  RbacModule,
+  OAuthModule,
+  OrganizationsModule,
+  BillingModule,
+  NotificationsModule,
+  MarketDataModule,
+  IndicatorEngineModule,
+  StrategyEngineModule,
+  AiModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

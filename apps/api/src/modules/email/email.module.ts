@@ -1,15 +1,28 @@
 import { Global, Module } from "@nestjs/common";
+import { loadConfig } from "@rmsm/config";
+
 import { EmailService } from "./email.service.interface";
 import { ConsoleEmailService } from "./console-email.service";
+import { createSmtpEmailService } from "./smtp-email.service.factory";
 
-/**
- * Module 002 ships the console provider only. An SmtpEmailService
- * implementing the same EmailService interface is the natural next
- * addition (EMAIL_PROVIDER=smtp) — no callers change when it's added.
- */
 @Global()
 @Module({
-  providers: [{ provide: EmailService, useClass: ConsoleEmailService }],
+  providers: [
+    ConsoleEmailService,
+    {
+      provide: EmailService,
+      useFactory: (consoleEmailService: ConsoleEmailService) => {
+        const config = loadConfig();
+
+        if (config.EMAIL_PROVIDER === "smtp") {
+          return createSmtpEmailService();
+        }
+
+        return consoleEmailService;
+      },
+      inject: [ConsoleEmailService],
+    },
+  ],
   exports: [EmailService],
 })
 export class EmailModule {}

@@ -21,6 +21,7 @@ import { ProviderOrchestrationService } from "./services/provider-orchestration.
 import { MarketDataMetricsService } from "./services/market-data-metrics.service";
 import { MarketDataService } from "./services/market-data.service";
 import { MarketDataAdminService } from "./services/market-data-admin.service";
+import { ProviderDiagnosticsService } from "./services/provider-diagnostics.service";
 import { HistoricalImportService } from "./services/historical-import.service";
 import { SynchronizationService } from "./services/synchronization.service";
 import { ExchangeController } from "./controllers/exchange.controller";
@@ -31,6 +32,8 @@ import { MarketTickController } from "./controllers/market-tick.controller";
 import { CorporateActionController } from "./controllers/corporate-action.controller";
 import { ProviderConfigController } from "./controllers/provider-config.controller";
 import { SynchronizationController } from "./controllers/synchronization.controller";
+import { ProviderConnectionTestService } from "./services/provider-connection-test.service";
+import { TwelveDataRegistrarService } from "./providers/twelve-data/twelve-data.module";
 
 /**
  * AI-101 Phase 2A: 13 repositories, domain-model layer (ADR-025).
@@ -78,11 +81,14 @@ import { SynchronizationController } from "./controllers/synchronization.control
     ProviderResolverService,
     ProviderRegistrarService,
     ProviderOrchestrationService,
+    ProviderConnectionTestService,
     MarketDataMetricsService,
     MarketDataService,
     MarketDataAdminService,
     HistoricalImportService,
     SynchronizationService,
+    ProviderDiagnosticsService,
+    TwelveDataRegistrarService,
   ],
   exports: [
     MarketDataProviderConfigRepository,
@@ -102,11 +108,14 @@ import { SynchronizationController } from "./controllers/synchronization.control
     ProviderFactoryService,
     ProviderResolverService,
     ProviderOrchestrationService,
+    ProviderConnectionTestService,
     MarketDataMetricsService,
     MarketDataService,
     MarketDataAdminService,
     HistoricalImportService,
     SynchronizationService,
+    ProviderDiagnosticsService,
+
   ],
 })
 export class MarketDataModule {}

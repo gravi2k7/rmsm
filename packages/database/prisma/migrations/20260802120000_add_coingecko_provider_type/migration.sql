@@ -1,0 +1,1 @@
+ALTER TYPE "MarketDataProviderType" ADD VALUE 'COINGECKO';
