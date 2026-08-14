@@ -1,38 +1,99 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Star } from "lucide-react";
 import Link from "next/link";
-import { Button, Badge, Skeleton, Alert, AlertDescription, Card, CardContent } from "@rmsm/ui";
+import {
+  Alert,
+  AlertDescription,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  Skeleton,
+} from "@rmsm/ui";
 import { cn } from "@rmsm/ui";
-import { useInstrument, useQuotes } from "@/features/market/hooks/use-market-data";
-import { TradingViewChart, toTradingViewSymbol } from "@/features/market/components/tradingview-chart";
+import {
+  useInstrument,
+  useQuotes,
+  useCandles,
+} from "@/features/market/hooks/use-market-data";
+import { RMSMCandlestickChart } from "@/features/market/components/rmsm-candlestick-chart";
+import type { CandleInterval } from "@/features/market/types";
 import { toNumber } from "@/features/market/types";
 import { useWatchlistStore } from "@/features/watchlists/store";
+
+const TIMEFRAMES: Array<{
+  value: CandleInterval;
+  label: string;
+  lookbackHours: number;
+}> = [
+  { value: "ONE_MINUTE", label: "1m", lookbackHours: 1 },
+  { value: "FIVE_MINUTES", label: "5m", lookbackHours: 4 },
+  { value: "FIFTEEN_MINUTES", label: "15m", lookbackHours: 12 },
+  { value: "THIRTY_MINUTES", label: "30m", lookbackHours: 24 },
+  { value: "ONE_HOUR", label: "1H", lookbackHours: 48 },
+  { value: "FOUR_HOURS", label: "4H", lookbackHours: 24 * 14 },
+  { value: "ONE_DAY", label: "1D", lookbackHours: 24 * 90 },
+];
 
 export default function InstrumentChartPage() {
   const params = useParams<{ instrumentId: string }>();
   const instrumentId = params.instrumentId;
 
+  const [interval, setInterval] = useState<CandleInterval>("ONE_MINUTE");
+
   const instrumentQuery = useInstrument(instrumentId);
   const quotesQuery = useQuotes(instrumentId ? [instrumentId] : []);
   const quote = quotesQuery.data?.[0];
 
+  const selectedTimeframe = useMemo(
+    () =>
+      TIMEFRAMES.find((item) => item.value === interval) ??
+      TIMEFRAMES[0]!,
+    [interval],
+  );
+
+  const candleParams = useMemo(() => {
+    if (!instrumentId) {
+      return null;
+    }
+
+    const to = new Date();
+    const from = new Date(
+      to.getTime() - selectedTimeframe.lookbackHours * 60 * 60 * 1000,
+    );
+
+    return {
+      instrumentId,
+      interval,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      limit: 500,
+    };
+  }, [instrumentId, interval, selectedTimeframe]);
+
+  const candlesQuery = useCandles(candleParams);
+
   const favorites = useWatchlistStore((s) => s.favoriteInstrumentIds);
   const toggleFavorite = useWatchlistStore((s) => s.toggleFavorite);
-  const recordRecentlyViewed = useWatchlistStore((s) => s.recordRecentlyViewed);
+  const recordRecentlyViewed = useWatchlistStore(
+    (s) => s.recordRecentlyViewed,
+  );
   const isFavorite = favorites.includes(instrumentId);
 
   useEffect(() => {
-    if (instrumentId) recordRecentlyViewed(instrumentId);
+    if (instrumentId) {
+      recordRecentlyViewed(instrumentId);
+    }
   }, [instrumentId, recordRecentlyViewed]);
 
   if (instrumentQuery.isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-[520px] w-full" />
+        <Skeleton className="h-[560px] w-full" />
       </div>
     );
   }
@@ -40,59 +101,140 @@ export default function InstrumentChartPage() {
   if (instrumentQuery.isError || !instrumentQuery.data) {
     return (
       <Alert variant="destructive">
-        <AlertDescription>Couldn&apos;t load this instrument. It may not exist, or you may not have access.</AlertDescription>
+        <AlertDescription>
+          Couldn&apos;t load this instrument. It may not exist, or you may not
+          have access.
+        </AlertDescription>
       </Alert>
     );
   }
 
   const instrument = instrumentQuery.data;
-  const tvSymbol = toTradingViewSymbol(instrument);
+
+  const lastPrice = toNumber(quote?.lastPrice);
+  const bidPrice = toNumber(quote?.bidPrice);
+  const askPrice = toNumber(quote?.askPrice);
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
             <Link href="/market" aria-label="Back to Market Watch">
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             </Link>
           </Button>
+
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-semibold">{instrument.symbol}</h1>
+
               <Badge variant="outline">{instrument.assetClass}</Badge>
+
               <button
                 type="button"
                 onClick={() => toggleFavorite(instrument.id)}
-                aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+                aria-label={
+                  isFavorite
+                    ? "Remove from favorites"
+                    : "Add to favorites"
+                }
                 aria-pressed={isFavorite}
+                className="rounded-sm"
               >
-                <Star className={cn("h-4 w-4 text-muted-foreground", isFavorite && "fill-warning text-warning")} aria-hidden="true" />
+                <Star
+                  className={cn(
+                    "h-4 w-4 text-muted-foreground",
+                    isFavorite && "fill-warning text-warning",
+                  )}
+                  aria-hidden="true"
+                />
               </button>
             </div>
-            <p className="text-sm text-muted-foreground">{instrument.name}</p>
+
+            <p className="text-sm text-muted-foreground">
+              {instrument.name}
+            </p>
           </div>
         </div>
 
         <div className="flex gap-6 text-right text-sm">
           <div>
             <div className="text-xs text-muted-foreground">Last</div>
-            <div className="tabular-nums font-medium">{toNumber(quote?.lastPrice)?.toFixed(5) ?? "—"}</div>
+            <div className="tabular-nums font-medium">
+              {lastPrice?.toFixed(5) ?? "—"}
+            </div>
           </div>
+
           <div>
             <div className="text-xs text-muted-foreground">Bid</div>
-            <div className="tabular-nums font-medium">{toNumber(quote?.bidPrice)?.toFixed(5) ?? "—"}</div>
+            <div className="tabular-nums font-medium">
+              {bidPrice?.toFixed(5) ?? "—"}
+            </div>
           </div>
+
           <div>
             <div className="text-xs text-muted-foreground">Ask</div>
-            <div className="tabular-nums font-medium">{toNumber(quote?.askPrice)?.toFixed(5) ?? "—"}</div>
+            <div className="tabular-nums font-medium">
+              {askPrice?.toFixed(5) ?? "—"}
+            </div>
           </div>
         </div>
       </div>
 
       <Card>
         <CardContent className="p-2">
-          <TradingViewChart symbol={tvSymbol} height={560} />
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b px-2 pb-2">
+            <div
+              className="flex items-center gap-1"
+              role="group"
+              aria-label="Chart timeframe"
+            >
+              {TIMEFRAMES.map((timeframe) => {
+                const active = timeframe.value === interval;
+
+                return (
+                  <Button
+                    key={timeframe.value}
+                    type="button"
+                    size="sm"
+                    variant={active ? "default" : "ghost"}
+                    aria-pressed={active}
+                    onClick={() => setInterval(timeframe.value)}
+                  >
+                    {timeframe.label}
+                  </Button>
+                );
+              })}
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              {selectedTimeframe.label} · {candlesQuery.data?.length ?? 0} candles
+            </div>
+          </div>
+
+          <div className="pt-2">
+            {candlesQuery.isError && (
+              <Alert variant="destructive" className="mb-2">
+                <AlertDescription>
+                  Couldn&apos;t load historical candles for this instrument.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {candlesQuery.isLoading ? (
+              <Skeleton className="h-[560px] w-full" />
+            ) : candlesQuery.data && candlesQuery.data.length > 0 ? (
+              <RMSMCandlestickChart
+                candles={candlesQuery.data}
+                height={560}
+              />
+            ) : (
+              <div className="flex h-[560px] items-center justify-center text-sm text-muted-foreground">
+                No candle data is available for the selected time range.
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
