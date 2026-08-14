@@ -21,7 +21,7 @@ interface RMSMCandlestickChartProps {
 
 export function RMSMCandlestickChart({
   candles,
-  height = 560,
+  height,
 }: RMSMCandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -37,7 +37,7 @@ export function RMSMCandlestickChart({
 
     const chart = createChart(container, {
       width: container.clientWidth,
-      height,
+      height: height ?? container.clientHeight,
       layout: {
         background: {
           type: ColorType.Solid,
@@ -119,10 +119,19 @@ export function RMSMCandlestickChart({
     volumeSeriesRef.current = volumeSeries;
 
     const resizeObserver = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width;
+      const entry = entries[0];
 
-      if (width) {
-        chart.applyOptions({ width });
+      if (!entry) {
+        return;
+      }
+
+      const { width, height: containerHeight } = entry.contentRect;
+
+      if (width > 0 && containerHeight > 0) {
+        chart.applyOptions({
+          width,
+          height: height === undefined ? containerHeight : height,
+        });
       }
     });
 
@@ -197,8 +206,8 @@ export function RMSMCandlestickChart({
   return (
     <div
       ref={containerRef}
-      className="w-full overflow-hidden rounded-md"
-      style={{ height }}
+      className="h-full min-h-0 w-full overflow-hidden rounded-md"
+      style={height !== undefined ? { height } : undefined}
       data-testid="rmsm-candlestick-chart"
     />
   );

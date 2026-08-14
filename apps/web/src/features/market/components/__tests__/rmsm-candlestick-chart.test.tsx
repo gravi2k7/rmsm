@@ -78,6 +78,41 @@ describe("RMSMCandlestickChart", () => {
     expect(chartState.addSeries).toHaveBeenCalledTimes(2);
   });
 
+  it("uses parent-controlled height when no explicit height is provided", () => {
+    render(<RMSMCandlestickChart candles={[]} />);
+
+    const container = screen.getByTestId("rmsm-candlestick-chart");
+
+    expect(container).toHaveClass("h-full");
+    expect(container).toHaveClass("min-h-0");
+    expect(container.style.height).toBe("");
+    expect(chartState.createChart).toHaveBeenCalledWith(
+      container,
+      expect.objectContaining({
+        height: container.clientHeight,
+      }),
+    );
+  });
+
+  it("preserves explicit chart height compatibility", () => {
+    render(
+      <RMSMCandlestickChart
+        candles={[]}
+        height={560}
+      />,
+    );
+
+    const container = screen.getByTestId("rmsm-candlestick-chart");
+
+    expect(container.style.height).toBe("560px");
+    expect(chartState.createChart).toHaveBeenCalledWith(
+      container,
+      expect.objectContaining({
+        height: 560,
+      }),
+    );
+  });
+
   it("maps decimal-string OHLC values into chart candle numbers", () => {
     render(
       <RMSMCandlestickChart
