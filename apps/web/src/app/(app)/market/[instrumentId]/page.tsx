@@ -91,9 +91,9 @@ export default function InstrumentChartPage() {
 
   if (instrumentQuery.isLoading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-[560px] w-full" />
+      <div className="flex min-h-full flex-col gap-4">
+        <Skeleton className="h-8 w-64 shrink-0" />
+        <Skeleton className="min-h-0 flex-1 w-full" />
       </div>
     );
   }
@@ -182,9 +182,9 @@ export default function InstrumentChartPage() {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-2">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b px-2 pb-2">
+      <Card className="min-h-0 flex-1">
+        <CardContent className="flex h-full min-h-0 flex-col p-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-2 pb-2">
             <div
               className="flex items-center gap-1"
               role="group"
@@ -213,7 +213,7 @@ export default function InstrumentChartPage() {
             </div>
           </div>
 
-          <div className="pt-2">
+          <div className="flex min-h-0 flex-1 flex-col pt-2">
             {candlesQuery.isError && (
               <Alert variant="destructive" className="mb-2">
                 <AlertDescription>
@@ -223,14 +223,15 @@ export default function InstrumentChartPage() {
             )}
 
             {candlesQuery.isLoading ? (
-              <Skeleton className="h-[560px] w-full" />
+              <Skeleton className="h-full min-h-0 w-full" />
             ) : candlesQuery.data && candlesQuery.data.length > 0 ? (
-              <RMSMCandlestickChart
-                candles={candlesQuery.data}
-                height={560}
-              />
+              <div className="h-full min-h-0">
+                <RMSMCandlestickChart
+                  candles={candlesQuery.data}
+                />
+              </div>
             ) : (
-              <div className="flex h-[560px] items-center justify-center text-sm text-muted-foreground">
+              <div className="flex h-full min-h-0 items-center justify-center text-sm text-muted-foreground">
                 No candle data is available for the selected time range.
               </div>
             )}

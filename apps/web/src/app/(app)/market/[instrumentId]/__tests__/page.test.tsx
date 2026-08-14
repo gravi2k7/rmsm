@@ -139,6 +139,11 @@ describe("InstrumentChartPage", () => {
     );
 
     expect(screen.getByText("1m · 2 candles")).toBeInTheDocument();
+
+    const chart = screen.getByTestId("rmsm-candlestick-chart");
+
+    expect(chart).toHaveAttribute("data-candle-count", "2");
+    expect(chart).not.toHaveAttribute("data-height");
   });
 
   it("changes the candle interval when the 15m timeframe is selected", async () => {
@@ -181,5 +186,9 @@ describe("InstrumentChartPage", () => {
     });
 
     expect(screen.getByText("15m · 2 candles")).toBeInTheDocument();
+
+    const chart = screen.getByTestId("rmsm-candlestick-chart");
+
+    expect(chart).not.toHaveAttribute("data-height");
   });
 });
