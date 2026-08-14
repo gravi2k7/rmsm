@@ -13,12 +13,16 @@ describe("MarketDataService", () => {
     instrumentRepository?: Partial<InstrumentRepository>;
     instrumentAliasRepository?: Partial<InstrumentAliasRepository>;
     exchangeRepository?: Partial<ExchangeRepository>;
+    candleRepository?: Partial<MarketCandleRepository>;
     quoteRepository?: Partial<MarketQuoteRepository>;
   } = {}) {
     const instrumentRepository = { findById: jest.fn(), findByExchangeAndSymbol: jest.fn(), search: jest.fn(), count: jest.fn(), ...overrides.instrumentRepository } as unknown as InstrumentRepository;
     const instrumentAliasRepository = { findByProviderSymbol: jest.fn(), ...overrides.instrumentAliasRepository } as unknown as InstrumentAliasRepository;
     const exchangeRepository = { findById: jest.fn(), findByCode: jest.fn(), listActive: jest.fn(), ...overrides.exchangeRepository } as unknown as ExchangeRepository;
-    const candleRepository = { findRangeCurrentValues: jest.fn() } as unknown as MarketCandleRepository;
+    const candleRepository = {
+      findRangeCurrentValues: jest.fn(),
+      ...overrides.candleRepository,
+    } as unknown as MarketCandleRepository;
     const quoteRepository = { findLatest: jest.fn(), findLatestForMany: jest.fn(), ...overrides.quoteRepository } as unknown as MarketQuoteRepository;
     const tickRepository = { findRange: jest.fn() } as unknown as MarketTickRepository;
     const corporateActionRepository = { findByInstrument: jest.fn() } as unknown as CorporateActionRepository;
@@ -54,6 +58,54 @@ describe("MarketDataService", () => {
   it("getLatestQuote throws NotFoundError when no quote exists", async () => {
     const service = buildService({ quoteRepository: { findLatest: jest.fn().mockResolvedValue(null) } });
     await expect(service.getLatestQuote("inst1")).rejects.toThrow(NotFoundError);
+  });
+
+  it("getCandles delegates the exact range query to the candle repository", async () => {
+    const candles = [
+      {
+        id: "candle-1",
+        instrumentId: "inst1",
+        interval: "ONE_MINUTE",
+        eventTime: new Date("2026-08-14T09:00:00.000Z"),
+        open: "4354.50",
+        high: "4354.68",
+        low: "4354.45",
+        close: "4354.66",
+        volume: "0",
+        isCorrection: false,
+      },
+    ];
+
+    const findRangeCurrentValues = jest
+      .fn()
+      .mockResolvedValue(candles);
+
+    const service = buildService({
+      candleRepository: {
+        findRangeCurrentValues,
+      },
+    });
+
+    const from = new Date("2026-08-14T08:50:00.000Z");
+    const to = new Date("2026-08-14T09:05:00.000Z");
+
+    await expect(
+      service.getCandles(
+        "inst1",
+        "ONE_MINUTE",
+        from,
+        to,
+        500,
+      ),
+    ).resolves.toBe(candles);
+
+    expect(findRangeCurrentValues).toHaveBeenCalledWith({
+      instrumentId: "inst1",
+      interval: "ONE_MINUTE",
+      from,
+      to,
+      limit: 500,
+    });
   });
 
   it("getExchange throws NotFoundError for a missing exchange", async () => {

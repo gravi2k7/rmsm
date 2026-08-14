@@ -12,6 +12,14 @@ module.exports = {
     "^@rmsm/database$": "<rootDir>/../../../packages/database/src/index.ts",
     "^@rmsm/database/(.*)$":
       "<rootDir>/../../../packages/database/src/$1",
+    "^@rmsm/shared$":
+      "<rootDir>/../../../packages/shared/src/index.ts",
+    "^@rmsm/shared/(.*)$":
+      "<rootDir>/../../../packages/shared/src/$1",
+    "^@rmsm/core$":
+      "<rootDir>/../../../packages/core/src/index.ts",
+    "^@rmsm/core/(.*)$":
+      "<rootDir>/../../../packages/core/src/$1",
   },
 
   collectCoverageFrom: ["**/*.(t|j)s"],
