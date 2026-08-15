@@ -1,10 +1,5 @@
+import { redirect } from "next/navigation";
+
 export default function AdminHome() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-2 p-8">
-      <h1 className="text-2xl font-semibold">RMSM AI — Admin Portal</h1>
-      <p className="text-sm text-muted-foreground">
-        Module 001 — infrastructure only. Admin features begin in Module 005.
-      </p>
-    </main>
-  );
+  redirect("/login");
 }
