@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { screen, waitFor, fireEvent } from "@testing-library/react";
 import { renderWithQueryClient } from "@/test/render-with-query";
+import type { IndicatorConfig } from "@/features/market/indicators/config";
 import InstrumentChartPage from "../page";
 
 const useInstrumentMock = vi.fn();
@@ -21,14 +22,34 @@ vi.mock("@/features/market/components/rmsm-candlestick-chart", () => ({
   RMSMCandlestickChart: ({
     candles,
     height,
+    indicators,
   }: {
     candles: unknown[];
-    height: number;
+    height?: number;
+    indicators?: IndicatorConfig[];
   }) => (
     <div
       data-testid="rmsm-candlestick-chart"
       data-candle-count={candles.length}
       data-height={height}
+      data-indicators={JSON.stringify(
+        (indicators ?? []).map((indicator) => ({
+          id: indicator.id,
+          visible: indicator.visible,
+        })),
+      )}
+    />
+  ),
+}));
+
+vi.mock("@/features/market/components/market-indicator-pane", () => ({
+  MarketIndicatorPane: ({
+    indicator,
+  }: {
+    indicator: IndicatorConfig;
+  }) => (
+    <div
+      data-testid={`market-indicator-pane-${indicator.id}`}
     />
   ),
 }));
@@ -146,6 +167,47 @@ describe("InstrumentChartPage", () => {
     expect(chart).not.toHaveAttribute("data-height");
   });
 
+  it("renders the shared market indicator controls", async () => {
+    useInstrumentMock.mockReturnValue({
+      data: SAMPLE_INSTRUMENT,
+      isLoading: false,
+      isError: false,
+    });
+
+    useQuotesMock.mockReturnValue({
+      data: [SAMPLE_QUOTE],
+      isLoading: false,
+      isError: false,
+    });
+
+    useCandlesMock.mockReturnValue({
+      data: SAMPLE_CANDLES,
+      isLoading: false,
+      isError: false,
+    });
+
+    renderInstrumentChart();
+
+    await waitFor(() => {
+      expect(screen.getByText("EURUSD")).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByTestId("market-indicator-controls"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByTestId("market-indicator-controls"),
+    );
+
+    expect(
+      screen.getByTestId("market-indicator-menu"),
+    ).toBeInTheDocument();
+
+    expect(screen.getByText("SMA 20")).toBeInTheDocument();
+    expect(screen.getByText("MACD 12,26,9")).toBeInTheDocument();
+  });
+
   it("changes the candle interval when the 15m timeframe is selected", async () => {
     useInstrumentMock.mockReturnValue({
       data: SAMPLE_INSTRUMENT,
@@ -191,4 +253,66 @@ describe("InstrumentChartPage", () => {
 
     expect(chart).not.toHaveAttribute("data-height");
   });
+
+  it("propagates indicator toggle state to the candlestick chart", async () => {
+    useInstrumentMock.mockReturnValue({
+      data: SAMPLE_INSTRUMENT,
+      isLoading: false,
+      isError: false,
+    });
+
+    useQuotesMock.mockReturnValue({
+      data: [SAMPLE_QUOTE],
+      isLoading: false,
+      isError: false,
+    });
+
+    useCandlesMock.mockReturnValue({
+      data: SAMPLE_CANDLES,
+      isLoading: false,
+      isError: false,
+    });
+
+    renderInstrumentChart();
+
+    await waitFor(() => {
+      expect(screen.getByText("EURUSD")).toBeInTheDocument();
+    });
+
+    const chart = screen.getByTestId("rmsm-candlestick-chart");
+
+    const before = JSON.parse(
+      chart.getAttribute("data-indicators") ?? "[]",
+    );
+
+    const rsiBefore = before.find(
+      (indicator: { id: string }) => indicator.id === "rsi-14",
+    );
+
+    expect(rsiBefore).toBeDefined();
+
+    fireEvent.click(
+      screen.getByTestId("market-indicator-controls"),
+    );
+
+    fireEvent.click(
+      screen.getByTestId("indicator-toggle-rsi-14"),
+    );
+
+    await waitFor(() => {
+      const after = JSON.parse(
+        chart.getAttribute("data-indicators") ?? "[]",
+      );
+
+      const rsiAfter = after.find(
+        (indicator: { id: string }) => indicator.id === "rsi-14",
+      );
+
+      expect(rsiAfter).toEqual({
+        id: "rsi-14",
+        visible: !rsiBefore.visible,
+      });
+    });
+  });
+
 });

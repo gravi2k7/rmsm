@@ -20,6 +20,12 @@ import {
   useCandles,
 } from "@/features/market/hooks/use-market-data";
 import { RMSMCandlestickChart } from "@/features/market/components/rmsm-candlestick-chart";
+import { MarketIndicatorControls } from "@/features/market/components/market-indicator-controls";
+import { MarketIndicatorPane } from "@/features/market/components/market-indicator-pane";
+import {
+  DEFAULT_INDICATORS,
+  type IndicatorConfig,
+} from "@/features/market/indicators/config";
 import type { CandleInterval } from "@/features/market/types";
 import { toNumber } from "@/features/market/types";
 import { useWatchlistStore } from "@/features/watchlists/store";
@@ -43,6 +49,9 @@ export default function InstrumentChartPage() {
   const instrumentId = params.instrumentId;
 
   const [interval, setInterval] = useState<CandleInterval>("ONE_MINUTE");
+
+  const [indicators, setIndicators] =
+    useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
 
   const instrumentQuery = useInstrument(instrumentId);
   const quotesQuery = useQuotes(instrumentId ? [instrumentId] : []);
@@ -82,6 +91,20 @@ export default function InstrumentChartPage() {
     (s) => s.recordRecentlyViewed,
   );
   const isFavorite = favorites.includes(instrumentId);
+
+  const toggleIndicator = (id: string) => {
+    setIndicators((current) =>
+      current.map((indicator) =>
+        indicator.id === id
+          ? { ...indicator, visible: !indicator.visible }
+          : indicator,
+      ),
+    );
+  };
+
+  const visiblePaneIndicators = indicators.filter(
+    (indicator) => indicator.visible && indicator.placement === "pane",
+  );
 
   useEffect(() => {
     if (instrumentId) {
@@ -208,8 +231,24 @@ export default function InstrumentChartPage() {
               })}
             </div>
 
-            <div className="text-xs text-muted-foreground">
-              {selectedTimeframe.label} · {candlesQuery.data?.length ?? 0} candles
+            <div className="flex flex-wrap items-center gap-2">
+              <MarketIndicatorControls
+                indicators={indicators}
+                onToggle={toggleIndicator}
+                onUpdate={(id, patch) => {
+                  setIndicators((current) =>
+                    current.map((indicator) =>
+                      indicator.id === id
+                        ? { ...indicator, ...patch }
+                        : indicator,
+                    ),
+                  );
+                }}
+              />
+
+              <span className="text-xs text-muted-foreground">
+                {selectedTimeframe.label} · {candlesQuery.data?.length ?? 0} candles
+              </span>
             </div>
           </div>
 
@@ -226,9 +265,31 @@ export default function InstrumentChartPage() {
               <Skeleton className="h-full min-h-0 w-full" />
             ) : candlesQuery.data && candlesQuery.data.length > 0 ? (
               <div className="h-full min-h-0">
-                <RMSMCandlestickChart
-                  candles={candlesQuery.data}
-                />
+                <div className="flex h-full min-h-0 flex-col gap-2">
+                  <div className="min-h-0 flex-1">
+                    <RMSMCandlestickChart
+                      candles={candlesQuery.data}
+                      indicators={indicators}
+                    />
+                  </div>
+
+                  {visiblePaneIndicators.map((indicator) => (
+                    <MarketIndicatorPane
+                      key={indicator.id}
+                      candles={candlesQuery.data.map((candle) => ({
+                        time: Math.floor(
+                          new Date(candle.eventTime).getTime() / 1000,
+                        ),
+                        open: Number(candle.open),
+                        high: Number(candle.high),
+                        low: Number(candle.low),
+                        close: Number(candle.close),
+                        volume: Number(candle.volume),
+                      }))}
+                      indicator={indicator}
+                    />
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="flex h-full min-h-0 items-center justify-center text-sm text-muted-foreground">
