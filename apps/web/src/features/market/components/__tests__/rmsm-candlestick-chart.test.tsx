@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { Candle } from "../../types";
+import type { IndicatorConfig } from "../../indicators/config";
 
 const chartState = vi.hoisted(() => ({
   createChart: vi.fn(),
@@ -11,6 +12,7 @@ const chartState = vi.hoisted(() => ({
   priceScale: vi.fn(),
   priceScaleApplyOptions: vi.fn(),
   remove: vi.fn(),
+  removeSeries: vi.fn(),
 }));
 
 vi.mock("lightweight-charts", () => ({
@@ -19,6 +21,7 @@ vi.mock("lightweight-charts", () => ({
   },
   CandlestickSeries: "Candlestick",
   HistogramSeries: "Histogram",
+  LineSeries: "Line",
   createChart: chartState.createChart,
 }));
 
@@ -50,6 +53,7 @@ beforeEach(() => {
     }),
     applyOptions: chartState.applyOptions,
     remove: chartState.remove,
+    removeSeries: chartState.removeSeries,
   });
 
   chartState.priceScale.mockReturnValue({
@@ -319,6 +323,205 @@ describe("RMSMCandlestickChart", () => {
     expect(chartState.setData).toHaveBeenNthCalledWith(2, []);
 
     expect(chartState.fitContent).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders SMA as a single overlay line", () => {
+    const indicators: IndicatorConfig[] = [
+      {
+        id: "sma-20",
+        type: "SMA",
+        placement: "overlay",
+        period: 20,
+        visible: true,
+      },
+    ];
+
+    render(
+      <RMSMCandlestickChart
+        candles={Array.from({ length: 25 }, (_, index) =>
+          candle({
+            id: `candle-${index}`,
+            eventTime: `2026-08-14T08:${String(index).padStart(2, "0")}:00.000Z`,
+            open: String(100 + index),
+            high: String(105 + index),
+            low: String(95 + index),
+            close: String(102 + index),
+            volume: "1000",
+          }),
+        )}
+        indicators={indicators}
+      />,
+    );
+
+    expect(chartState.addSeries).toHaveBeenCalledTimes(3);
+    expect(chartState.setData).toHaveBeenCalledTimes(3);
+  });
+
+  it("renders EMA, WMA, and VWAP overlays", () => {
+    const indicators: IndicatorConfig[] = [
+      {
+        id: "ema-20",
+        type: "EMA",
+        placement: "overlay",
+        period: 20,
+        visible: true,
+      },
+      {
+        id: "wma-20",
+        type: "WMA",
+        placement: "overlay",
+        period: 20,
+        visible: true,
+      },
+      {
+        id: "vwap",
+        type: "VWAP",
+        placement: "overlay",
+        visible: true,
+      },
+    ];
+
+    render(
+      <RMSMCandlestickChart
+        candles={Array.from({ length: 25 }, (_, index) =>
+          candle({
+            id: `candle-${index}`,
+            eventTime: `2026-08-14T08:${String(index).padStart(2, "0")}:00.000Z`,
+            open: String(100 + index),
+            high: String(105 + index),
+            low: String(95 + index),
+            close: String(102 + index),
+            volume: "1000",
+          }),
+        )}
+        indicators={indicators}
+      />,
+    );
+
+    expect(chartState.addSeries).toHaveBeenCalledTimes(5);
+    expect(chartState.setData).toHaveBeenCalledTimes(5);
+  });
+
+  it("renders Bollinger Bands as three overlay lines", () => {
+    const indicators: IndicatorConfig[] = [
+      {
+        id: "bollinger-20",
+        type: "BOLLINGER",
+        placement: "overlay",
+        period: 20,
+        standardDeviations: 2,
+        visible: true,
+      },
+    ];
+
+    render(
+      <RMSMCandlestickChart
+        candles={Array.from({ length: 25 }, (_, index) =>
+          candle({
+            id: `candle-${index}`,
+            eventTime: `2026-08-14T08:${String(index).padStart(2, "0")}:00.000Z`,
+            open: String(100 + index),
+            high: String(105 + index),
+            low: String(95 + index),
+            close: String(102 + index),
+            volume: "1000",
+          }),
+        )}
+        indicators={indicators}
+      />,
+    );
+
+    expect(chartState.addSeries).toHaveBeenCalledTimes(5);
+    expect(chartState.setData).toHaveBeenCalledTimes(5);
+  });
+
+  it("ignores hidden and pane indicators", () => {
+    const indicators: IndicatorConfig[] = [
+      {
+        id: "sma-20",
+        type: "SMA",
+        placement: "overlay",
+        period: 20,
+        visible: false,
+      },
+      {
+        id: "rsi-14",
+        type: "RSI",
+        placement: "pane",
+        period: 14,
+        visible: true,
+      },
+    ];
+
+    render(
+      <RMSMCandlestickChart
+        candles={Array.from({ length: 25 }, (_, index) =>
+          candle({
+            id: `candle-${index}`,
+            eventTime: `2026-08-14T08:${String(index).padStart(2, "0")}:00.000Z`,
+            open: String(100 + index),
+            high: String(105 + index),
+            low: String(95 + index),
+            close: String(102 + index),
+            volume: "1000",
+          }),
+        )}
+        indicators={indicators}
+      />,
+    );
+
+    expect(chartState.addSeries).toHaveBeenCalledTimes(2);
+    expect(chartState.setData).toHaveBeenCalledTimes(2);
+  });
+
+  it("removes existing overlay series when indicators change", () => {
+    const indicators: IndicatorConfig[] = [
+      {
+        id: "sma-20",
+        type: "SMA",
+        placement: "overlay",
+        period: 20,
+        visible: true,
+      },
+    ];
+
+    const { rerender } = render(
+      <RMSMCandlestickChart
+        candles={Array.from({ length: 25 }, (_, index) =>
+          candle({
+            id: `candle-${index}`,
+            eventTime: `2026-08-14T08:${String(index).padStart(2, "0")}:00.000Z`,
+            open: String(100 + index),
+            high: String(105 + index),
+            low: String(95 + index),
+            close: String(102 + index),
+            volume: "1000",
+          }),
+        )}
+        indicators={indicators}
+      />,
+    );
+
+    rerender(
+      <RMSMCandlestickChart
+        candles={Array.from({ length: 25 }, (_, index) =>
+          candle({
+            id: `candle-${index}`,
+            eventTime: `2026-08-14T08:${String(index).padStart(2, "0")}:00.000Z`,
+            open: String(100 + index),
+            high: String(105 + index),
+            low: String(95 + index),
+            close: String(102 + index),
+            volume: "1000",
+          }),
+        )}
+        indicators={[]}
+      />,
+    );
+
+    expect(chartState.addSeries).toHaveBeenCalledTimes(3);
+    expect(chartState.removeSeries).toHaveBeenCalledTimes(1);
+    expect(chartState.remove).toHaveBeenCalledTimes(0);
   });
 
   it("removes the chart when the component unmounts", () => {

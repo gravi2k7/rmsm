@@ -5,6 +5,7 @@ import {
   CandlestickSeries,
   ColorType,
   HistogramSeries,
+  LineSeries,
   createChart,
   type CandlestickData,
   type HistogramData,
@@ -13,20 +14,37 @@ import {
   type Time,
 } from "lightweight-charts";
 import type { Candle } from "../types";
+import type { IndicatorConfig } from "../indicators/config";
+import {
+  calculateBollingerBands,
+  calculateEMA,
+  calculateSMA,
+  calculateVWAP,
+  calculateWMA,
+  type IndicatorCandle,
+} from "../indicators/technical-indicators";
 
 interface RMSMCandlestickChartProps {
   candles: Candle[];
   height?: number;
+  indicators?: IndicatorConfig[];
+}
+
+interface OverlaySeries {
+  configId: string;
+  series: ISeriesApi<"Line">[];
 }
 
 export function RMSMCandlestickChart({
   candles,
   height,
+  indicators = [],
 }: RMSMCandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const overlaySeriesRef = useRef<OverlaySeries[]>([]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -130,7 +148,7 @@ export function RMSMCandlestickChart({
       if (width > 0 && containerHeight > 0) {
         chart.applyOptions({
           width,
-          height: height === undefined ? containerHeight : height,
+          height: containerHeight,
         });
       }
     });
@@ -144,14 +162,16 @@ export function RMSMCandlestickChart({
       chartRef.current = null;
       candleSeriesRef.current = null;
       volumeSeriesRef.current = null;
+      overlaySeriesRef.current = [];
     };
   }, [height]);
 
   useEffect(() => {
+    const chart = chartRef.current;
     const candleSeries = candleSeriesRef.current;
     const volumeSeries = volumeSeriesRef.current;
 
-    if (!candleSeries || !volumeSeries) {
+    if (!chart || !candleSeries || !volumeSeries) {
       return;
     }
 
@@ -200,8 +220,213 @@ export function RMSMCandlestickChart({
     candleSeries.setData(candleData);
     volumeSeries.setData(volumeData);
 
-    chartRef.current?.timeScale().fitContent();
-  }, [candles]);
+    const indicatorCandles: IndicatorCandle[] = candlesWithNumbers.map(
+      (item) => ({
+        time: Number(item.time),
+        open: item.open,
+        high: item.high,
+        low: item.low,
+        close: item.close,
+        volume: item.volume,
+      }),
+    );
+
+    const visibleOverlays = indicators.filter(
+      (indicator) =>
+        indicator.visible && indicator.placement === "overlay",
+    );
+
+    for (const overlay of overlaySeriesRef.current) {
+      for (const series of overlay.series) {
+        chart.removeSeries(series);
+      }
+    }
+
+    overlaySeriesRef.current = [];
+
+    for (const config of visibleOverlays) {
+      if (config.type === "SMA") {
+        const values = calculateSMA(
+          indicatorCandles.map((item) => item.close),
+          config.period ?? 20,
+        );
+
+        const series = chart.addSeries(LineSeries, {
+          color: "#f59e0b",
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: true,
+          title: `SMA ${config.period ?? 20}`,
+        });
+
+        series.setData(
+          values.flatMap((value, index) =>
+            value === null
+              ? []
+              : [{
+                  time: indicatorCandles[index]!.time as Time,
+                  value,
+                }],
+          ),
+        );
+
+        overlaySeriesRef.current.push({
+          configId: config.id,
+          series: [series],
+        });
+      }
+
+      if (config.type === "EMA") {
+        const values = calculateEMA(
+          indicatorCandles.map((item) => item.close),
+          config.period ?? 20,
+        );
+
+        const series = chart.addSeries(LineSeries, {
+          color: "#38bdf8",
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: true,
+          title: `EMA ${config.period ?? 20}`,
+        });
+
+        series.setData(
+          values.flatMap((value, index) =>
+            value === null
+              ? []
+              : [{
+                  time: indicatorCandles[index]!.time as Time,
+                  value,
+                }],
+          ),
+        );
+
+        overlaySeriesRef.current.push({
+          configId: config.id,
+          series: [series],
+        });
+      }
+
+      if (config.type === "WMA") {
+        const values = calculateWMA(
+          indicatorCandles.map((item) => item.close),
+          config.period ?? 20,
+        );
+
+        const series = chart.addSeries(LineSeries, {
+          color: "#a78bfa",
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: true,
+          title: `WMA ${config.period ?? 20}`,
+        });
+
+        series.setData(
+          values.flatMap((value, index) =>
+            value === null
+              ? []
+              : [{
+                  time: indicatorCandles[index]!.time as Time,
+                  value,
+                }],
+          ),
+        );
+
+        overlaySeriesRef.current.push({
+          configId: config.id,
+          series: [series],
+        });
+      }
+
+      if (config.type === "VWAP") {
+        const values = calculateVWAP(indicatorCandles);
+
+        const series = chart.addSeries(LineSeries, {
+          color: "#f97316",
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: true,
+          title: "VWAP",
+        });
+
+        series.setData(
+          values.flatMap((value, index) =>
+            value === null
+              ? []
+              : [{
+                  time: indicatorCandles[index]!.time as Time,
+                  value,
+                }],
+          ),
+        );
+
+        overlaySeriesRef.current.push({
+          configId: config.id,
+          series: [series],
+        });
+      }
+
+      if (config.type === "BOLLINGER") {
+        const points = calculateBollingerBands(
+          indicatorCandles.map((candle) => candle.close),
+          config.period ?? 20,
+          config.standardDeviations ?? 2,
+        );
+
+        const middle = chart.addSeries(LineSeries, {
+          color: "#64748b",
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          title: "BB Middle",
+        });
+
+        const upper = chart.addSeries(LineSeries, {
+          color: "#94a3b8",
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          title: "BB Upper",
+        });
+
+        const lower = chart.addSeries(LineSeries, {
+          color: "#94a3b8",
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          title: "BB Lower",
+        });
+
+        middle.setData(
+          points.map((point) => ({
+            time: point.time as Time,
+            value: point.middle,
+          })),
+        );
+
+        upper.setData(
+          points.map((point) => ({
+            time: point.time as Time,
+            value: point.upper,
+          })),
+        );
+
+        lower.setData(
+          points.map((point) => ({
+            time: point.time as Time,
+            value: point.lower,
+          })),
+        );
+
+        overlaySeriesRef.current.push({
+          configId: config.id,
+          series: [middle, upper, lower],
+        });
+      }
+    }
+
+    chart.timeScale().fitContent();
+  }, [candles, indicators]);
 
   return (
     <div
