@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { NotFoundError, ValidationError } from "@rmsm/shared";
-import { prisma, Prisma, CandleInterval } from "@rmsm/database";
+import { prisma, Prisma, CandleInterval, MarketDataProviderType } from "@rmsm/database";
 import { InstrumentRepository } from "../repositories/instrument.repository";
 import { InstrumentAliasRepository } from "../repositories/instrument-alias.repository";
 import { MarketDataProviderConfigRepository } from "../repositories/market-data-provider-config.repository";
@@ -13,6 +13,7 @@ import { MarketDataMetricsService } from "./market-data-metrics.service";
 import { validateCandle } from "../validation/candle.validator";
 import { detectCandleDuplicates } from "../validation/duplicate-detector";
 import { AuditService } from "../../auth/services/audit.service";
+import { planImportBatches, type ImportBatch } from "../utils/import-batch-planner";
 
 export interface ImportHistoricalCandlesRequest {
   instrumentId: string;
@@ -22,18 +23,21 @@ export interface ImportHistoricalCandlesRequest {
   to: Date;
 }
 
+interface BatchImportResult {
+  persisted: number;
+  rejected: number;
+}
+
 /**
  * The write-side orchestrator: fetch → validate → deduplicate → persist,
- * atomically, with retry and audit. This is where Phase 2A's
- * repositories, Phase 2B's provider infrastructure, and Phase 2C's
- * normalization/validation layer are finally composed together into a
- * real, callable operation — the first phase any of those three
- * previous phases' pieces actually run end to end in combination.
+ * atomically, with retry and audit.
+ *
+ * Large historical ranges are divided into deterministic 30-day batches.
+ * Each successful batch advances the import job's resume cursor so an
+ * interrupted import can be resumed without replaying completed batches.
  *
  * Provider-agnostic throughout: this service never references a
- * specific `MarketDataProviderType` by name in its logic, only via
- * whatever `providerConfigId` the caller supplies — the same rule
- * carried forward from every prior phase's architecture section.
+ * specific MarketDataProviderType by name in its logic.
  */
 @Injectable()
 export class HistoricalImportService {
@@ -51,82 +55,232 @@ export class HistoricalImportService {
     private readonly auditService: AuditService,
   ) {}
 
-  async importHistoricalCandles(request: ImportHistoricalCandlesRequest, actorId: string | null): Promise<DataImportJobModel> {
-    const instrument = await this.instrumentRepository.findById(request.instrumentId);
-    if (!instrument) throw new NotFoundError("Instrument", request.instrumentId);
-
-    const providerConfig = await this.providerConfigRepository.findById(request.providerConfigId);
-    if (!providerConfig) throw new NotFoundError("MarketDataProviderConfig", request.providerConfigId);
-
-    const aliases = await this.instrumentAliasRepository.findByInstrument(instrument.id);
-    const alias = aliases.find((a) => a.providerId === providerConfig.id);
-    if (!alias) {
-      throw new NotFoundError("InstrumentAlias", `No alias exists mapping instrument ${instrument.id} to provider ${providerConfig.id} — register one before importing.`);
+  async importHistoricalCandles(
+    request: ImportHistoricalCandlesRequest,
+    actorId: string | null,
+  ): Promise<DataImportJobModel> {
+    if (request.from >= request.to) {
+      throw new ValidationError(
+        "Historical import 'from' date must be earlier than 'to' date.",
+      );
     }
 
-    let job = await this.importJobRepository.create({ providerId: providerConfig.id, jobType: "historical_backfill" });
+    const instrument = await this.instrumentRepository.findById(
+      request.instrumentId,
+    );
+    if (!instrument) {
+      throw new NotFoundError("Instrument", request.instrumentId);
+    }
+
+    const providerConfig = await this.providerConfigRepository.findById(
+      request.providerConfigId,
+    );
+    if (!providerConfig) {
+      throw new NotFoundError(
+        "MarketDataProviderConfig",
+        request.providerConfigId,
+      );
+    }
+
+    const aliases = await this.instrumentAliasRepository.findByInstrument(
+      instrument.id,
+    );
+    const alias = aliases.find((a) => a.providerId === providerConfig.id);
+
+    if (!alias) {
+      throw new NotFoundError(
+        "InstrumentAlias",
+        `No alias exists mapping instrument ${instrument.id} to provider ${providerConfig.id} — register one before importing.`,
+      );
+    }
+
+    const batches = planImportBatches(request.from, request.to);
+
+    let job = await this.importJobRepository.create({
+      providerId: providerConfig.id,
+      jobType: "historical_backfill",
+      instrumentId: instrument.id,
+      interval: request.interval,
+      dateRangeStart: request.from,
+      dateRangeEnd: request.to,
+      totalBatches: batches.length,
+    });
+
     job = await this.importJobRepository.markRunning(job.id);
 
     try {
-      const response = await this.orchestration.executeWithRetry(providerConfig.type, (provider) => {
-        if (!provider.historicalDataClient) {
-          throw new ValidationError(`Provider "${providerConfig.type}" does not support historical data.`);
-        }
-        return provider.historicalDataClient.fetchCandles({
-          providerSymbol: alias.providerSymbol,
-          interval: request.interval,
-          from: request.from,
-          to: request.to,
-        });
+      let completedBatches = job.completedBatches ?? 0;
+      let totalPersisted = job.recordsProcessed ?? 0;
+      let totalRejected = job.recordsFailed ?? 0;
+
+      const resumeCursor = job.resumeCursor;
+
+      const batchesToRun = resumeCursor
+        ? batches.filter((batch) => batch.from >= resumeCursor)
+        : batches;
+
+      for (const [index, batch] of batchesToRun.entries()) {
+        const batchNumber =
+          resumeCursor
+            ? (job.completedBatches ?? 0) + index + 1
+            : index + 1;
+
+        const result = await this.runFetchValidatePersist(
+          request,
+          instrument.id,
+          providerConfig.id,
+          providerConfig.type,
+          alias.providerSymbol,
+          job.id,
+          batch,
+          batchNumber,
+        );
+
+        completedBatches = batchNumber;
+        totalPersisted += result.persisted;
+        totalRejected += result.rejected;
+
+        this.metrics.increment(
+          `import.${providerConfig.type}.candles_persisted`,
+          result.persisted,
+        );
+        this.metrics.increment(
+          `import.${providerConfig.type}.candles_rejected`,
+          result.rejected,
+        );
+      }
+
+      await prisma.$transaction(
+        async (tx: Prisma.TransactionClient): Promise<void> => {
+          await this.importJobRepository.markCompleted(
+            job.id,
+            totalPersisted,
+            totalRejected,
+            tx,
+          );
+        },
+      );
+
+      await this.auditService.log("market_data.historical_import.completed", {
+        userId: actorId,
+        entityType: "DataImportJob",
+        entityId: job.id,
+        metadata: {
+          instrumentId: instrument.id,
+          providerConfigId: providerConfig.id,
+          persisted: totalPersisted,
+          rejected: totalRejected,
+          totalBatches: batches.length,
+          completedBatches,
+        },
       });
 
-      const validCandles = [];
-      let rejectedCount = 0;
-      for (const candle of response.candles) {
-        try {
-          validateCandle(candle);
-          validCandles.push(candle);
-        } catch (error) {
-          rejectedCount += 1;
-          // Phase 5's "Validation metrics" deliverable — distinct from
-          // the aggregate candles_rejected count below, since "how many
-          // rows failed Phase 2C's OHLC/volume/timestamp rules" and "how
-          // many rows were duplicates within this batch" are genuinely
-          // different operational signals (the first suggests a
-          // provider data-quality problem; the second suggests a
-          // provider redelivering the same data). Incrementing here, at
-          // the service layer, not inside the validator itself — Phase
-          // 2C's validators must stay pure functions with no side
-          // effects (its own explicit rule), so metrics can never live
-          // there.
-          this.metrics.increment(`validation.candle.rejected`);
-          await this.dataQualityIssueRepository.create({
-            instrumentId: instrument.id,
-            importJobId: job.id,
-            issueType: "invalid_candle",
-            severity: "high",
-            description: error instanceof Error ? error.message : String(error),
-          });
+      const finalJob = await this.importJobRepository.findById(job.id);
+      if (!finalJob) {
+        throw new NotFoundError("DataImportJob", job.id);
+      }
+
+      return finalJob;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      await this.importJobRepository.markFailed(job.id, message);
+      this.metrics.increment(`import.${providerConfig.type}.failed`);
+
+      await this.auditService.log("market_data.historical_import.failed", {
+        userId: actorId,
+        entityType: "DataImportJob",
+        entityId: job.id,
+        metadata: {
+          instrumentId: instrument.id,
+          providerConfigId: providerConfig.id,
+          reason: message,
+        },
+      });
+
+      this.logger.error(
+        `Historical import job ${job.id} failed: ${message}`,
+      );
+
+      throw error;
+    }
+  }
+
+  private async runFetchValidatePersist(
+    request: ImportHistoricalCandlesRequest,
+    instrumentId: string,
+    providerId: string,
+    providerType: MarketDataProviderType,
+    providerSymbol: string,
+    jobId: string,
+    batch: ImportBatch,
+    completedBatches: number,
+  ): Promise<BatchImportResult> {
+    const response = await this.orchestration.executeWithRetry(
+      providerType,
+      (provider) => {
+        if (!provider.historicalDataClient) {
+          throw new ValidationError(
+            `Provider "${providerType}" does not support historical data.`,
+          );
         }
-      }
 
-      const duplicateFindings = detectCandleDuplicates(validCandles);
-      const duplicateIndexes = new Set(duplicateFindings.map((f) => f.index));
-      const toPersist = validCandles.filter((_, index) => !duplicateIndexes.has(index));
-      rejectedCount += duplicateFindings.length;
-      if (duplicateFindings.length > 0) {
-        this.metrics.increment(`validation.candle.duplicate`, duplicateFindings.length);
-      }
+        return provider.historicalDataClient.fetchCandles({
+          providerSymbol,
+          interval: request.interval,
+          from: batch.from,
+          to: batch.to,
+        });
+      },
+    );
 
-      // Transaction boundary: every candle in this batch plus the job's
-      // final status update commit atomically — a partial write (some
-      // candles persisted, job left RUNNING) would leave a caller unable
-      // to tell whether the import actually finished.
-      await prisma.$transaction(async (tx: Prisma.TransactionClient): Promise<void> => {
+    const validCandles = [];
+    let rejectedCount = 0;
+
+    for (const candle of response.candles) {
+      try {
+        validateCandle(candle);
+        validCandles.push(candle);
+      } catch (error) {
+        rejectedCount += 1;
+
+        this.metrics.increment("validation.candle.rejected");
+
+        await this.dataQualityIssueRepository.create({
+          instrumentId,
+          importJobId: jobId,
+          issueType: "invalid_candle",
+          severity: "high",
+          description:
+            error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    const duplicateFindings = detectCandleDuplicates(validCandles);
+    const duplicateIndexes = new Set(
+      duplicateFindings.map((finding) => finding.index),
+    );
+
+    const toPersist = validCandles.filter(
+      (_, index) => !duplicateIndexes.has(index),
+    );
+
+    rejectedCount += duplicateFindings.length;
+
+    if (duplicateFindings.length > 0) {
+      this.metrics.increment(
+        "validation.candle.duplicate",
+        duplicateFindings.length,
+      );
+    }
+
+    await prisma.$transaction(
+      async (tx: Prisma.TransactionClient): Promise<void> => {
         for (const candle of toPersist) {
           await this.candleRepository.upsert(
             {
-              instrumentId: instrument.id,
+              instrumentId,
               interval: candle.interval,
               eventTime: candle.eventTime,
               open: candle.open,
@@ -134,41 +288,28 @@ export class HistoricalImportService {
               low: candle.low,
               close: candle.close,
               volume: candle.volume,
-              providerId: providerConfig.id,
+              providerId,
               source: "HISTORICAL_IMPORT",
-              importJobId: job.id,
+              importJobId: jobId,
             },
             tx,
           );
         }
-        await this.importJobRepository.markCompleted(job.id, toPersist.length, rejectedCount, tx);
-      });
 
-      this.metrics.increment(`import.${providerConfig.type}.candles_persisted`, toPersist.length);
-      this.metrics.increment(`import.${providerConfig.type}.candles_rejected`, rejectedCount);
+        await this.importJobRepository.recordBatchProgress(
+          jobId,
+          completedBatches,
+          batch.to,
+          toPersist.length,
+          rejectedCount,
+          tx,
+        );
+      },
+    );
 
-      await this.auditService.log("market_data.historical_import.completed", {
-        userId: actorId,
-        entityType: "DataImportJob",
-        entityId: job.id,
-        metadata: { instrumentId: instrument.id, providerConfigId: providerConfig.id, persisted: toPersist.length, rejected: rejectedCount },
-      });
-
-      const finalJob = await this.importJobRepository.findById(job.id);
-      if (!finalJob) throw new NotFoundError("DataImportJob", job.id); // genuinely unreachable — we just wrote this row inside the transaction above
-      return finalJob;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      await this.importJobRepository.markFailed(job.id, message);
-      this.metrics.increment(`import.${providerConfig.type}.failed`);
-      await this.auditService.log("market_data.historical_import.failed", {
-        userId: actorId,
-        entityType: "DataImportJob",
-        entityId: job.id,
-        metadata: { instrumentId: instrument.id, providerConfigId: providerConfig.id, reason: message },
-      });
-      this.logger.error(`Historical import job ${job.id} failed: ${message}`);
-      throw error;
-    }
+    return {
+      persisted: toPersist.length,
+      rejected: rejectedCount,
+    };
   }
 }

@@ -35,6 +35,7 @@ describe("HistoricalImportService", () => {
       markRunning: jest.fn().mockResolvedValue(job),
       markCompleted: jest.fn().mockResolvedValue({ ...job, status: "COMPLETED" }),
       markFailed: jest.fn().mockResolvedValue({ ...job, status: "FAILED" }),
+      recordBatchProgress: jest.fn().mockResolvedValue({ ...job, status: "RUNNING" }),
       findById: jest.fn().mockResolvedValue({ ...job, status: "COMPLETED" }),
     } as unknown as DataImportJobRepository;
     const dataQualityIssueRepository = { create: jest.fn().mockResolvedValue({}) } as unknown as DataQualityIssueRepository;
@@ -58,6 +59,108 @@ describe("HistoricalImportService", () => {
   }
 
   const request = { instrumentId: "inst1", providerConfigId: "prov1", interval: "ONE_DAY" as const, from: new Date("2026-01-01"), to: new Date("2026-01-02") };
+
+  it("rejects a range where from is not earlier than to", async () => {
+    const deps = buildDeps();
+
+    await expect(
+      deps.service.importHistoricalCandles(
+        { ...request, from: new Date("2026-01-02"), to: new Date("2026-01-01") },
+        null,
+      ),
+    ).rejects.toThrow("Historical import 'from' date must be earlier than 'to' date.");
+
+    expect(deps.instrumentRepository.findById).not.toHaveBeenCalled();
+  });
+
+  it("imports a range longer than 30 days as multiple batches", async () => {
+    const deps = buildDeps();
+
+    (deps.importJobRepository.create as jest.Mock).mockResolvedValue({
+      ...job,
+      instrumentId: "inst1",
+      interval: "ONE_DAY",
+      dateRangeStart: new Date("2026-01-01T00:00:00.000Z"),
+      dateRangeEnd: new Date("2026-03-03T00:00:00.000Z"),
+      totalBatches: 3,
+      completedBatches: 0,
+      recordsProcessed: 0,
+      recordsFailed: 0,
+      resumeCursor: null,
+    });
+
+    (deps.importJobRepository.markRunning as jest.Mock).mockResolvedValue({
+      ...job,
+      status: "RUNNING",
+      instrumentId: "inst1",
+      interval: "ONE_DAY",
+      dateRangeStart: new Date("2026-01-01T00:00:00.000Z"),
+      dateRangeEnd: new Date("2026-03-03T00:00:00.000Z"),
+      totalBatches: 3,
+      completedBatches: 0,
+      recordsProcessed: 0,
+      recordsFailed: 0,
+      resumeCursor: null,
+    });
+
+    (deps.orchestration.executeWithRetry as jest.Mock).mockResolvedValue({
+      candles: [],
+    });
+
+    (deps.importJobRepository.recordBatchProgress as jest.Mock) = jest
+      .fn()
+      .mockResolvedValue({
+        ...job,
+        status: "RUNNING",
+      });
+
+    (deps.importJobRepository.markCompleted as jest.Mock).mockResolvedValue({
+      ...job,
+      status: "COMPLETED",
+    });
+
+    const result = await deps.service.importHistoricalCandles(
+      {
+        ...request,
+        from: new Date("2026-01-01T00:00:00.000Z"),
+        to: new Date("2026-03-03T00:00:00.000Z"),
+      },
+      null,
+    );
+
+    expect(result.status).toBe("COMPLETED");
+    expect(deps.orchestration.executeWithRetry).toHaveBeenCalledTimes(3);
+    expect(deps.importJobRepository.recordBatchProgress).toHaveBeenCalledTimes(3);
+    expect(deps.importJobRepository.markCompleted).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses a single batch for a range of exactly 30 days", async () => {
+    const deps = buildDeps();
+
+    (deps.orchestration.executeWithRetry as jest.Mock).mockResolvedValue({
+      candles: [],
+    });
+
+    (deps.importJobRepository.recordBatchProgress as jest.Mock) = jest
+      .fn()
+      .mockResolvedValue({
+        ...job,
+        status: "RUNNING",
+      });
+
+    const result = await deps.service.importHistoricalCandles(
+      {
+        ...request,
+        from: new Date("2026-01-01T00:00:00.000Z"),
+        to: new Date("2026-01-31T00:00:00.000Z"),
+      },
+      null,
+    );
+
+    expect(result.status).toBe("COMPLETED");
+    expect(deps.orchestration.executeWithRetry).toHaveBeenCalledTimes(1);
+    expect(deps.importJobRepository.recordBatchProgress).toHaveBeenCalledTimes(1);
+  });
 
   it("throws NotFoundError when the instrument doesn't exist", async () => {
     const deps = buildDeps();
