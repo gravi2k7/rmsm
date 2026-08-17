@@ -1947,7 +1947,7 @@ model SupportedTimeframe {
 
 model Instrument {
   id           String            @id @default(uuid())
-  exchangeId   String
+  exchangeId   String?
   /// The ticker/symbol as canonically known on this exchange (e.g.
   /// "AAPL") — provider-specific variants of this same instrument's
   /// symbol live on InstrumentAlias, not here.
@@ -1978,7 +1978,7 @@ model Instrument {
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
-  exchange   Exchange            @relation(fields: [exchangeId], references: [id], onDelete: Restrict)
+  exchange   Exchange?           @relation(fields: [exchangeId], references: [id], onDelete: Restrict)
   aliases    InstrumentAlias[]
   candles    MarketCandle[]
   quotes     MarketQuote[]
@@ -1989,7 +1989,9 @@ model Instrument {
   derivedIndicatorSnapshots DerivedIndicatorSnapshot[]
   aiSnapshots MarketDataAiSnapshot[]
 
-  @@unique([exchangeId, symbol])
+  // Uniqueness is enforced by database partial indexes:
+  //   - listed instruments: UNIQUE(exchangeId, symbol) WHERE exchangeId IS NOT NULL
+  //   - decentralized instruments: UNIQUE(symbol) WHERE exchangeId IS NULL
   @@index([assetClass, status])
   @@index([status])
   @@map("instruments")

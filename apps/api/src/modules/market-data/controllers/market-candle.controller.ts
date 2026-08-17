@@ -23,7 +23,27 @@ export class MarketCandleController {
   @ApiOkResponse({ type: [CandleResponseDto] })
   async list(@Query() query: CandleQueryDto): Promise<CandleResponseDto[]> {
     const instrumentId = await this.resolveInstrumentId(query);
-    return this.marketDataService.getCandles(instrumentId, query.interval, new Date(query.from), new Date(query.to), query.limit);
+    const from = new Date(query.from);
+    const to = new Date(query.to);
+
+    if (query.before) {
+      return this.marketDataService.getCandles(
+        instrumentId,
+        query.interval,
+        from,
+        to,
+        query.limit,
+        new Date(query.before),
+      );
+    }
+
+    return this.marketDataService.getCandles(
+      instrumentId,
+      query.interval,
+      from,
+      to,
+      query.limit,
+    );
   }
 
   /** Neither class-validator's ValidateIf nor a single DTO shape can express "instrumentId XOR (exchangeId AND symbol)" as one declarative rule — this is the controller-level check that at least one complete, resolvable identification was actually provided. */

@@ -17,7 +17,7 @@ export interface TwelveDataCandleValue {
   high: string;
   low: string;
   close: string;
-  volume: string;
+  volume?: string;
 }
 
 export interface TwelveDataTimeSeriesResponse {
@@ -148,6 +148,8 @@ export interface TwelveDataEtfResponse {
 export interface TwelveDataCommodityItem {
   symbol: string;
   name?: string;
+  category?: string;
+  description?: string;
   currency?: string;
   exchange?: string;
   country?: string;

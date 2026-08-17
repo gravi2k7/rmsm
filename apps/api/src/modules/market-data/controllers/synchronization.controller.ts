@@ -23,6 +23,7 @@ import { PermissionsGuard } from "../../auth/guards/permissions.guard";
 import { MarketDataAdminService } from "../services/market-data-admin.service";
 import { HistoricalImportService } from "../services/historical-import.service";
 import { ReferenceDataSynchronizationService } from "../services/reference-data-synchronization.service";
+import { QuoteSynchronizationService } from "../services/quote-synchronization.service";
 import { ImportJobResponseDto } from "../dto/responses/import-job-response.dto";
 import { SynchronizationHealthResponseDto } from "../dto/responses/synchronization-health-response.dto";
 import { ImportHistoricalCandlesDto } from "../dto/import-historical-candles.dto";
@@ -60,7 +61,42 @@ export class SynchronizationController {
     private readonly adminService: MarketDataAdminService,
     private readonly historicalImportService: HistoricalImportService,
     private readonly referenceDataSynchronizationService: ReferenceDataSynchronizationService,
+    private readonly quoteSynchronizationService: QuoteSynchronizationService,
   ) {}
+
+  @Post("reference-data")
+  @RequirePermissions("market-data.admin.manage")
+  @ApiOperation({
+    operationId: "synchronizeTwelveDataReferenceData",
+    summary: "Synchronize Twelve Data reference data.",
+    description:
+      "Synchronizes exchanges, instruments, and Twelve Data instrument aliases through the existing reference-data synchronization service.",
+  })
+  @ApiOkResponse({
+    description: "Reference-data synchronization result.",
+  })
+  synchronizeTwelveDataReferenceData() {
+    return this.referenceDataSynchronizationService.synchronizeTwelveData();
+  }
+
+  @Post("quotes/:instrumentId")
+  @RequirePermissions("market-data.admin.manage")
+  @ApiOperation({
+    operationId: "synchronizeInstrumentQuote",
+    summary: "Synchronize the latest live quote for one instrument.",
+    description:
+      "Resolves the active provider and instrument alias, fetches the latest normalized quote, and persists it through the market-data quote repository.",
+  })
+  @ApiOkResponse({
+    description: "Live quote synchronization result.",
+  })
+  synchronizeInstrumentQuote(
+    @Param("instrumentId", ParseUUIDPipe) instrumentId: string,
+  ) {
+    return this.quoteSynchronizationService.synchronizeInstrument(
+      instrumentId,
+    );
+  }
 
   @Post("import")
   @RequirePermissions("market-data.import.trigger")

@@ -6,7 +6,9 @@ import type { MarketCandleModel } from "../../interfaces/models/time-series.mode
 describe("SynchronizationService", () => {
   function buildService(recentCandles: Partial<MarketCandleModel>[]) {
     const candleRepository = {
-      findRangeCurrentValues: jest.fn().mockResolvedValue(recentCandles),
+      findLatestCurrentValue: jest.fn().mockResolvedValue(
+        recentCandles.length > 0 ? recentCandles[0] : null,
+      ),
     } as unknown as MarketCandleRepository;
     const historicalImportService = {
       importHistoricalCandles: jest.fn().mockResolvedValue({ id: "job1" }),

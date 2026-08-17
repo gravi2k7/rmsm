@@ -1,6 +1,6 @@
 import type { CandleInterval } from "@rmsm/database";
 import type { NormalizedCandle } from "../../interfaces/normalized-market-data.interface";
-import { normalizeDecimal } from "./decimal.normalizer";
+import { normalizeDecimal, normalizePriceDecimal } from "./decimal.normalizer";
 import { normalizeTimestamp } from "./time.normalizer";
 import { normalizeSymbol } from "./symbol.normalizer";
 import { requireField } from "./mapping.utils";
@@ -18,8 +18,20 @@ export interface RawCandlePayload {
   sourceTimestamp?: string | number;
 }
 
-const PRICE_SCALE = 10;
+const DEFAULT_PRICE_SCALE = 10;
 const VOLUME_SCALE = 10;
+
+const PRICE_SCALE_BY_SYMBOL: Record<string, number> = {
+  "EUR/USD": 5,
+  "GBP/USD": 5,
+  "AUD/USD": 5,
+  "USD/JPY": 2,
+  "XAU/USD": 2,
+};
+
+function priceScaleForSymbol(symbol: string): number {
+  return PRICE_SCALE_BY_SYMBOL[symbol] ?? DEFAULT_PRICE_SCALE;
+}
 
 /**
  * Format canonicalization only — decimal precision, UTC timestamp,
@@ -33,14 +45,16 @@ const VOLUME_SCALE = 10;
 export function normalizeCandle(raw: RawCandlePayload): NormalizedCandle {
   const { symbol } = normalizeSymbol(requireField(raw.symbol, "symbol", raw));
 
+  const priceScale = priceScaleForSymbol(symbol);
+
   return {
     providerSymbol: symbol,
     interval: requireField(raw.interval, "interval", raw),
     eventTime: normalizeTimestamp(requireField(raw.time, "time", raw)),
-    open: normalizeDecimal(requireField(raw.open, "open", raw), { maxScale: PRICE_SCALE }),
-    high: normalizeDecimal(requireField(raw.high, "high", raw), { maxScale: PRICE_SCALE }),
-    low: normalizeDecimal(requireField(raw.low, "low", raw), { maxScale: PRICE_SCALE }),
-    close: normalizeDecimal(requireField(raw.close, "close", raw), { maxScale: PRICE_SCALE }),
+    open: normalizePriceDecimal(requireField(raw.open, "open", raw), priceScale),
+    high: normalizePriceDecimal(requireField(raw.high, "high", raw), priceScale),
+    low: normalizePriceDecimal(requireField(raw.low, "low", raw), priceScale),
+    close: normalizePriceDecimal(requireField(raw.close, "close", raw), priceScale),
     volume: normalizeDecimal(requireField(raw.volume, "volume", raw), { maxScale: VOLUME_SCALE }),
     sourceTimestamp: raw.sourceTimestamp !== undefined ? normalizeTimestamp(raw.sourceTimestamp) : undefined,
   };

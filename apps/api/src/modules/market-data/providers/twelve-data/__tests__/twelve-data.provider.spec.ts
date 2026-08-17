@@ -224,7 +224,7 @@ describe("TwelveDataProvider", () => {
         providerSymbol: "XAU/USD",
         assetClass: "COMMODITY",
         currency: "USD",
-        exchangeCode: "COMEX",
+        exchangeCode: undefined,
       });
     });
 

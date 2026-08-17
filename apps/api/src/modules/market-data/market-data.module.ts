@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { prisma, TransactionManager } from "@rmsm/database";
 import { AuthModule } from "../auth/auth.module";
 import { MarketDataProviderConfigRepository } from "./repositories/market-data-provider-config.repository";
 import { ExchangeRepository } from "./repositories/exchange.repository";
@@ -20,10 +21,13 @@ import { ProviderRegistrarService } from "./providers/provider-registrar.service
 import { ProviderOrchestrationService } from "./services/provider-orchestration.service";
 import { MarketDataMetricsService } from "./services/market-data-metrics.service";
 import { MarketDataService } from "./services/market-data.service";
+import { InstrumentDiscoveryService } from "./services/instrument-discovery.service";
+import { InstrumentOnboardingService } from "./services/instrument-onboarding.service";
 import { MarketDataAdminService } from "./services/market-data-admin.service";
 import { ProviderDiagnosticsService } from "./services/provider-diagnostics.service";
 import { HistoricalImportService } from "./services/historical-import.service";
 import { SynchronizationService } from "./services/synchronization.service";
+import { QuoteSynchronizationService } from "./services/quote-synchronization.service";
 import { ReferenceDataSynchronizationService } from "./services/reference-data-synchronization.service";
 import { ExchangeController } from "./controllers/exchange.controller";
 import { InstrumentController } from "./controllers/instrument.controller";
@@ -80,6 +84,10 @@ import { AlphaVantageCacheService } from "./providers/alphavantage/alphavantage.
     DataImportJobRepository,
     DataQualityIssueRepository,
     DataGapRepository,
+    {
+      provide: TransactionManager,
+      useFactory: () => new TransactionManager(prisma),
+    },
     ProviderRegistryService,
     ProviderFactoryService,
     ProviderResolverService,
@@ -88,21 +96,17 @@ import { AlphaVantageCacheService } from "./providers/alphavantage/alphavantage.
     ProviderConnectionTestService,
     MarketDataMetricsService,
     MarketDataService,
+    InstrumentDiscoveryService,
+    InstrumentOnboardingService,
     MarketDataAdminService,
     HistoricalImportService,
     SynchronizationService,
+    QuoteSynchronizationService,
     ReferenceDataSynchronizationService,
     MarketDataProviderBootstrapService,
     ProviderDiagnosticsService,
-    ProviderRegistrarService,
-    TwelveDataRegistrarService,
-    ProviderRegistrarService,
-    TwelveDataRegistrarService,
-    ProviderRegistrarService,
     TwelveDataRegistrarService,
     AlphaVantageCacheService,
-    AlphaVantageRegistrarService,
-    ProviderOrchestrationService,
     AlphaVantageRegistrarService,
   ],
   exports: [
@@ -126,9 +130,12 @@ import { AlphaVantageCacheService } from "./providers/alphavantage/alphavantage.
     ProviderConnectionTestService,
     MarketDataMetricsService,
     MarketDataService,
+    InstrumentDiscoveryService,
+    InstrumentOnboardingService,
     MarketDataAdminService,
     HistoricalImportService,
     SynchronizationService,
+    QuoteSynchronizationService,
     ReferenceDataSynchronizationService,
     ProviderDiagnosticsService,
     

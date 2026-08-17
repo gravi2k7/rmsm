@@ -4,7 +4,7 @@ import { InstrumentModel } from "../interfaces/models/reference-data.models";
 import { toInstrumentModel } from "./mappers/reference-data.mappers";
 
 export interface CreateInstrumentInput {
-  exchangeId: string;
+  exchangeId: string | null;
   symbol: string;
   name: string;
   assetClass: AssetClass;
@@ -42,27 +42,73 @@ export class InstrumentRepository {
     data: CreateInstrumentInput,
     client: DbClient = prisma,
   ): Promise<InstrumentModel> {
-    const row = await client.instrument.upsert({
+    const existing = await client.instrument.findFirst({
       where: {
-        exchangeId_symbol: {
-          exchangeId: data.exchangeId,
-          symbol: data.symbol,
-        },
+        symbol: data.symbol,
+        exchangeId: data.exchangeId,
       },
-      update: {
-        name: data.name,
-        assetClass: data.assetClass,
-        currency: data.currency,
-        isin: data.isin,
-        cusip: data.cusip,
-        tickSize: data.tickSize,
-        lotSize: data.lotSize,
-        listedAt: data.listedAt,
-      },
-      create: data,
     });
 
-    return toInstrumentModel(row);
+    const update = {
+      name: data.name,
+      assetClass: data.assetClass,
+      currency: data.currency,
+      isin: data.isin,
+      cusip: data.cusip,
+      tickSize: data.tickSize,
+      lotSize: data.lotSize,
+      listedAt: data.listedAt,
+    };
+
+    if (existing) {
+      const row = await client.instrument.update({
+        where: {
+          id: existing.id,
+        },
+        data: update,
+      });
+
+      return toInstrumentModel(row);
+    }
+
+    try {
+      const row = await client.instrument.create({
+        data,
+      });
+
+      return toInstrumentModel(row);
+    } catch (error) {
+      // A concurrent synchronization run may have created the same
+      // canonical instrument between findFirst() and create().
+      // The database unique index is the final authority.
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        (error as { code?: string }).code === "P2002"
+      ) {
+        const concurrent = await client.instrument.findFirst({
+          where: {
+            symbol: data.symbol,
+            exchangeId: data.exchangeId,
+          },
+        });
+
+        if (!concurrent) {
+          throw error;
+        }
+
+        const row = await client.instrument.update({
+          where: {
+            id: concurrent.id,
+          },
+          data: update,
+        });
+
+        return toInstrumentModel(row);
+      }
+
+      throw error;
+    }
   }
 
   async findById(id: string, client: DbClient = prisma): Promise<InstrumentModel | null> {
@@ -70,8 +116,18 @@ export class InstrumentRepository {
     return row ? toInstrumentModel(row) : null;
   }
 
-  async findByExchangeAndSymbol(exchangeId: string, symbol: string, client: DbClient = prisma): Promise<InstrumentModel | null> {
-    const row = await client.instrument.findUnique({ where: { exchangeId_symbol: { exchangeId, symbol } } });
+  async findByExchangeAndSymbol(
+    exchangeId: string,
+    symbol: string,
+    client: DbClient = prisma,
+  ): Promise<InstrumentModel | null> {
+    const row = await client.instrument.findFirst({
+      where: {
+        exchangeId,
+        symbol,
+      },
+    });
+
     return row ? toInstrumentModel(row) : null;
   }
 

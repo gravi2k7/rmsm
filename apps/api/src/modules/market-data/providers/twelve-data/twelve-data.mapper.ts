@@ -74,21 +74,29 @@ export class TwelveDataMapper {
       high: value.high,
       low: value.low,
       close: value.close,
-      volume: value.volume,
+      volume: value.volume ?? "0",
     };
   }
 
   toNormalizedQuote(response: TwelveDataQuoteResponse): NormalizedQuote {
+    const providerTimestamp =
+      typeof response.timestamp === "number"
+        ? new Date(response.timestamp * 1000)
+        : undefined;
+
+    const eventTime =
+      providerTimestamp ??
+      (response.datetime
+        ? this.parseTwelveDataDatetime(response.datetime)
+        : new Date());
+
     return {
       providerSymbol: response.symbol,
       bidPrice: response.bid,
       askPrice: response.ask,
       lastPrice: response.close,
-      eventTime: response.datetime
-        ? this.parseTwelveDataDatetime(response.datetime)
-        : response.timestamp
-          ? new Date(response.timestamp * 1000)
-          : new Date(),
+      eventTime,
+      ...(providerTimestamp ? { sourceTimestamp: providerTimestamp } : {}),
     };
   }
 
@@ -209,20 +217,44 @@ export class TwelveDataMapper {
   toNormalizedCommodities(
     response: TwelveDataCommoditiesResponse,
   ): NormalizedInstrumentReference[] {
-    return (response.data ?? [])
-      .filter((item) => Boolean(item.currency))
-      .map((item) => this.toNormalizedCommodity(item));
+    return (response.data ?? []).flatMap((item) => {
+      try {
+        return [this.toNormalizedCommodity(item)];
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message ===
+            `Unable to determine commodity quote currency for ${item.symbol}`
+        ) {
+          return [];
+        }
+
+        throw error;
+      }
+    });
   }
 
   toNormalizedCommodity(
     item: TwelveDataCommodityItem,
   ): NormalizedInstrumentReference {
+    const quoteCurrency = item.symbol.includes("/")
+      ? item.symbol.split("/").at(-1)?.toUpperCase()
+      : undefined;
+
+    const currency = quoteCurrency ?? item.currency;
+
+    if (!currency) {
+      throw new Error(
+        `Unable to determine commodity quote currency for ${item.symbol}`,
+      );
+    }
+
     return {
       providerSymbol: item.symbol,
       name: item.name || item.symbol,
       assetClass: "COMMODITY",
-      currency: item.currency!,
-      exchangeCode: item.exchange,
+      currency,
+      exchangeCode: undefined,
     };
   }
 

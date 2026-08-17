@@ -3,7 +3,12 @@ import type { AssetClass, InstrumentStatus } from "@rmsm/database";
 
 export class InstrumentResponseDto {
   @ApiProperty() id!: string;
-  @ApiProperty() exchangeId!: string;
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      "Canonical exchange ID. Null for decentralized instruments such as spot FX and certain commodities.",
+  })
+  exchangeId!: string | null;
   @ApiProperty() symbol!: string;
   @ApiProperty() name!: string;
   @ApiProperty() assetClass!: AssetClass;

@@ -41,6 +41,17 @@ interface BatchImportResult {
  */
 @Injectable()
 export class HistoricalImportService {
+  /**
+   * Keep each persistence transaction bounded.
+   *
+   * A 30-day 1-minute import can contain ~43,200 candles.
+   * Persisting all of them through one interactive Prisma transaction
+   * can exceed the transaction timeout. Smaller chunks preserve the
+   * existing idempotent upsert semantics while keeping transactions
+   * short and recoverable.
+   */
+  private static readonly PERSIST_BATCH_SIZE = 500;
+
   private readonly logger = new Logger(HistoricalImportService.name);
 
   constructor(
@@ -275,27 +286,57 @@ export class HistoricalImportService {
       );
     }
 
+    /**
+     * Persist in bounded transactions rather than placing the entire
+     * provider batch inside one interactive transaction.
+     *
+     * The repository upsert remains unchanged, so historical imports
+     * retain their existing idempotent behavior.
+     */
+    for (
+      let offset = 0;
+      offset < toPersist.length;
+      offset += HistoricalImportService.PERSIST_BATCH_SIZE
+    ) {
+      const persistBatch = toPersist.slice(
+        offset,
+        offset + HistoricalImportService.PERSIST_BATCH_SIZE,
+      );
+
+      await prisma.$transaction(
+        async (tx: Prisma.TransactionClient): Promise<void> => {
+          for (const candle of persistBatch) {
+            await this.candleRepository.upsert(
+              {
+                instrumentId,
+                interval: candle.interval,
+                eventTime: candle.eventTime,
+                open: candle.open,
+                high: candle.high,
+                low: candle.low,
+                close: candle.close,
+                volume: candle.volume,
+                providerId,
+                source: "HISTORICAL_IMPORT",
+                importJobId: jobId,
+              },
+              tx,
+            );
+          }
+        },
+      );
+    }
+
+    /**
+     * Advance the import cursor only after every persistence chunk
+     * has committed successfully.
+     *
+     * If a later chunk fails, the job remains resumable. Replaying
+     * already-persisted candles is safe because repository.upsert()
+     * is idempotent on the candle's compound unique key.
+     */
     await prisma.$transaction(
       async (tx: Prisma.TransactionClient): Promise<void> => {
-        for (const candle of toPersist) {
-          await this.candleRepository.upsert(
-            {
-              instrumentId,
-              interval: candle.interval,
-              eventTime: candle.eventTime,
-              open: candle.open,
-              high: candle.high,
-              low: candle.low,
-              close: candle.close,
-              volume: candle.volume,
-              providerId,
-              source: "HISTORICAL_IMPORT",
-              importJobId: jobId,
-            },
-            tx,
-          );
-        }
-
         await this.importJobRepository.recordBatchProgress(
           jobId,
           completedBatches,

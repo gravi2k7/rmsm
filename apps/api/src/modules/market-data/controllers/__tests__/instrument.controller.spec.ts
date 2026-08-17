@@ -1,5 +1,7 @@
 import { InstrumentController } from "../instrument.controller";
 import type { MarketDataService } from "../../services/market-data.service";
+import type { InstrumentDiscoveryService } from "../../services/instrument-discovery.service";
+import type { InstrumentOnboardingService } from "../../services/instrument-onboarding.service";
 import type { InstrumentSearchDto } from "../../dto/instrument-search.dto";
 
 describe("InstrumentController", () => {
@@ -11,9 +13,23 @@ describe("InstrumentController", () => {
       ...overrides,
     } as unknown as MarketDataService;
 
+    const instrumentDiscoveryService = {
+      searchProviderSymbols: jest.fn(),
+    } as unknown as InstrumentDiscoveryService;
+
+    const instrumentOnboardingService = {
+      onboard: jest.fn(),
+    } as unknown as InstrumentOnboardingService;
+
     return {
-      controller: new InstrumentController(marketDataService),
+      controller: new InstrumentController(
+        marketDataService,
+        instrumentDiscoveryService,
+        instrumentOnboardingService,
+      ),
       marketDataService,
+      instrumentDiscoveryService,
+      instrumentOnboardingService,
     };
   }
 

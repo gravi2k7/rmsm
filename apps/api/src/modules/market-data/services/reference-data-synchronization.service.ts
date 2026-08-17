@@ -88,59 +88,18 @@ export class ReferenceDataSynchronizationService {
       exchangesCreatedOrUpdated += 1;
     }
 
-    const instruments =
-      await referenceProvider.fetchInstrumentUniverse();
-
-    let instrumentsProcessed = 0;
-    let instrumentsCreatedOrUpdated = 0;
-    let aliasesCreatedOrUpdated = 0;
-    let skippedInstruments = 0;
-
+    // RMSM intentionally maintains a curated instrument universe.
+    //
+    // Provider reference-data synchronization must NOT bulk-import the
+    // provider's complete instrument universe. Providers such as Twelve Data
+    // can expose hundreds of thousands of instruments.
+    //
+    // Instruments are onboarded explicitly through provider symbol search.
+    const instrumentsProcessed = 0;
+    const instrumentsCreatedOrUpdated = 0;
+    const aliasesCreatedOrUpdated = 0;
+    const skippedInstruments = 0;
     const skippedReasons: string[] = [];
-
-    for (const instrument of instruments) {
-      const exchangeCode = this.normalizeExchangeCode(
-        instrument.exchangeCode,
-      );
-
-      if (!exchangeCode) {
-        skippedInstruments += 1;
-        skippedReasons.push(
-          `${instrument.providerSymbol}: provider did not supply an exchange code`,
-        );
-        continue;
-      }
-
-      const exchangeId = exchangeMap.get(exchangeCode);
-
-      if (!exchangeId) {
-        skippedInstruments += 1;
-        skippedReasons.push(
-          `${instrument.providerSymbol}: exchange "${exchangeCode}" was not found in the provider exchange catalog`,
-        );
-        continue;
-      }
-
-      const persistedInstrument = await this.instrumentRepository.upsert({
-        exchangeId,
-        symbol: this.canonicalSymbol(instrument),
-        name: instrument.name,
-        assetClass: instrument.assetClass,
-        currency: instrument.currency,
-        isin: instrument.isin,
-        cusip: instrument.cusip,
-      });
-
-      await this.instrumentAliasRepository.upsert({
-        instrumentId: persistedInstrument.id,
-        providerId: providerConfig.id,
-        providerSymbol: instrument.providerSymbol,
-      });
-
-      instrumentsProcessed += 1;
-      instrumentsCreatedOrUpdated += 1;
-      aliasesCreatedOrUpdated += 1;
-    }
 
     return {
       providerType,

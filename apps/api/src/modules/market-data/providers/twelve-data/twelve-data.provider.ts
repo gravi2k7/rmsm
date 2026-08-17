@@ -235,19 +235,20 @@ export class TwelveDataProvider implements MarketDataProvider {
   ): Promise<T> {
     const responses: T[] = [];
     let page = 1;
+    let hasMore = true;
 
-    while (true) {
+    while (hasMore) {
       const response = await fetchPage(page);
 
       responses.push(response);
 
       const count = response.data?.length ?? 0;
 
-      if (count < TWELVE_DATA_REFERENCE_PAGE_SIZE) {
-        break;
-      }
+      hasMore = count === TWELVE_DATA_REFERENCE_PAGE_SIZE;
 
-      page += 1;
+      if (hasMore) {
+        page += 1;
+      }
     }
 
     if (responses.length === 1) {

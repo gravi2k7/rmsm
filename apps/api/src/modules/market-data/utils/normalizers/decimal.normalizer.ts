@@ -27,6 +27,47 @@ export interface DecimalNormalizationOptions {
  * decimal string: no leading '+', no trailing zeros beyond what's
  * needed, no scientific notation, at most `maxScale` fractional digits.
  */
+export function normalizePriceDecimal(
+  value: string | number,
+  maxScale: number,
+): string {
+  const raw = typeof value === "number" ? numberToDecimalString(value) : value.trim();
+
+  if (!DECIMAL_STRING_PATTERN.test(raw)) {
+    throw new InvalidPrecisionError(
+      `"${String(value)}" is not a valid decimal string.`,
+      { value, raw },
+    );
+  }
+
+  const negative = raw.startsWith("-");
+  const unsigned = negative ? raw.slice(1) : raw;
+  const [intPart = "0", fracPart = ""] = unsigned.split(".");
+
+  const trailingZeroCount = fracPart.length - fracPart.replace(/0+$/, "").length;
+  const significantScale = fracPart.length - trailingZeroCount;
+
+  if (significantScale > maxScale) {
+    throw new InvalidPrecisionError(
+      `"${raw}" has meaningful precision beyond ${maxScale} decimal places.`,
+      {
+        value,
+        actualScale: significantScale,
+        maxScale,
+      },
+    );
+  }
+
+  const normalizedInt = intPart.replace(/^0+(?=\d)/, "");
+  const normalizedFrac = fracPart.replace(/0+$/, "");
+
+  const sign = negative && normalizedInt !== "0" ? "-" : "";
+
+  return normalizedFrac
+    ? `${sign}${normalizedInt}.${normalizedFrac}`
+    : `${sign}${normalizedInt}`;
+}
+
 export function normalizeDecimal(value: string | number, options: DecimalNormalizationOptions): string {
   const raw = typeof value === "number" ? numberToDecimalString(value) : value.trim();
 

@@ -1,7 +1,9 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
+  Post,
   ParseUUIDPipe,
   Query,
   UseGuards,
@@ -13,6 +15,11 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import { MarketDataService } from "../services/market-data.service";
+import { InstrumentDiscoveryService } from "../services/instrument-discovery.service";
+import { InstrumentOnboardingService } from "../services/instrument-onboarding.service";
+import { InstrumentOnboardingDto } from "../dto/instrument-onboarding.dto";
+import { InstrumentProviderSearchDto } from "../dto/instrument-provider-search.dto";
+import { InstrumentProviderSearchResultDto } from "../dto/responses/instrument-provider-search-result.dto";
 import { InstrumentResponseDto } from "../dto/responses/instrument-response.dto";
 import { PaginationMetaDto } from "../dto/responses/pagination-meta.dto";
 import { InstrumentSearchDto } from "../dto/instrument-search.dto";
@@ -34,7 +41,11 @@ class InstrumentListResponseDto {
 @UseGuards(PermissionsGuard)
 @Controller("market-data/instruments")
 export class InstrumentController {
-  constructor(private readonly marketDataService: MarketDataService) {}
+  constructor(
+    private readonly marketDataService: MarketDataService,
+    private readonly instrumentDiscoveryService: InstrumentDiscoveryService,
+    private readonly instrumentOnboardingService: InstrumentOnboardingService,
+  ) {}
 
   @Get()
   @RequirePermissions("market-data.read")
@@ -68,6 +79,40 @@ export class InstrumentController {
     ]);
 
     return buildPaginatedResult(data, totalCount, page, pageSize);
+  }
+
+  @Get("search")
+  @RequirePermissions("market-data.read")
+  @ApiOperation({
+    operationId: "searchProviderInstrumentSymbols",
+    summary: "Search an external provider for instrument symbols.",
+    description:
+      "Read-only provider discovery. Search results are not persisted to the RMSM instrument universe.",
+  })
+  @ApiOkResponse({ type: [InstrumentProviderSearchResultDto] })
+  searchProviderSymbols(
+    @Query() query: InstrumentProviderSearchDto,
+  ): Promise<InstrumentProviderSearchResultDto[]> {
+    return this.instrumentDiscoveryService.searchProviderSymbols(
+      query.providerConfigId,
+      query.query,
+      query.limit,
+    );
+  }
+
+  @Post()
+  @RequirePermissions("market-data.admin.manage")
+  @ApiOperation({
+    operationId: "onboardInstrument",
+    summary: "Add one provider-discovered instrument to the RMSM universe.",
+    description:
+      "Explicit instrument onboarding. Creates or updates the canonical instrument and its provider alias. This does not synchronize the provider instrument universe.",
+  })
+  @ApiOkResponse({ type: InstrumentResponseDto })
+  onboard(
+    @Body() request: InstrumentOnboardingDto,
+  ): Promise<InstrumentResponseDto> {
+    return this.instrumentOnboardingService.onboard(request);
   }
 
   @Get(":id")

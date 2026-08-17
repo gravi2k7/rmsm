@@ -49,13 +49,14 @@ describe("TwelveDataMapper", () => {
   });
 
   describe("toNormalizedQuote (quotes)", () => {
-    it("maps bid/ask/last price and prefers the datetime field for eventTime", () => {
+    it("maps bid/ask/last price and prefers the numeric provider timestamp for eventTime and sourceTimestamp", () => {
       const response: TwelveDataQuoteResponse = {
         symbol: "AAPL",
         bid: "186.85",
         ask: "186.95",
         close: "186.90",
-        datetime: "2026-01-02 16:00:00",
+        datetime: "2026-01-02",
+        timestamp: 1767369600,
         status: "ok",
       };
 
@@ -66,13 +67,117 @@ describe("TwelveDataMapper", () => {
         bidPrice: "186.85",
         askPrice: "186.95",
         lastPrice: "186.90",
-        eventTime: new Date("2026-01-02T16:00:00Z"),
+        eventTime: new Date(1767369600 * 1000),
+        sourceTimestamp: new Date(1767369600 * 1000),
       });
     });
 
-    it("falls back to the numeric unix timestamp field when datetime is absent", () => {
-      const quote = mapper.toNormalizedQuote({ symbol: "AAPL", close: "186.90", timestamp: 1767369600 });
-      expect(quote.eventTime).toEqual(new Date(1767369600 * 1000));
+    it("falls back to datetime when the numeric unix timestamp is absent", () => {
+      const quote = mapper.toNormalizedQuote({
+        symbol: "AAPL",
+        close: "186.90",
+        datetime: "2026-01-02 16:00:00",
+      });
+
+      expect(quote.eventTime).toEqual(
+        new Date("2026-01-02T16:00:00Z"),
+      );
+      expect(quote.sourceTimestamp).toBeUndefined();
+    });
+
+    it("falls back to the current time when neither datetime nor timestamp is available", () => {
+      const before = new Date();
+      const quote = mapper.toNormalizedQuote({
+        symbol: "AAPL",
+        close: "186.90",
+      });
+      const after = new Date();
+
+      expect(quote.eventTime.getTime()).toBeGreaterThanOrEqual(
+        before.getTime(),
+      );
+      expect(quote.eventTime.getTime()).toBeLessThanOrEqual(
+        after.getTime(),
+      );
+      expect(quote.sourceTimestamp).toBeUndefined();
+    });
+  });
+
+  describe("toNormalizedCommodities (commodities)", () => {
+    it("normalizes Twelve Data commodities without currency or exchange fields", () => {
+      const result = mapper.toNormalizedCommodities({
+        status: "ok",
+        data: [
+          {
+            symbol: "XAU/USD",
+            name: "Gold Spot",
+          },
+          {
+            symbol: "XAU/EUR",
+            name: "Gold Spot",
+          },
+          {
+            symbol: "GAU/USD",
+            name: "Gold Gram",
+          },
+        ],
+      });
+
+      expect(result).toEqual([
+        {
+          providerSymbol: "XAU/USD",
+          name: "Gold Spot",
+          assetClass: "COMMODITY",
+          currency: "USD",
+          exchangeCode: undefined,
+        },
+        {
+          providerSymbol: "XAU/EUR",
+          name: "Gold Spot",
+          assetClass: "COMMODITY",
+          currency: "EUR",
+          exchangeCode: undefined,
+        },
+        {
+          providerSymbol: "GAU/USD",
+          name: "Gold Gram",
+          assetClass: "COMMODITY",
+          currency: "USD",
+          exchangeCode: undefined,
+        },
+      ]);
+    });
+
+    it("skips commodities when the quote currency cannot be determined", () => {
+      const result = mapper.toNormalizedCommodities({
+        status: "ok",
+        data: [
+          {
+            symbol: "XAU/USD",
+            name: "Gold Spot",
+          },
+          {
+            symbol: "HG1",
+            name: "Copper",
+          },
+        ],
+      });
+
+      expect(result).toEqual([
+        {
+          providerSymbol: "XAU/USD",
+          name: "Gold Spot",
+          assetClass: "COMMODITY",
+          currency: "USD",
+          exchangeCode: undefined,
+        },
+      ]);
+    });
+
+    it("returns an empty array when the commodities response has no data", () => {
+      expect(
+        mapper.toNormalizedCommodities({ status: "ok" }),
+      ).toEqual([]);
     });
   });
 

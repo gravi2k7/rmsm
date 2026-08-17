@@ -89,7 +89,7 @@ export interface SupportedTimeframeModel {
 
 export interface InstrumentModel {
   id: string;
-  exchangeId: string;
+  exchangeId: string | null;
   symbol: string;
   name: string;
   assetClass: AssetClass;

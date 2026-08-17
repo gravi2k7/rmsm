@@ -111,8 +111,23 @@ export class MarketDataService {
   }
 
   /** The current-value read path — excludes superseded correction rows (ADR-022), so callers never see stale data by accident. */
-  getCandles(instrumentId: string, interval: CandleInterval, from: Date, to: Date, limit = 1000): Promise<MarketCandleModel[]> {
-    const query: CandleRangeQuery = { instrumentId, interval, from, to, limit };
+  getCandles(
+    instrumentId: string,
+    interval: CandleInterval,
+    from: Date,
+    to: Date,
+    limit = 5000,
+    before?: Date,
+  ): Promise<MarketCandleModel[]> {
+    const query: CandleRangeQuery = {
+      instrumentId,
+      interval,
+      from,
+      to,
+      limit,
+      before,
+    };
+
     return this.candleRepository.findRangeCurrentValues(query);
   }
 

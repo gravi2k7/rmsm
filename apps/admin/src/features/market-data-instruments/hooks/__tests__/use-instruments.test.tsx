@@ -6,7 +6,11 @@ import { useInstruments, useExchanges } from "../use-instruments";
 
 describe("use-instruments hooks", () => {
   beforeEach(() => {
-    useAuthStore.setState({ accessToken: "token", refreshToken: "refresh", user: null });
+    useAuthStore.setState({
+      accessToken: "token",
+      refreshToken: "refresh",
+      user: null,
+    });
   });
 
   afterEach(() => {
@@ -14,39 +18,106 @@ describe("use-instruments hooks", () => {
     vi.unstubAllGlobals();
   });
 
-  /**
-   * Regression guard: `InstrumentController.list()` binds TWO @Query()
-   * parameters to two different DTO classes (InstrumentSearchDto,
-   * PaginationQueryDto). Under the API's global
-   * `forbidNonWhitelisted: true`, ANY query string — even just
-   * `pageSize` or `page` alone — 400s, because each DTO is validated
-   * against the full raw query object and rejects the other DTO's
-   * fields. Confirmed empirically against the real NestJS ValidationPipe
-   * + real DTOs. The only request shape this endpoint accepts is an
-   * empty query string, so this hook must never append one.
-   */
-  it("useInstruments calls the bare endpoint with no query string at all", async () => {
+  it("useInstruments sends server-side search and pagination parameters", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ data: [], pagination: { totalCount: 0, page: 1, pageSize: 50, totalPages: 0, hasNextPage: false, hasPreviousPage: false } }), { status: 200 }),
+      new Response(
+        JSON.stringify({
+          data: [],
+          pagination: {
+            totalCount: 0,
+            page: 1,
+            pageSize: 50,
+            totalPages: 0,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          },
+        }),
+        { status: 200 },
+      ),
     );
+
     vi.stubGlobal("fetch", fetchMock);
 
-    const { result } = renderHook(() => useInstruments(), { wrapper: withQueryClient() });
+    const { result } = renderHook(
+      () =>
+        useInstruments({
+          query: "XAU",
+          page: 1,
+          pageSize: 50,
+        }),
+      { wrapper: withQueryClient() },
+    );
+
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     const [url] = fetchMock.mock.calls[0] as [string];
-    expect(url).toMatch(/\/market-data\/instruments$/);
-    expect(url).not.toContain("?");
+    const parsed = new URL(url, "http://localhost");
+
+    expect(parsed.pathname).toMatch(/\/market-data\/instruments$/);
+    expect(parsed.searchParams.get("query")).toBe("XAU");
+    expect(parsed.searchParams.get("page")).toBe("1");
+    expect(parsed.searchParams.get("pageSize")).toBe("50");
+  });
+
+  it("useInstruments sends optional filters when provided", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: [],
+          pagination: {
+            totalCount: 0,
+            page: 1,
+            pageSize: 25,
+            totalPages: 0,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(
+      () =>
+        useInstruments({
+          query: "XAU",
+          assetClass: "COMMODITY",
+          status: "ACTIVE",
+          page: 1,
+          pageSize: 25,
+        }),
+      { wrapper: withQueryClient() },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const [url] = fetchMock.mock.calls[0] as [string];
+    const parsed = new URL(url, "http://localhost");
+
+    expect(parsed.searchParams.get("query")).toBe("XAU");
+    expect(parsed.searchParams.get("assetClass")).toBe("COMMODITY");
+    expect(parsed.searchParams.get("status")).toBe("ACTIVE");
+    expect(parsed.searchParams.get("page")).toBe("1");
+    expect(parsed.searchParams.get("pageSize")).toBe("25");
   });
 
   it("useExchanges calls the bare endpoint with no query string", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+
     vi.stubGlobal("fetch", fetchMock);
 
-    const { result } = renderHook(() => useExchanges(), { wrapper: withQueryClient() });
+    const { result } = renderHook(() => useExchanges(), {
+      wrapper: withQueryClient(),
+    });
+
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     const [url] = fetchMock.mock.calls[0] as [string];
+
     expect(url).toMatch(/\/market-data\/exchanges$/);
     expect(url).not.toContain("?");
   });

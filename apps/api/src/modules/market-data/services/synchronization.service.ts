@@ -36,17 +36,13 @@ export class SynchronizationService {
     now: Date = new Date(),
   ): Promise<SynchronizationResult> {
     const intervalMs = candleIntervalToMs(interval);
-    const lookbackWindow = new Date(now.getTime() - intervalMs * 5);
 
-    const recentCandles = await this.candleRepository.findRangeCurrentValues({
+    const latestCandle = await this.candleRepository.findLatestCurrentValue(
       instrumentId,
       interval,
-      from: lookbackWindow,
-      to: now,
-      limit: 10,
-    });
+    );
 
-    const latestEventTime = recentCandles.length > 0 ? this.latestOf(recentCandles.map((c) => c.eventTime)) : null;
+    const latestEventTime = latestCandle?.eventTime ?? null;
     const expectedLatestBy = new Date(now.getTime() - intervalMs);
 
     if (latestEventTime && latestEventTime.getTime() >= expectedLatestBy.getTime()) {
@@ -67,9 +63,5 @@ export class SynchronizationService {
     );
 
     return { synced: true, job, reason: latestEventTime ? "caught up to the gap since the last known candle" : "no prior data — backfilled a default window" };
-  }
-
-  private latestOf(dates: Date[]): Date {
-    return dates.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
   }
 }

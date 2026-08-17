@@ -45,7 +45,7 @@ describe("ReferenceDataSynchronizationService", () => {
     };
   }
 
-  it("synchronizes exchanges, instruments, and provider aliases", async () => {
+  it("synchronizes exchanges without importing the provider instrument universe", async () => {
     const {
       service,
       providerRegistry,
@@ -64,15 +64,7 @@ describe("ReferenceDataSynchronizationService", () => {
           country: "United States",
         },
       ]),
-      fetchInstrumentUniverse: jest.fn().mockResolvedValue([
-        {
-          providerSymbol: "AAPL",
-          name: "Apple Inc.",
-          assetClass: "EQUITY",
-          currency: "USD",
-          exchangeCode: "xnas",
-        },
-      ]),
+      fetchInstrumentUniverse: jest.fn(),
     };
 
     (providerRegistry.get as jest.Mock).mockReturnValue({
@@ -91,15 +83,6 @@ describe("ReferenceDataSynchronizationService", () => {
       code: "XNAS",
     });
 
-    (instrumentRepository.upsert as jest.Mock).mockResolvedValue({
-      id: "instrument-1",
-      symbol: "AAPL",
-    });
-
-    (instrumentAliasRepository.upsert as jest.Mock).mockResolvedValue({
-      id: "alias-1",
-    });
-
     const result = await service.synchronizeTwelveData();
 
     expect(providerRegistry.get).toHaveBeenCalledWith("TWELVE_DATA");
@@ -109,9 +92,10 @@ describe("ReferenceDataSynchronizationService", () => {
     );
 
     expect(referenceDataProvider.fetchExchanges).toHaveBeenCalledTimes(1);
-    expect(referenceDataProvider.fetchInstrumentUniverse).toHaveBeenCalledTimes(
-      1,
-    );
+
+    expect(
+      referenceDataProvider.fetchInstrumentUniverse,
+    ).not.toHaveBeenCalled();
 
     expect(exchangeRepository.upsert).toHaveBeenCalledWith({
       code: "XNAS",
@@ -120,147 +104,26 @@ describe("ReferenceDataSynchronizationService", () => {
       country: "United States",
     });
 
-    expect(instrumentRepository.upsert).toHaveBeenCalledWith({
-      exchangeId: "exchange-1",
-      symbol: "AAPL",
-      name: "Apple Inc.",
-      assetClass: "EQUITY",
-      currency: "USD",
-      isin: undefined,
-      cusip: undefined,
-    });
-
-    expect(instrumentAliasRepository.upsert).toHaveBeenCalledWith({
-      instrumentId: "instrument-1",
-      providerId: "provider-config-1",
-      providerSymbol: "AAPL",
-    });
+    expect(instrumentRepository.upsert).not.toHaveBeenCalled();
+    expect(instrumentAliasRepository.upsert).not.toHaveBeenCalled();
 
     expect(result).toEqual({
       providerType: "TWELVE_DATA",
       providerConfigId: "provider-config-1",
       exchangesProcessed: 1,
       exchangesCreatedOrUpdated: 1,
-      instrumentsProcessed: 1,
-      instrumentsCreatedOrUpdated: 1,
-      aliasesCreatedOrUpdated: 1,
+      instrumentsProcessed: 0,
+      instrumentsCreatedOrUpdated: 0,
+      aliasesCreatedOrUpdated: 0,
       skippedInstruments: 0,
       skippedReasons: [],
     });
-  });
-
-  it("skips instruments without an exchange code", async () => {
-    const {
-      service,
-      providerRegistry,
-      providerConfigRepository,
-      exchangeRepository,
-      instrumentRepository,
-      instrumentAliasRepository,
-    } = buildService();
-
-    (providerRegistry.get as jest.Mock).mockReturnValue({
-      type: "TWELVE_DATA",
-      enabled: true,
-      referenceDataProvider: {
-        fetchExchanges: jest.fn().mockResolvedValue([
-          {
-            code: "XNAS",
-            name: "NASDAQ",
-            timezone: "America/New_York",
-          },
-        ]),
-        fetchInstrumentUniverse: jest.fn().mockResolvedValue([
-          {
-            providerSymbol: "EUR/USD",
-            name: "EUR/USD",
-            assetClass: "FOREX",
-            currency: "USD",
-          },
-        ]),
-      },
-    });
-
-    (providerConfigRepository.findByType as jest.Mock).mockResolvedValue({
-      id: "provider-config-1",
-      type: "TWELVE_DATA",
-    });
-
-    (exchangeRepository.upsert as jest.Mock).mockResolvedValue({
-      id: "exchange-1",
-      code: "XNAS",
-    });
-
-    const result = await service.synchronizeTwelveData();
-
-    expect(instrumentRepository.upsert).not.toHaveBeenCalled();
-    expect(instrumentAliasRepository.upsert).not.toHaveBeenCalled();
-
-    expect(result.skippedInstruments).toBe(1);
-    expect(result.skippedReasons).toEqual([
-      "EUR/USD: provider did not supply an exchange code",
-    ]);
-  });
-
-  it("skips instruments whose exchange is absent from the provider exchange catalog", async () => {
-    const {
-      service,
-      providerRegistry,
-      providerConfigRepository,
-      exchangeRepository,
-      instrumentRepository,
-      instrumentAliasRepository,
-    } = buildService();
-
-    (providerRegistry.get as jest.Mock).mockReturnValue({
-      type: "TWELVE_DATA",
-      enabled: true,
-      referenceDataProvider: {
-        fetchExchanges: jest.fn().mockResolvedValue([
-          {
-            code: "XNAS",
-            name: "NASDAQ",
-            timezone: "America/New_York",
-          },
-        ]),
-        fetchInstrumentUniverse: jest.fn().mockResolvedValue([
-          {
-            providerSymbol: "LSE:VOD",
-            name: "Vodafone",
-            assetClass: "EQUITY",
-            currency: "GBP",
-            exchangeCode: "XLON",
-          },
-        ]),
-      },
-    });
-
-    (providerConfigRepository.findByType as jest.Mock).mockResolvedValue({
-      id: "provider-config-1",
-      type: "TWELVE_DATA",
-    });
-
-    (exchangeRepository.upsert as jest.Mock).mockResolvedValue({
-      id: "exchange-1",
-      code: "XNAS",
-    });
-
-    const result = await service.synchronizeTwelveData();
-
-    expect(instrumentRepository.upsert).not.toHaveBeenCalled();
-    expect(instrumentAliasRepository.upsert).not.toHaveBeenCalled();
-
-    expect(result.skippedInstruments).toBe(1);
-    expect(result.skippedReasons).toEqual([
-      'LSE:VOD: exchange "XLON" was not found in the provider exchange catalog',
-    ]);
   });
 
   it("fails when the provider does not expose reference-data capability", async () => {
     const {
       service,
       providerRegistry,
-      providerConfigRepository,
     } = buildService();
 
     (providerRegistry.get as jest.Mock).mockReturnValue({
@@ -268,11 +131,11 @@ describe("ReferenceDataSynchronizationService", () => {
       enabled: true,
     });
 
-    await expect(service.synchronizeTwelveData()).rejects.toThrow(
+    await expect(
+      service.synchronizeTwelveData(),
+    ).rejects.toThrow(
       'Provider "TWELVE_DATA" does not expose reference-data capabilities.',
     );
-
-    expect(providerConfigRepository.findByType).not.toHaveBeenCalled();
   });
 
   it("fails when no provider configuration exists", async () => {
@@ -293,7 +156,9 @@ describe("ReferenceDataSynchronizationService", () => {
 
     (providerConfigRepository.findByType as jest.Mock).mockResolvedValue(null);
 
-    await expect(service.synchronizeTwelveData()).rejects.toThrow(
+    await expect(
+      service.synchronizeTwelveData(),
+    ).rejects.toThrow(
       'No provider configuration exists for "TWELVE_DATA".',
     );
   });

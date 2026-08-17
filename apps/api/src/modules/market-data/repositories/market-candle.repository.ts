@@ -28,6 +28,7 @@ export interface CandleRangeQuery {
   from: Date;
   to: Date;
   limit: number;
+  before?: Date;
 }
 
 @Injectable()
@@ -96,13 +97,43 @@ export class MarketCandleRepository {
       where: {
         instrumentId: query.instrumentId,
         interval: query.interval,
-        eventTime: { gte: query.from, lte: query.to },
+        eventTime: {
+          gte: query.from,
+          lte: query.to,
+          ...(query.before ? { lt: query.before } : {}),
+        },
         supersededBy: null,
       },
-      orderBy: { eventTime: "asc" },
+      // Fetch the newest page first so a large requested range returns
+      // the latest candles. Reverse before returning to preserve the
+      // API contract of chronological ascending order.
+      orderBy: { eventTime: "desc" },
       take: query.limit,
     });
-    return rows.map(toMarketCandleModel);
+
+    return rows.reverse().map(toMarketCandleModel);
+  }
+
+  /**
+   * Returns the latest non-superseded candle for an instrument/interval.
+   * Synchronization uses this as the authoritative continuity point instead
+   * of searching an arbitrary recent time window.
+   */
+  async findLatestCurrentValue(
+    instrumentId: string,
+    interval: CandleInterval,
+    client: DbClient = prisma,
+  ): Promise<MarketCandleModel | null> {
+    const row = await client.marketCandle.findFirst({
+      where: {
+        instrumentId,
+        interval,
+        supersededBy: null,
+      },
+      orderBy: { eventTime: "desc" },
+    });
+
+    return row ? toMarketCandleModel(row) : null;
   }
 
   /** Every row in a correction's history for one logical candle, oldest first — the full audit trail, not just the current value. */

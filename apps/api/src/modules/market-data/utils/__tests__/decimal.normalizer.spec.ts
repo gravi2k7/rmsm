@@ -50,3 +50,25 @@ describe("normalizeDecimal", () => {
     expect(normalizeDecimal("-0.00", { maxScale: 10, allowNegative: true })).toBe("0");
   });
 });
+
+describe("instrument price precision", () => {
+  it("supports EUR/USD 5-decimal precision", () => {
+    expect(normalizeDecimal("1.10170", { maxScale: 5 })).toBe("1.1017");
+  });
+
+  it("supports GBP/USD 5-decimal precision", () => {
+    expect(normalizeDecimal("1.35120", { maxScale: 5 })).toBe("1.3512");
+  });
+
+  it("supports AUD/USD 5-decimal precision", () => {
+    expect(normalizeDecimal("0.70580", { maxScale: 5 })).toBe("0.7058");
+  });
+
+  it("supports USD/JPY 2-decimal precision", () => {
+    expect(normalizeDecimal("148.37", { maxScale: 2 })).toBe("148.37");
+  });
+
+  it("supports XAU/USD 2-decimal precision", () => {
+    expect(normalizeDecimal("3345.12", { maxScale: 2 })).toBe("3345.12");
+  });
+});

@@ -55,11 +55,23 @@ export class CandleQueryDto {
   @IsISO8601()
   to!: string;
 
-  @ApiPropertyOptional({ default: 500, maximum: 5000 })
+  @ApiPropertyOptional({
+    default: 5000,
+    maximum: 5000,
+    description: "Maximum number of candles to return.",
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(5000)
-  limit?: number = 500;
+  limit?: number = 5000;
+
+  @ApiPropertyOptional({
+    description:
+      "Return candles strictly older than this UTC candle event time. Used for historical pagination.",
+  })
+  @IsOptional()
+  @IsISO8601()
+  before?: string;
 }
