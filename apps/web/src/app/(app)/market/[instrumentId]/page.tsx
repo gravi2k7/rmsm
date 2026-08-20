@@ -66,6 +66,9 @@ import {
 } from "@/features/market/components/market-chart-workspace-controls";
 import { DRAWING_TOOL_DEFINITIONS } from "@/features/market/drawings/registry";
 import { useWatchlistStore } from "@/features/watchlists/store";
+import {
+  useMarketWorkspaceStore,
+} from "@/features/market/store";
 
 const INITIAL_CANDLE_LIMIT = 5000;
 const HISTORICAL_PAGE_SIZE = 5000;
@@ -200,6 +203,26 @@ export default function InstrumentChartPage() {
   const params = useParams<{ instrumentId: string }>();
   const instrumentId = params.instrumentId;
 
+  const persistedWorkspace = useMarketWorkspaceStore(
+    (state) =>
+      instrumentId
+        ? state.workspaces[instrumentId]
+        : undefined,
+  );
+
+  const setPersistedWorkspace =
+    useMarketWorkspaceStore(
+      (state) => state.setWorkspace,
+    );
+
+  const resetPersistedWorkspace =
+    useMarketWorkspaceStore(
+      (state) => state.resetWorkspace,
+    );
+
+  const [workspaceHydrated, setWorkspaceHydrated] =
+    useState(false);
+
   const [interval, setInterval] = useState<CandleInterval>("ONE_MINUTE");
   const [activeDrawingTool, setActiveDrawingTool] =
     useState<DrawingType>("SELECT");
@@ -232,6 +255,66 @@ export default function InstrumentChartPage() {
 
   const [indicators, setIndicators] =
     useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
+
+  useEffect(() => {
+    if (!instrumentId || workspaceHydrated) {
+      return;
+    }
+
+    if (persistedWorkspace) {
+      setInterval(persistedWorkspace.interval);
+      setActiveDrawingTool(
+        persistedWorkspace.activeDrawingTool,
+      );
+      setVolumeVisible(
+        persistedWorkspace.volumeVisible,
+      );
+      setChartLayout(
+        persistedWorkspace.chartLayout,
+      );
+
+      if (persistedWorkspace.indicators.length > 0) {
+        setIndicators(
+          persistedWorkspace.indicators,
+        );
+      }
+
+      setDrawingState(
+        persistedWorkspace.drawingState,
+      );
+    }
+
+    setWorkspaceHydrated(true);
+  }, [
+    instrumentId,
+    persistedWorkspace,
+    workspaceHydrated,
+  ]);
+
+  useEffect(() => {
+    if (!instrumentId || !workspaceHydrated) {
+      return;
+    }
+
+    setPersistedWorkspace(instrumentId, {
+      interval,
+      activeDrawingTool,
+      volumeVisible,
+      chartLayout,
+      indicators,
+      drawingState,
+    });
+  }, [
+    instrumentId,
+    workspaceHydrated,
+    interval,
+    activeDrawingTool,
+    volumeVisible,
+    chartLayout,
+    indicators,
+    drawingState,
+    setPersistedWorkspace,
+  ]);
 
   const instrumentQuery = useInstrument(instrumentId);
   const quotesQuery = useQuotes(instrumentId ? [instrumentId] : []);
@@ -352,10 +435,16 @@ export default function InstrumentChartPage() {
   const isFavorite = favorites.includes(instrumentId);
 
   const handleResetChartWorkspace = () => {
-    setChartLayout("CHART_WITH_PANES");
+    setChartLayout("SPLIT");
     setVolumeVisible(true);
     setIndicators(DEFAULT_INDICATORS);
+    setActiveDrawingTool("SELECT");
+    setDrawingState(createDrawingState("SELECT"));
     chartViewControlsRef.current?.resetView();
+
+    if (instrumentId) {
+      resetPersistedWorkspace(instrumentId);
+    }
   };
 
   const toggleIndicator = (id: string) => {
