@@ -4,16 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft,
-  ArrowUpRight,
-  Minus,
-  MousePointer2,
-  MoveUpRight,
-  MoveVertical,
-  PenTool,
-  Square,
   Star,
-  Type,
-  TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -59,12 +50,12 @@ import {
 } from "@/features/market/drawings/state";
 
 import { MarketDrawingObjectManager } from "@/features/market/components/market-drawing-object-manager";
+import { MarketDrawingToolsMenu } from "@/features/market/components/market-drawing-tools-menu";
 import { MarketChartViewControls } from "@/features/market/components/market-chart-view-controls";
 import {
   MarketChartWorkspaceControls,
   type MarketChartLayout,
 } from "@/features/market/components/market-chart-workspace-controls";
-import { DRAWING_TOOL_DEFINITIONS } from "@/features/market/drawings/registry";
 import { useWatchlistStore } from "@/features/watchlists/store";
 import {
   useMarketWorkspaceStore,
@@ -72,40 +63,6 @@ import {
 
 const INITIAL_CANDLE_LIMIT = 5000;
 const HISTORICAL_PAGE_SIZE = 5000;
-
-const DRAWING_TOOL_ICONS = {
-  SELECT: MousePointer2,
-  TREND_LINE: TrendingUp,
-  HORIZONTAL_LINE: Minus,
-  VERTICAL_LINE: MoveVertical,
-  RAY: MoveUpRight,
-  RECTANGLE: Square,
-  ARROW: ArrowUpRight,
-  TEXT: Type,
-
-  PARALLEL_CHANNEL: MoveUpRight,
-  PRICE_CHANNEL: MoveVertical,
-  REGRESSION_CHANNEL: TrendingUp,
-
-  FIB_RETRACEMENT: Star,
-  FIB_EXTENSION: Star,
-  FIB_PROJECTION: Star,
-  FIB_TIME: Star,
-
-  ABCD: Square,
-  XABCD: Square,
-  HEAD_SHOULDERS: Star,
-  TRIANGLE: Square,
-  WEDGE: Square,
-
-  FORECAST: TrendingUp,
-  PROJECTION: ArrowUpRight,
-
-  MEASURE_PRICE: Minus,
-  MEASURE_TIME: MoveVertical,
-  MEASURE_PRICE_TIME: MoveUpRight,
-  MEASURE_RANGE: Square,
-} as const;
 
 const TIMEFRAMES: Array<{
   value: CandleInterval;
@@ -718,21 +675,13 @@ export default function InstrumentChartPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative" role="group" aria-label="Drawing tools">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={activeDrawingTool !== "SELECT" ? "default" : "ghost"}
-                  aria-label="Drawing tools"
-                  aria-expanded={drawingToolsOpen}
-                  title="Drawing tools"
-                  onClick={() =>
-                    setDrawingToolsOpen((open) => !open)
-                  }
-                >
-                  <PenTool className="mr-1 h-4 w-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Draw</span>
-                </Button>
+              <div className="flex items-center gap-1">
+                <MarketDrawingToolsMenu
+                  activeDrawingTool={activeDrawingTool}
+                  open={drawingToolsOpen}
+                  onOpenChange={setDrawingToolsOpen}
+                  onSelectTool={setActiveDrawingTool}
+                />
 
                 <div className="relative">
                   <Button
@@ -793,41 +742,6 @@ export default function InstrumentChartPage() {
                     </div>
                   )}
                 </div>
-
-                {drawingToolsOpen && (
-                  <div
-                    className="absolute right-0 top-full z-50 mt-1 grid w-56 grid-cols-4 gap-1 rounded-md border bg-popover p-1 shadow-lg"
-                    role="toolbar"
-                    aria-label="Drawing tools"
-                  >
-                    {DRAWING_TOOL_DEFINITIONS.map((tool) => {
-                      const active = tool.type === activeDrawingTool;
-                      const Icon = DRAWING_TOOL_ICONS[tool.type];
-
-                      return (
-                        <Button
-                          key={tool.type}
-                          type="button"
-                          size="icon"
-                          variant={active ? "default" : "ghost"}
-                          className="h-10 w-10"
-                          aria-label={tool.label}
-                          aria-pressed={active}
-                          title={tool.label}
-                          onClick={() => {
-                            setActiveDrawingTool(tool.type);
-                            setDrawingToolsOpen(false);
-                          }}
-                        >
-                          <Icon
-                            className="h-4 w-4"
-                            aria-hidden="true"
-                          />
-                        </Button>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
 
                 <MarketChartWorkspaceControls
@@ -901,6 +815,7 @@ export default function InstrumentChartPage() {
                     activeDrawingTool={activeDrawingTool}
                     drawingState={drawingState}
                     onDrawingStateChange={setDrawingState}
+                    onRequestOlder={requestOlderCandles}
                   />
                   </div>
 
