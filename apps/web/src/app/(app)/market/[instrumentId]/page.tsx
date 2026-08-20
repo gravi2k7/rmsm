@@ -60,6 +60,10 @@ import {
 
 import { MarketDrawingObjectManager } from "@/features/market/components/market-drawing-object-manager";
 import { MarketChartViewControls } from "@/features/market/components/market-chart-view-controls";
+import {
+  MarketChartWorkspaceControls,
+  type MarketChartLayout,
+} from "@/features/market/components/market-chart-workspace-controls";
 import { DRAWING_TOOL_DEFINITIONS } from "@/features/market/drawings/registry";
 import { useWatchlistStore } from "@/features/watchlists/store";
 
@@ -221,6 +225,10 @@ export default function InstrumentChartPage() {
   const [volumeVisible, setVolumeVisible] =
     useState(true);
 
+  const [chartLayout, setChartLayout] =
+    useState<MarketChartLayout>("CHART_WITH_PANES");
+
+
 
   const [indicators, setIndicators] =
     useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
@@ -342,6 +350,13 @@ export default function InstrumentChartPage() {
     (s) => s.recordRecentlyViewed,
   );
   const isFavorite = favorites.includes(instrumentId);
+
+  const handleResetChartWorkspace = () => {
+    setChartLayout("CHART_WITH_PANES");
+    setVolumeVisible(true);
+    setIndicators(DEFAULT_INDICATORS);
+    chartViewControlsRef.current?.resetView();
+  };
 
   const toggleIndicator = (id: string) => {
     setIndicators((current) =>
@@ -698,6 +713,14 @@ export default function InstrumentChartPage() {
                 )}
               </div>
 
+                <MarketChartWorkspaceControls
+                  layout={chartLayout}
+                  onLayoutChange={setChartLayout}
+                  onResetWorkspace={
+                    handleResetChartWorkspace
+                  }
+                />
+
                 <MarketChartViewControls
                   volumeVisible={volumeVisible}
                   onFitContent={() =>
@@ -764,7 +787,7 @@ export default function InstrumentChartPage() {
                   />
                   </div>
 
-                  {visiblePaneIndicators.map((indicator) => (
+                  {chartLayout !== "CHART_ONLY" && visiblePaneIndicators.map((indicator) => (
                     <MarketIndicatorPane
                       key={indicator.id}
                       candles={displayCandles.map((candle) => ({
