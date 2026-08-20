@@ -169,8 +169,8 @@ export function MarketDrawingToolsMenu({
           role="menu"
           aria-label="Drawing tools"
           className={cn(
-            "absolute right-0 top-full z-50 mt-2",
-            "w-[320px] rounded-lg border bg-popover p-2",
+            "absolute left-0 top-full z-50 mt-2",
+            "w-[320px] max-w-[min(320px,calc(100vw-2rem))] rounded-lg border bg-popover p-2",
             "shadow-xl",
           )}
         >

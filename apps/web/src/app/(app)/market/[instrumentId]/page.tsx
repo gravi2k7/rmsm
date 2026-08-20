@@ -51,6 +51,7 @@ import {
 
 import { MarketDrawingObjectManager } from "@/features/market/components/market-drawing-object-manager";
 import { MarketDrawingToolsMenu } from "@/features/market/components/market-drawing-tools-menu";
+import { MarketTimeframeMenu } from "@/features/market/components/market-timeframe-menu";
 import { MarketChartViewControls } from "@/features/market/components/market-chart-view-controls";
 import {
   MarketChartWorkspaceControls,
@@ -651,28 +652,11 @@ export default function InstrumentChartPage() {
       <Card className="min-h-0 flex-1">
         <CardContent className="flex h-full min-h-0 flex-col p-2">
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-2 pb-2">
-            <div
-              className="flex items-center gap-1"
-              role="group"
-              aria-label="Chart timeframe"
-            >
-              {TIMEFRAMES.map((timeframe) => {
-                const active = timeframe.value === interval;
-
-                return (
-                  <Button
-                    key={timeframe.value}
-                    type="button"
-                    size="sm"
-                    variant={active ? "default" : "ghost"}
-                    aria-pressed={active}
-                    onClick={() => setInterval(timeframe.value)}
-                  >
-                    {timeframe.label}
-                  </Button>
-                );
-              })}
-            </div>
+            <MarketTimeframeMenu
+              value={interval}
+              options={TIMEFRAMES}
+              onChange={setInterval}
+            />
 
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1">
@@ -788,9 +772,7 @@ export default function InstrumentChartPage() {
                 }}
               />
 
-              <span className="text-xs text-muted-foreground">
-                {selectedTimeframe.label} · {candlesQuery.data?.length ?? 0} candles
-              </span>
+
             </div>
           </div>
 
