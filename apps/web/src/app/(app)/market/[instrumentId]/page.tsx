@@ -40,7 +40,25 @@ import {
 } from "@/features/market/indicators/config";
 import type { Candle, CandleInterval } from "@/features/market/types";
 import { toNumber } from "@/features/market/types";
-import type { DrawingType } from "@/features/market/drawings/types";
+import type {
+  DrawingState,
+  DrawingType,
+} from "@/features/market/drawings/types";
+
+import {
+  bringDrawingForward,
+  bringDrawingToFront,
+  createDrawingState,
+  duplicateDrawing,
+  removeDrawing,
+  selectDrawing,
+  sendDrawingBackward,
+  sendDrawingToBack,
+  setDrawingLocked,
+  setDrawingVisibility,
+} from "@/features/market/drawings/state";
+
+import { MarketDrawingObjectManager } from "@/features/market/components/market-drawing-object-manager";
 import { DRAWING_TOOL_DEFINITIONS } from "@/features/market/drawings/registry";
 import { useWatchlistStore } from "@/features/watchlists/store";
 
@@ -184,6 +202,14 @@ export default function InstrumentChartPage() {
   const [drawingToolsOpen, setDrawingToolsOpen] =
     useState(false);
 
+  const [drawingObjectsOpen, setDrawingObjectsOpen] =
+    useState(false);
+
+  const [drawingState, setDrawingState] =
+    useState<DrawingState>(() =>
+      createDrawingState("SELECT"),
+    );
+
   const [indicators, setIndicators] =
     useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
 
@@ -313,6 +339,109 @@ export default function InstrumentChartPage() {
           : indicator,
       ),
     );
+  };
+
+  const handleDrawingSelect = (
+    id: string | null,
+  ) => {
+    setDrawingState((state) =>
+      selectDrawing(state, id),
+    );
+  };
+
+  const handleDrawingVisibility = (
+    id: string,
+    visible: boolean,
+  ) => {
+    setDrawingState((state) =>
+      setDrawingVisibility(state, id, visible),
+    );
+  };
+
+  const handleDrawingLock = (
+    id: string,
+    locked: boolean,
+  ) => {
+    setDrawingState((state) =>
+      setDrawingLocked(state, id, locked),
+    );
+  };
+
+  const handleDrawingDuplicate = (id: string) => {
+    setDrawingState((state) =>
+      duplicateDrawing(state, id),
+    );
+  };
+
+  const handleDrawingDelete = (id: string) => {
+    setDrawingState((state) =>
+      removeDrawing(state, id),
+    );
+  };
+
+  const handleDrawingBringForward = (id: string) => {
+    setDrawingState((state) =>
+      bringDrawingForward(state, id),
+    );
+  };
+
+  const handleDrawingSendBackward = (id: string) => {
+    setDrawingState((state) =>
+      sendDrawingBackward(state, id),
+    );
+  };
+
+  const handleDrawingBringToFront = (id: string) => {
+    setDrawingState((state) =>
+      bringDrawingToFront(state, id),
+    );
+  };
+
+  const handleDrawingSendToBack = (id: string) => {
+    setDrawingState((state) =>
+      sendDrawingToBack(state, id),
+    );
+  };
+
+  const handleShowAllDrawings = () => {
+    setDrawingState((state) => ({
+      ...state,
+      drawings: state.drawings.map((drawing) => ({
+        ...drawing,
+        visible: true,
+      })),
+    }));
+  };
+
+  const handleHideAllDrawings = () => {
+    setDrawingState((state) => ({
+      ...state,
+      drawings: state.drawings.map((drawing) => ({
+        ...drawing,
+        visible: false,
+      })),
+    }));
+  };
+
+  const handleDeleteAllDrawings = () => {
+    setDrawingState((state) => {
+      const drawings = state.drawings.filter(
+        (drawing) => drawing.locked,
+      );
+
+      return {
+        ...state,
+        drawings,
+        selectedDrawingId:
+          state.selectedDrawingId &&
+          drawings.some(
+            (drawing) =>
+              drawing.id === state.selectedDrawingId,
+          )
+            ? state.selectedDrawingId
+            : null,
+      };
+    });
   };
 
   const visiblePaneIndicators = indicators.filter(
@@ -461,6 +590,66 @@ export default function InstrumentChartPage() {
                   <span className="hidden sm:inline">Draw</span>
                 </Button>
 
+                <div className="relative">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    aria-expanded={drawingObjectsOpen}
+                    aria-controls="market-chart-objects"
+                    onClick={() =>
+                      setDrawingObjectsOpen(
+                        (open) => !open,
+                      )
+                    }
+                  >
+                    Objects
+                  </Button>
+
+                  {drawingObjectsOpen && (
+                    <div
+                      id="market-chart-objects"
+                      className="absolute right-0 top-full z-50 mt-1"
+                    >
+                      <MarketDrawingObjectManager
+                        state={drawingState}
+                        onSelect={handleDrawingSelect}
+                        onVisibilityChange={
+                          handleDrawingVisibility
+                        }
+                        onLockChange={
+                          handleDrawingLock
+                        }
+                        onDuplicate={
+                          handleDrawingDuplicate
+                        }
+                        onDelete={handleDrawingDelete}
+                        onBringForward={
+                          handleDrawingBringForward
+                        }
+                        onSendBackward={
+                          handleDrawingSendBackward
+                        }
+                        onBringToFront={
+                          handleDrawingBringToFront
+                        }
+                        onSendToBack={
+                          handleDrawingSendToBack
+                        }
+                        onShowAll={
+                          handleShowAllDrawings
+                        }
+                        onHideAll={
+                          handleHideAllDrawings
+                        }
+                        onDeleteAll={
+                          handleDeleteAllDrawings
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+
                 {drawingToolsOpen && (
                   <div
                     className="absolute right-0 top-full z-50 mt-1 grid w-56 grid-cols-4 gap-1 rounded-md border bg-popover p-1 shadow-lg"
@@ -533,13 +722,12 @@ export default function InstrumentChartPage() {
                 <div className="flex h-full min-h-0 flex-col gap-2">
                   <div className="min-h-0 flex-1">
                     <RMSMCandlestickChart
-                      candles={displayCandles}
-                      indicators={indicators}
-                      activeDrawingTool={activeDrawingTool}
-                      liveQuote={quote}
-                      interval={interval}
-                      onRequestOlder={requestOlderCandles}
-                    />
+                    candles={displayCandles}
+                    indicators={indicators}
+                    activeDrawingTool={activeDrawingTool}
+                    drawingState={drawingState}
+                    onDrawingStateChange={setDrawingState}
+                  />
                   </div>
 
                   {visiblePaneIndicators.map((indicator) => (

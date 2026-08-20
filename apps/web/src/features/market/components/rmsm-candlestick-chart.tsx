@@ -45,6 +45,7 @@ interface RMSMCandlestickChartProps {
   interval?: CandleInterval;
   onRequestOlder?: () => void;
   activeDrawingTool?: DrawingType;
+  drawingState?: DrawingState;
   onDrawingStateChange?: (state: DrawingState) => void;
 }
 
@@ -71,6 +72,7 @@ export function RMSMCandlestickChart({
   interval = "ONE_MINUTE",
   onRequestOlder,
   activeDrawingTool = "SELECT",
+  drawingState: controlledDrawingState,
   onDrawingStateChange,
 }: RMSMCandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -82,9 +84,34 @@ export function RMSMCandlestickChart({
   const previousCandleCountRef = useRef(0);
   const initialDataLoadedRef = useRef(false);
 
-  const [drawingState, setDrawingState] = useState(() =>
-    createDrawingState(activeDrawingTool),
-  );
+  const [internalDrawingState, setInternalDrawingState] =
+    useState(() =>
+      createDrawingState(activeDrawingTool),
+    );
+
+  const drawingState =
+    controlledDrawingState ?? internalDrawingState;
+
+  const setDrawingState = (
+    nextState:
+      | DrawingState
+      | ((state: DrawingState) => DrawingState),
+  ) => {
+    if (controlledDrawingState === undefined) {
+      setInternalDrawingState(nextState);
+      return;
+    }
+
+    const current =
+      drawingStateRef.current;
+
+    const resolved =
+      typeof nextState === "function"
+        ? nextState(current)
+        : nextState;
+
+    onDrawingStateChange?.(resolved);
+  };
   const [, setPendingDrawingPoints] = useState<DrawingPoint[]>([]);
 
   const drawingStateRef = useRef(drawingState);
