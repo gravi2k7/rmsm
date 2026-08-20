@@ -220,8 +220,8 @@ export default function InstrumentChartPage() {
       (state) => state.resetWorkspace,
     );
 
-  const [workspaceHydrated, setWorkspaceHydrated] =
-    useState(false);
+  const [workspaceHydratedForInstrument, setWorkspaceHydratedForInstrument] =
+    useState<string | null>(null);
 
   const [interval, setInterval] = useState<CandleInterval>("ONE_MINUTE");
   const [activeDrawingTool, setActiveDrawingTool] =
@@ -257,7 +257,11 @@ export default function InstrumentChartPage() {
     useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
 
   useEffect(() => {
-    if (!instrumentId || workspaceHydrated) {
+    if (!instrumentId) {
+      return;
+    }
+
+    if (workspaceHydratedForInstrument === instrumentId) {
       return;
     }
 
@@ -273,26 +277,43 @@ export default function InstrumentChartPage() {
         persistedWorkspace.chartLayout,
       );
 
-      if (persistedWorkspace.indicators.length > 0) {
-        setIndicators(
-          persistedWorkspace.indicators,
-        );
-      }
-
-      setDrawingState(
-        persistedWorkspace.drawingState,
+      setIndicators(
+        persistedWorkspace.indicators.map(
+          (indicator) => ({ ...indicator }),
+        ),
       );
+
+      setDrawingState({
+        ...persistedWorkspace.drawingState,
+        drawings: persistedWorkspace.drawingState.drawings.map(
+          (drawing) => ({ ...drawing }),
+        ),
+      });
+    } else {
+      setInterval("ONE_MINUTE");
+      setActiveDrawingTool("SELECT");
+      setVolumeVisible(true);
+      setChartLayout("CHART_WITH_PANES");
+      setIndicators(
+        DEFAULT_INDICATORS.map(
+          (indicator) => ({ ...indicator }),
+        ),
+      );
+      setDrawingState(createDrawingState("SELECT"));
     }
 
-    setWorkspaceHydrated(true);
+    setWorkspaceHydratedForInstrument(instrumentId);
   }, [
     instrumentId,
     persistedWorkspace,
-    workspaceHydrated,
+    workspaceHydratedForInstrument,
   ]);
 
   useEffect(() => {
-    if (!instrumentId || !workspaceHydrated) {
+    if (
+      !instrumentId ||
+      workspaceHydratedForInstrument !== instrumentId
+    ) {
       return;
     }
 
@@ -301,12 +322,19 @@ export default function InstrumentChartPage() {
       activeDrawingTool,
       volumeVisible,
       chartLayout,
-      indicators,
-      drawingState,
+      indicators: indicators.map(
+        (indicator) => ({ ...indicator }),
+      ),
+      drawingState: {
+        ...drawingState,
+        drawings: drawingState.drawings.map(
+          (drawing) => ({ ...drawing }),
+        ),
+      },
     });
   }, [
     instrumentId,
-    workspaceHydrated,
+    workspaceHydratedForInstrument,
     interval,
     activeDrawingTool,
     volumeVisible,
