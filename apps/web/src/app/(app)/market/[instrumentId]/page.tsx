@@ -2,7 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Star } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  Minus,
+  MousePointer2,
+  MoveUpRight,
+  MoveVertical,
+  PenTool,
+  Square,
+  Star,
+  Type,
+  TrendingUp,
+} from "lucide-react";
 import Link from "next/link";
 import {
   Alert,
@@ -26,29 +38,151 @@ import {
   DEFAULT_INDICATORS,
   type IndicatorConfig,
 } from "@/features/market/indicators/config";
-import type { CandleInterval } from "@/features/market/types";
+import type { Candle, CandleInterval } from "@/features/market/types";
 import { toNumber } from "@/features/market/types";
+import type { DrawingType } from "@/features/market/drawings/types";
+import { DRAWING_TOOL_DEFINITIONS } from "@/features/market/drawings/registry";
 import { useWatchlistStore } from "@/features/watchlists/store";
+
+const INITIAL_CANDLE_LIMIT = 5000;
+const HISTORICAL_PAGE_SIZE = 5000;
+
+const DRAWING_TOOL_ICONS = {
+  SELECT: MousePointer2,
+  TREND_LINE: TrendingUp,
+  HORIZONTAL_LINE: Minus,
+  VERTICAL_LINE: MoveVertical,
+  RAY: MoveUpRight,
+  RECTANGLE: Square,
+  ARROW: ArrowUpRight,
+  TEXT: Type,
+
+  PARALLEL_CHANNEL: MoveUpRight,
+  PRICE_CHANNEL: MoveVertical,
+  REGRESSION_CHANNEL: TrendingUp,
+
+  FIB_RETRACEMENT: Star,
+  FIB_EXTENSION: Star,
+  FIB_PROJECTION: Star,
+  FIB_TIME: Star,
+
+  ABCD: Square,
+  XABCD: Square,
+  HEAD_SHOULDERS: Star,
+  TRIANGLE: Square,
+  WEDGE: Square,
+
+  FORECAST: TrendingUp,
+  PROJECTION: ArrowUpRight,
+
+  MEASURE_PRICE: Minus,
+  MEASURE_TIME: MoveVertical,
+  MEASURE_PRICE_TIME: MoveUpRight,
+  MEASURE_RANGE: Square,
+} as const;
 
 const TIMEFRAMES: Array<{
   value: CandleInterval;
   label: string;
-  lookbackHours: number;
+  history: {
+    years?: number;
+    months?: number;
+    days?: number;
+  };
+  initialLimit: number;
 }> = [
-  { value: "ONE_MINUTE", label: "1m", lookbackHours: 1 },
-  { value: "FIVE_MINUTES", label: "5m", lookbackHours: 4 },
-  { value: "FIFTEEN_MINUTES", label: "15m", lookbackHours: 12 },
-  { value: "THIRTY_MINUTES", label: "30m", lookbackHours: 24 },
-  { value: "ONE_HOUR", label: "1H", lookbackHours: 48 },
-  { value: "FOUR_HOURS", label: "4H", lookbackHours: 24 * 14 },
-  { value: "ONE_DAY", label: "1D", lookbackHours: 24 * 90 },
+  {
+    value: "ONE_MINUTE",
+    label: "1m",
+    history: { days: 30 },
+    initialLimit: INITIAL_CANDLE_LIMIT,
+  },
+  {
+    value: "FIVE_MINUTES",
+    label: "5m",
+    history: { days: 60 },
+    initialLimit: INITIAL_CANDLE_LIMIT,
+  },
+  {
+    value: "FIFTEEN_MINUTES",
+    label: "15m",
+    history: { months: 6 },
+    initialLimit: INITIAL_CANDLE_LIMIT,
+  },
+  {
+    value: "THIRTY_MINUTES",
+    label: "30m",
+    history: { years: 1 },
+    initialLimit: INITIAL_CANDLE_LIMIT,
+  },
+  {
+    value: "ONE_HOUR",
+    label: "1H",
+    history: { years: 2 },
+    initialLimit: INITIAL_CANDLE_LIMIT,
+  },
+  {
+    value: "FOUR_HOURS",
+    label: "4H",
+    history: { years: 4 },
+    initialLimit: INITIAL_CANDLE_LIMIT,
+  },
+  {
+    value: "ONE_DAY",
+    label: "1D",
+    history: { years: 5 },
+    initialLimit: 1825,
+  },
+  {
+    value: "ONE_WEEK",
+    label: "1W",
+    history: { years: 10 },
+    initialLimit: 520,
+  },
+  {
+    value: "ONE_MONTH",
+    label: "1M",
+    history: { years: 10 },
+    initialLimit: 120,
+  },
 ];
+
+function getHistoryStart(
+  end: Date,
+  history: {
+    years?: number;
+    months?: number;
+    days?: number;
+  },
+): Date {
+  const start = new Date(end);
+
+  if (history.years) {
+    start.setFullYear(start.getFullYear() - history.years);
+  }
+
+  if (history.months) {
+    start.setMonth(start.getMonth() - history.months);
+  }
+
+  if (history.days) {
+    start.setDate(start.getDate() - history.days);
+  }
+
+  return start;
+}
+
 
 export default function InstrumentChartPage() {
   const params = useParams<{ instrumentId: string }>();
   const instrumentId = params.instrumentId;
 
   const [interval, setInterval] = useState<CandleInterval>("ONE_MINUTE");
+  const [activeDrawingTool, setActiveDrawingTool] =
+    useState<DrawingType>("SELECT");
+
+  const [drawingToolsOpen, setDrawingToolsOpen] =
+    useState(false);
 
   const [indicators, setIndicators] =
     useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
@@ -64,26 +198,105 @@ export default function InstrumentChartPage() {
     [interval],
   );
 
+  const [olderCursor, setOlderCursor] = useState<string | undefined>();
+  const [loadedCandles, setLoadedCandles] = useState<Candle[]>([]);
+  const [hasMoreOlder, setHasMoreOlder] = useState(true);
+
   const candleParams = useMemo(() => {
     if (!instrumentId) {
       return null;
     }
 
     const to = new Date();
-    const from = new Date(
-      to.getTime() - selectedTimeframe.lookbackHours * 60 * 60 * 1000,
-    );
+    const from = getHistoryStart(to, selectedTimeframe.history);
 
     return {
       instrumentId,
       interval,
       from: from.toISOString(),
       to: to.toISOString(),
-      limit: 500,
+      limit: olderCursor
+        ? HISTORICAL_PAGE_SIZE
+        : selectedTimeframe.initialLimit,
+      before: olderCursor,
     };
-  }, [instrumentId, interval, selectedTimeframe]);
+  }, [
+    instrumentId,
+    interval,
+    selectedTimeframe,
+    olderCursor,
+  ]);
 
   const candlesQuery = useCandles(candleParams);
+
+  // Render the active timeframe query directly.
+  // Only use accumulated candles while paging backwards for older history.
+  const displayCandles =
+    olderCursor !== undefined
+      ? loadedCandles
+      : (candlesQuery.data ?? []);
+
+  // A timeframe/instrument change starts a new candle history window.
+  // Reset pagination state first; the synchronization effect below then
+  // loads the current query page for the newly selected timeframe.
+  useEffect(() => {
+    setOlderCursor(undefined);
+    setLoadedCandles([]);
+    setHasMoreOlder(true);
+  }, [instrumentId, interval]);
+
+  useEffect(() => {
+    const page = candlesQuery.data;
+
+    if (!page) {
+      return;
+    }
+
+    if (!olderCursor) {
+      setLoadedCandles(page);
+      setHasMoreOlder(page.length >= selectedTimeframe.initialLimit);
+      return;
+    }
+
+    setLoadedCandles((current) => {
+      const existingTimes = new Set(
+        current.map((candle) => candle.eventTime),
+      );
+
+      const older = page.filter(
+        (candle) => !existingTimes.has(candle.eventTime),
+      );
+
+      if (older.length === 0) {
+        setHasMoreOlder(false);
+        return current;
+      }
+
+      return [...older, ...current];
+    });
+
+    if (page.length < HISTORICAL_PAGE_SIZE) {
+      setHasMoreOlder(false);
+    }
+  }, [
+    candlesQuery.data,
+    olderCursor,
+    interval,
+    selectedTimeframe.initialLimit,
+  ]);
+
+  const requestOlderCandles = () => {
+    if (
+      !hasMoreOlder ||
+      candlesQuery.isFetching ||
+      loadedCandles.length === 0
+    ) {
+      return;
+    }
+
+    setOlderCursor(loadedCandles[0]!.eventTime);
+  };
+
 
   const favorites = useWatchlistStore((s) => s.favoriteInstrumentIds);
   const toggleFavorite = useWatchlistStore((s) => s.toggleFavorite);
@@ -139,7 +352,7 @@ export default function InstrumentChartPage() {
   const askPrice = toNumber(quote?.askPrice);
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
@@ -232,6 +445,58 @@ export default function InstrumentChartPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <div className="relative" role="group" aria-label="Drawing tools">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={activeDrawingTool !== "SELECT" ? "default" : "ghost"}
+                  aria-label="Drawing tools"
+                  aria-expanded={drawingToolsOpen}
+                  title="Drawing tools"
+                  onClick={() =>
+                    setDrawingToolsOpen((open) => !open)
+                  }
+                >
+                  <PenTool className="mr-1 h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Draw</span>
+                </Button>
+
+                {drawingToolsOpen && (
+                  <div
+                    className="absolute right-0 top-full z-50 mt-1 grid w-56 grid-cols-4 gap-1 rounded-md border bg-popover p-1 shadow-lg"
+                    role="toolbar"
+                    aria-label="Drawing tools"
+                  >
+                    {DRAWING_TOOL_DEFINITIONS.map((tool) => {
+                      const active = tool.type === activeDrawingTool;
+                      const Icon = DRAWING_TOOL_ICONS[tool.type];
+
+                      return (
+                        <Button
+                          key={tool.type}
+                          type="button"
+                          size="icon"
+                          variant={active ? "default" : "ghost"}
+                          className="h-10 w-10"
+                          aria-label={tool.label}
+                          aria-pressed={active}
+                          title={tool.label}
+                          onClick={() => {
+                            setActiveDrawingTool(tool.type);
+                            setDrawingToolsOpen(false);
+                          }}
+                        >
+                          <Icon
+                            className="h-4 w-4"
+                            aria-hidden="true"
+                          />
+                        </Button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               <MarketIndicatorControls
                 indicators={indicators}
                 onToggle={toggleIndicator}
@@ -263,20 +528,24 @@ export default function InstrumentChartPage() {
 
             {candlesQuery.isLoading ? (
               <Skeleton className="h-full min-h-0 w-full" />
-            ) : candlesQuery.data && candlesQuery.data.length > 0 ? (
+            ) : displayCandles.length > 0 ? (
               <div className="h-full min-h-0">
                 <div className="flex h-full min-h-0 flex-col gap-2">
                   <div className="min-h-0 flex-1">
                     <RMSMCandlestickChart
-                      candles={candlesQuery.data}
+                      candles={displayCandles}
                       indicators={indicators}
+                      activeDrawingTool={activeDrawingTool}
+                      liveQuote={quote}
+                      interval={interval}
+                      onRequestOlder={requestOlderCandles}
                     />
                   </div>
 
                   {visiblePaneIndicators.map((indicator) => (
                     <MarketIndicatorPane
                       key={indicator.id}
-                      candles={candlesQuery.data.map((candle) => ({
+                      candles={displayCandles.map((candle) => ({
                         time: Math.floor(
                           new Date(candle.eventTime).getTime() / 1000,
                         ),

@@ -23,15 +23,18 @@ vi.mock("@/features/market/components/rmsm-candlestick-chart", () => ({
     candles,
     height,
     indicators,
+    activeDrawingTool,
   }: {
     candles: unknown[];
     height?: number;
     indicators?: IndicatorConfig[];
+    activeDrawingTool?: string;
   }) => (
     <div
       data-testid="rmsm-candlestick-chart"
       data-candle-count={candles.length}
       data-height={height}
+      data-active-drawing-tool={activeDrawingTool}
       data-indicators={JSON.stringify(
         (indicators ?? []).map((indicator) => ({
           id: indicator.id,
@@ -104,6 +107,33 @@ const SAMPLE_CANDLES = [
   },
 ];
 
+const SAMPLE_15M_CANDLES = [
+  {
+    id: "candle-15m-1",
+    instrumentId: "instr-1",
+    interval: "FIFTEEN_MINUTES",
+    eventTime: "2026-08-14T09:00:00.000Z",
+    open: "1.10000",
+    high: "1.10050",
+    low: "1.09980",
+    close: "1.10030",
+    volume: "1500",
+    isCorrection: false,
+  },
+  {
+    id: "candle-15m-2",
+    instrumentId: "instr-1",
+    interval: "FIFTEEN_MINUTES",
+    eventTime: "2026-08-14T09:15:00.000Z",
+    open: "1.10030",
+    high: "1.10070",
+    low: "1.10010",
+    close: "1.10060",
+    volume: "1700",
+    isCorrection: false,
+  },
+];
+
 function renderInstrumentChart() {
   return renderWithQueryClient(<InstrumentChartPage />);
 }
@@ -147,7 +177,7 @@ describe("InstrumentChartPage", () => {
       expect.objectContaining({
         instrumentId: "instr-1",
         interval: "ONE_MINUTE",
-        limit: 500,
+        limit: 5000,
       }),
     );
 
@@ -221,11 +251,14 @@ describe("InstrumentChartPage", () => {
       isError: false,
     });
 
-    useCandlesMock.mockReturnValue({
-      data: SAMPLE_CANDLES,
+    useCandlesMock.mockImplementation((params) => ({
+      data:
+        params?.interval === "FIFTEEN_MINUTES"
+          ? SAMPLE_15M_CANDLES
+          : SAMPLE_CANDLES,
       isLoading: false,
       isError: false,
-    });
+    }));
 
     renderInstrumentChart();
 
@@ -242,19 +275,228 @@ describe("InstrumentChartPage", () => {
         expect.objectContaining({
           instrumentId: "instr-1",
           interval: "FIFTEEN_MINUTES",
-          limit: 500,
+          limit: 5000,
         }),
       );
     });
 
-    expect(screen.getByText("15m · 2 candles")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByText("15m · 2 candles"),
+      ).toBeInTheDocument();
+
+      expect(
+        screen.getByTestId("rmsm-candlestick-chart"),
+      ).toBeInTheDocument();
+    });
+
+    const chart = screen.getByTestId(
+      "rmsm-candlestick-chart",
+    );
+
+    expect(chart).toHaveAttribute(
+      "data-candle-count",
+      "2",
+    );
+
+    expect(chart).not.toHaveAttribute(
+      "data-height",
+    );
+  });
+
+  it("supports all chart timeframes with the correct candle query", async () => {
+    useInstrumentMock.mockReturnValue({
+      data: SAMPLE_INSTRUMENT,
+      isLoading: false,
+      isError: false,
+    });
+
+    useQuotesMock.mockReturnValue({
+      data: [SAMPLE_QUOTE],
+      isLoading: false,
+      isError: false,
+    });
+
+    useCandlesMock.mockReturnValue({
+      data: SAMPLE_CANDLES,
+      isLoading: false,
+      isError: false,
+    });
+
+    renderInstrumentChart();
+
+    await waitFor(() => {
+      expect(screen.getByText("EURUSD")).toBeInTheDocument();
+    });
+
+    const timeframes = [
+      ["1m", "ONE_MINUTE", 5000],
+      ["5m", "FIVE_MINUTES", 5000],
+      ["15m", "FIFTEEN_MINUTES", 5000],
+      ["30m", "THIRTY_MINUTES", 5000],
+      ["1H", "ONE_HOUR", 5000],
+      ["4H", "FOUR_HOURS", 5000],
+      ["1D", "ONE_DAY", 1825],
+      ["1W", "ONE_WEEK", 520],
+      ["1M", "ONE_MONTH", 120],
+    ] as const;
+
+    for (const [label, expectedInterval, expectedLimit] of timeframes) {
+      fireEvent.click(
+        screen.getByRole("button", { name: label }),
+      );
+
+      await waitFor(() => {
+        const params = useCandlesMock.mock.calls.at(-1)?.[0];
+
+        expect(params).toEqual(
+          expect.objectContaining({
+            instrumentId: "instr-1",
+            interval: expectedInterval,
+            limit: expectedLimit,
+          }),
+        );
+
+        expect(params.from).toEqual(expect.any(String));
+        expect(params.to).toEqual(expect.any(String));
+      });
+    }
+  });
+
+  it("propagates drawing toolbar selection to the candlestick chart", async () => {
+    useInstrumentMock.mockReturnValue({
+      data: SAMPLE_INSTRUMENT,
+      isLoading: false,
+      isError: false,
+    });
+
+    useQuotesMock.mockReturnValue({
+      data: [SAMPLE_QUOTE],
+      isLoading: false,
+      isError: false,
+    });
+
+    useCandlesMock.mockReturnValue({
+      data: SAMPLE_CANDLES,
+      isLoading: false,
+      isError: false,
+    });
+
+    renderInstrumentChart();
+
+    await waitFor(() => {
+      expect(screen.getByText("EURUSD")).toBeInTheDocument();
+    });
 
     const chart = screen.getByTestId("rmsm-candlestick-chart");
 
-    expect(chart).not.toHaveAttribute("data-height");
+    expect(chart).toHaveAttribute(
+      "data-active-drawing-tool",
+      "SELECT",
+    );
+
+    const drawingToolsButton = screen.getByRole("button", {
+      name: "Drawing tools",
+    });
+
+    expect(drawingToolsButton).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+
+    fireEvent.click(drawingToolsButton);
+
+    expect(drawingToolsButton).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+
+    const trendLineButton = screen.getByRole("button", {
+      name: "Trend Line",
+    });
+
+    expect(trendLineButton).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+
+    fireEvent.click(trendLineButton);
+
+    expect(chart).toHaveAttribute(
+      "data-active-drawing-tool",
+      "TREND_LINE",
+    );
+
+
+    expect(drawingToolsButton).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+
+    fireEvent.click(drawingToolsButton);
+
+    expect(drawingToolsButton).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+
+    const rectangleButton = screen.getByRole("button", {
+      name: "Rectangle",
+    });
+
+    expect(rectangleButton).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+
+      fireEvent.click(rectangleButton);
+
+      expect(chart).toHaveAttribute(
+        "data-active-drawing-tool",
+        "RECTANGLE",
+      );
+
+      fireEvent.click(drawingToolsButton);
+
+      const selectedRectangleButton = screen.getByRole("button", {
+        name: "Rectangle",
+      });
+
+      expect(selectedRectangleButton).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+
+    expect(trendLineButton).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+
+    const selectButton = screen.getByRole("button", {
+      name: "Select",
+    });
+
+    fireEvent.click(selectButton);
+
+    expect(chart).toHaveAttribute(
+      "data-active-drawing-tool",
+      "SELECT",
+    );
+
+    fireEvent.click(drawingToolsButton);
+
+    const selectedSelectButton = screen.getByRole("button", {
+      name: "Select",
+    });
+
+    expect(selectedSelectButton).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("propagates indicator toggle state to the candlestick chart", async () => {
+
     useInstrumentMock.mockReturnValue({
       data: SAMPLE_INSTRUMENT,
       isLoading: false,
