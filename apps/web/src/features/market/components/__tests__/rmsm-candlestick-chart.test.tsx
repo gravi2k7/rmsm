@@ -1,7 +1,13 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { Candle } from "../../types";
 import type { IndicatorConfig } from "../../indicators/config";
+import {
+  createDrawing,
+  createDrawingState,
+} from "../../drawings/state";
+import type { DrawingState } from "../../drawings/types";
+
 
 const chartState = vi.hoisted(() => ({
   createChart: vi.fn(),
@@ -13,6 +19,8 @@ const chartState = vi.hoisted(() => ({
   priceScaleApplyOptions: vi.fn(),
   remove: vi.fn(),
   removeSeries: vi.fn(),
+  subscribeClick: vi.fn(),
+  unsubscribeClick: vi.fn(),
 }));
 
 vi.mock("lightweight-charts", () => ({
@@ -50,10 +58,17 @@ beforeEach(() => {
     addSeries: chartState.addSeries,
     timeScale: () => ({
       fitContent: chartState.fitContent,
+      getVisibleLogicalRange: vi.fn(() => null),
+      subscribeVisibleLogicalRangeChange: vi.fn(),
+      unsubscribeVisibleLogicalRangeChange: vi.fn(),
+      timeToCoordinate: vi.fn(() => 100),
+      coordinateToTime: vi.fn(() => 1),
     }),
     applyOptions: chartState.applyOptions,
     remove: chartState.remove,
     removeSeries: chartState.removeSeries,
+    subscribeClick: chartState.subscribeClick,
+    unsubscribeClick: chartState.unsubscribeClick,
   });
 
   chartState.priceScale.mockReturnValue({
@@ -63,6 +78,7 @@ beforeEach(() => {
   chartState.addSeries.mockImplementation(() => ({
     setData: chartState.setData,
     priceScale: chartState.priceScale,
+    priceToCoordinate: vi.fn(() => 100),
   }));
 });
 
@@ -86,14 +102,17 @@ describe("RMSMCandlestickChart", () => {
     render(<RMSMCandlestickChart candles={[]} />);
 
     const container = screen.getByTestId("rmsm-candlestick-chart");
+    const chartHost = container.firstElementChild;
 
     expect(container).toHaveClass("h-full");
     expect(container).toHaveClass("min-h-0");
     expect(container.style.height).toBe("");
+    expect(chartHost).toBeInTheDocument();
+
     expect(chartState.createChart).toHaveBeenCalledWith(
-      container,
+      chartHost,
       expect.objectContaining({
-        height: container.clientHeight,
+        height: (chartHost as HTMLElement).clientHeight,
       }),
     );
   });
@@ -107,10 +126,13 @@ describe("RMSMCandlestickChart", () => {
     );
 
     const container = screen.getByTestId("rmsm-candlestick-chart");
+    const chartHost = container.firstElementChild;
 
     expect(container.style.height).toBe("560px");
+    expect(chartHost).toBeInTheDocument();
+
     expect(chartState.createChart).toHaveBeenCalledWith(
-      container,
+      chartHost,
       expect.objectContaining({
         height: 560,
       }),
@@ -534,5 +556,216 @@ describe("RMSMCandlestickChart", () => {
     unmount();
 
     expect(chartState.remove).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("MKT-UI-018 keyboard behavior", () => {
+  function createDrawingStateFixture(
+    overrides: Partial<DrawingState> = {},
+  ): DrawingState {
+    const drawing = createDrawing(
+      "TREND_LINE",
+      [
+        { time: 1, price: 100 },
+        { time: 2, price: 110 },
+      ],
+      {
+        id: "keyboard-drawing-1",
+      },
+    );
+
+    return {
+      ...createDrawingState("SELECT"),
+      drawings: [drawing],
+      selectedDrawingId: drawing.id,
+      ...overrides,
+    };
+  }
+
+  function renderKeyboardChart(
+    state: DrawingState,
+    onDrawingStateChange: (nextState: DrawingState) => void,
+  ) {
+    render(
+      <RMSMCandlestickChart
+        candles={[candle()]}
+        height={500}
+        activeDrawingTool="SELECT"
+        drawingState={state}
+        onDrawingStateChange={onDrawingStateChange}
+      />,
+    );
+
+    return screen.getByTestId("rmsm-candlestick-chart");
+  }
+
+  it("deletes the selected drawing with Delete", () => {
+    const state = createDrawingStateFixture();
+    const onDrawingStateChange = vi.fn();
+
+    const container = renderKeyboardChart(
+      state,
+      onDrawingStateChange,
+    );
+
+    fireEvent.keyDown(container, {
+      key: "Delete",
+    });
+
+    expect(onDrawingStateChange).toHaveBeenCalledTimes(1);
+
+    const nextState =
+      onDrawingStateChange.mock.calls[0]?.[0];
+
+    expect(nextState.drawings).toHaveLength(0);
+    expect(nextState.selectedDrawingId).toBeNull();
+  });
+
+  it("deletes the selected drawing with Backspace", () => {
+    const state = createDrawingStateFixture();
+    const onDrawingStateChange = vi.fn();
+
+    const container = renderKeyboardChart(
+      state,
+      onDrawingStateChange,
+    );
+
+    fireEvent.keyDown(container, {
+      key: "Backspace",
+    });
+
+    expect(onDrawingStateChange).toHaveBeenCalledTimes(1);
+
+    const nextState =
+      onDrawingStateChange.mock.calls[0]?.[0];
+
+    expect(nextState.drawings).toHaveLength(0);
+    expect(nextState.selectedDrawingId).toBeNull();
+  });
+
+  it("clears the selected drawing with Escape", () => {
+    const state = createDrawingStateFixture();
+    const onDrawingStateChange = vi.fn();
+
+    const container = renderKeyboardChart(
+      state,
+      onDrawingStateChange,
+    );
+
+    fireEvent.keyDown(container, {
+      key: "Escape",
+    });
+
+    expect(onDrawingStateChange).toHaveBeenCalledTimes(1);
+
+    const nextState =
+      onDrawingStateChange.mock.calls[0]?.[0];
+
+    expect(nextState.drawings).toHaveLength(1);
+    expect(nextState.selectedDrawingId).toBeNull();
+  });
+
+  it("moves the selected drawing with ArrowRight", () => {
+    const state = createDrawingStateFixture();
+    const onDrawingStateChange = vi.fn();
+
+    const container = renderKeyboardChart(
+      state,
+      onDrawingStateChange,
+    );
+
+    fireEvent.keyDown(container, {
+      key: "ArrowRight",
+    });
+
+    expect(onDrawingStateChange).toHaveBeenCalledTimes(1);
+
+    const nextState =
+      onDrawingStateChange.mock.calls[0]?.[0];
+
+    expect(nextState.drawings[0]?.points[0]?.time).toBe(2);
+    expect(nextState.drawings[0]?.points[1]?.time).toBe(3);
+  });
+
+  it("moves the selected drawing with ArrowUp", () => {
+    const state = createDrawingStateFixture();
+    const onDrawingStateChange = vi.fn();
+
+    const container = renderKeyboardChart(
+      state,
+      onDrawingStateChange,
+    );
+
+    fireEvent.keyDown(container, {
+      key: "ArrowUp",
+    });
+
+    expect(onDrawingStateChange).toHaveBeenCalledTimes(1);
+
+    const nextState =
+      onDrawingStateChange.mock.calls[0]?.[0];
+
+    expect(nextState.drawings[0]?.points[0]?.price).toBe(101);
+    expect(nextState.drawings[0]?.points[1]?.price).toBe(111);
+  });
+
+  it("does not modify a locked drawing", () => {
+    const state = createDrawingStateFixture({
+      drawings: [
+        createDrawing(
+          "TREND_LINE",
+          [
+            { time: 1, price: 100 },
+            { time: 2, price: 110 },
+          ],
+          {
+            id: "locked-drawing-1",
+            locked: true,
+          },
+        ),
+      ],
+      selectedDrawingId: "locked-drawing-1",
+    });
+
+    const onDrawingStateChange = vi.fn();
+
+    const container = renderKeyboardChart(
+      state,
+      onDrawingStateChange,
+    );
+
+    fireEvent.keyDown(container, {
+      key: "Delete",
+    });
+
+    expect(onDrawingStateChange).toHaveBeenCalledTimes(1);
+
+    const nextState =
+      onDrawingStateChange.mock.calls[0]?.[0];
+
+    expect(nextState.drawings).toHaveLength(1);
+    expect(nextState.drawings[0]?.locked).toBe(true);
+    expect(nextState.selectedDrawingId).toBe(
+      "locked-drawing-1",
+    );
+  });
+
+  it("ignores keyboard actions when there is no selection", () => {
+    const state = createDrawingStateFixture({
+      selectedDrawingId: null,
+    });
+
+    const onDrawingStateChange = vi.fn();
+
+    const container = renderKeyboardChart(
+      state,
+      onDrawingStateChange,
+    );
+
+    fireEvent.keyDown(container, {
+      key: "Delete",
+    });
+
+    expect(onDrawingStateChange).not.toHaveBeenCalled();
   });
 });

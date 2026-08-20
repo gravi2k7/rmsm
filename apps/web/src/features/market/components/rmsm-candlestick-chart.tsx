@@ -107,6 +107,9 @@ export const RMSMCandlestickChart = forwardRef<
   const drawingState =
     controlledDrawingState ?? internalDrawingState;
 
+  const drawingStateRef = useRef(drawingState);
+  drawingStateRef.current = drawingState;
+
   const setDrawingState = (
     nextState:
       | DrawingState
@@ -129,7 +132,6 @@ export const RMSMCandlestickChart = forwardRef<
   };
   const [, setPendingDrawingPoints] = useState<DrawingPoint[]>([]);
 
-  const drawingStateRef = useRef(drawingState);
   const pendingDrawingPointsRef = useRef<DrawingPoint[]>([]);
   const onDrawingStateChangeRef = useRef(onDrawingStateChange);
 
@@ -224,26 +226,24 @@ export const RMSMCandlestickChart = forwardRef<
   }, [volumeVisible]);
 
   useEffect(() => {
-    drawingStateRef.current = drawingState;
-  }, [drawingState]);
-
-  useEffect(() => {
     onDrawingStateChangeRef.current = onDrawingStateChange;
   }, [onDrawingStateChange]);
 
   useEffect(() => {
-    setDrawingState((state) => ({
-      ...state,
-      activeTool: activeDrawingTool,
-      selectedDrawingId:
-        activeDrawingTool === "SELECT"
-          ? state.selectedDrawingId
-          : null,
-    }));
+    if (controlledDrawingState === undefined) {
+      setInternalDrawingState((state) => ({
+        ...state,
+        activeTool: activeDrawingTool,
+        selectedDrawingId:
+          activeDrawingTool === "SELECT"
+            ? state.selectedDrawingId
+            : null,
+      }));
+    }
 
     pendingDrawingPointsRef.current = [];
     setPendingDrawingPoints([]);
-  }, [activeDrawingTool]);
+  }, [activeDrawingTool, controlledDrawingState]);
 
   useEffect(() => {
     onRequestOlderRef.current = onRequestOlder;
@@ -251,8 +251,9 @@ export const RMSMCandlestickChart = forwardRef<
 
   useEffect(() => {
     const container = containerRef.current;
+    const chartRoot = container?.parentElement;
 
-    if (!container) {
+    if (!container || !chartRoot) {
       return;
     }
 
@@ -420,8 +421,87 @@ export const RMSMCandlestickChart = forwardRef<
     const emitDrawingState = (nextState: DrawingState) => {
       drawingStateRef.current = nextState;
       setDrawingState(nextState);
-      onDrawingStateChangeRef.current?.(nextState);
     };
+
+    const handleDrawingKeyDown = (
+      event: KeyboardEvent,
+    ) => {
+      let action:
+        | "DELETE"
+        | "ESCAPE"
+        | "MOVE_LEFT"
+        | "MOVE_RIGHT"
+        | "MOVE_UP"
+        | "MOVE_DOWN"
+        | null = null;
+
+      switch (event.key) {
+        case "Delete":
+        case "Backspace":
+          action = "DELETE";
+          break;
+        case "Escape":
+          action = "ESCAPE";
+          break;
+        case "ArrowLeft":
+          action = "MOVE_LEFT";
+          break;
+        case "ArrowRight":
+          action = "MOVE_RIGHT";
+          break;
+        case "ArrowUp":
+          action = "MOVE_UP";
+          break;
+        case "ArrowDown":
+          action = "MOVE_DOWN";
+          break;
+        default:
+          return;
+      }
+
+      const currentState = drawingStateRef.current;
+
+      /*
+       * No selection is a true keyboard no-op.
+       * This must remain distinct from a locked selection.
+       */
+      if (
+        currentState.selectedDrawingId === null
+      ) {
+        return;
+      }
+
+      const selectedDrawing =
+        currentState.drawings.find(
+          (drawing) =>
+            drawing.id === currentState.selectedDrawingId,
+        );
+
+      /*
+       * Locked drawings cannot be modified, but the keyboard
+       * interaction is still consumed and the controlled state
+       * callback receives the unchanged state.
+       */
+      if (selectedDrawing?.locked) {
+        event.preventDefault();
+        emitDrawingState(currentState);
+        return;
+      }
+
+      const nextState = applyDrawingKeyboardAction(
+        currentState,
+        action,
+      );
+
+      if (nextState === currentState) {
+        return;
+      }
+
+      event.preventDefault();
+
+      emitDrawingState(nextState);
+    };
+
 
     const handleDrawingPointerDown = (
       event: PointerEvent,
@@ -569,6 +649,11 @@ export const RMSMCandlestickChart = forwardRef<
       }
     };
 
+    chartRoot.addEventListener(
+      "keydown",
+      handleDrawingKeyDown,
+    );
+
     container.addEventListener(
       "pointerdown",
       handleDrawingPointerDown,
@@ -685,6 +770,11 @@ export const RMSMCandlestickChart = forwardRef<
       chart.unsubscribeClick(handleChartClick);
       timeScale.unsubscribeVisibleLogicalRangeChange(
         handleVisibleLogicalRangeChange,
+      );
+
+      chartRoot.removeEventListener(
+        "keydown",
+        handleDrawingKeyDown,
       );
 
       container.removeEventListener(
