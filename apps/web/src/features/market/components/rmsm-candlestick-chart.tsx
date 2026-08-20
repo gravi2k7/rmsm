@@ -88,7 +88,6 @@ export const RMSMCandlestickChart = forwardRef<
   drawingState: controlledDrawingState,
   onDrawingStateChange,
   volumeVisible = true,
-  onVolumeVisibilityChange,
 }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
