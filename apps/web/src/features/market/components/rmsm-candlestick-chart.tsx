@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
   CandlestickSeries,
   ColorType,
@@ -37,6 +37,14 @@ import {
   type IndicatorCandle,
 } from "../indicators/technical-indicators";
 
+export interface RMSMCandlestickChartHandle {
+  fitContent: () => void;
+  resetView: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  autoScale: () => void;
+}
+
 interface RMSMCandlestickChartProps {
   candles: Candle[];
   height?: number;
@@ -47,6 +55,8 @@ interface RMSMCandlestickChartProps {
   activeDrawingTool?: DrawingType;
   drawingState?: DrawingState;
   onDrawingStateChange?: (state: DrawingState) => void;
+  volumeVisible?: boolean;
+  onVolumeVisibilityChange?: (visible: boolean) => void;
 }
 
 interface OverlaySeries {
@@ -64,7 +74,10 @@ interface DrawingPointerInteraction {
   dragging: boolean;
 }
 
-export function RMSMCandlestickChart({
+export const RMSMCandlestickChart = forwardRef<
+  RMSMCandlestickChartHandle,
+  RMSMCandlestickChartProps
+>(function RMSMCandlestickChart({
   candles,
   height,
   indicators = EMPTY_INDICATORS,
@@ -74,7 +87,9 @@ export function RMSMCandlestickChart({
   activeDrawingTool = "SELECT",
   drawingState: controlledDrawingState,
   onDrawingStateChange,
-}: RMSMCandlestickChartProps) {
+  volumeVisible = true,
+  onVolumeVisibilityChange,
+}, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -122,6 +137,91 @@ export function RMSMCandlestickChart({
     useRef<DrawingPointerInteraction | null>(null);
 
   const suppressDrawingClickRef = useRef(false);
+
+  const fitContent = () => {
+    chartRef.current?.timeScale().fitContent();
+  };
+
+  const resetView = () => {
+    const chart = chartRef.current;
+
+    if (!chart) {
+      return;
+    }
+
+    chart.timeScale().fitContent();
+    chart.priceScale("right").applyOptions({
+      autoScale: true,
+    });
+  };
+
+  const zoomIn = () => {
+    const chart = chartRef.current;
+
+    if (!chart) {
+      return;
+    }
+
+    const range = chart.timeScale().getVisibleLogicalRange();
+
+    if (!range) {
+      return;
+    }
+
+    const center = (range.from + range.to) / 2;
+    const halfWidth = Math.max((range.to - range.from) * 0.4, 5);
+
+    chart.timeScale().setVisibleLogicalRange({
+      from: center - halfWidth,
+      to: center + halfWidth,
+    });
+  };
+
+  const zoomOut = () => {
+    const chart = chartRef.current;
+
+    if (!chart) {
+      return;
+    }
+
+    const range = chart.timeScale().getVisibleLogicalRange();
+
+    if (!range) {
+      return;
+    }
+
+    const center = (range.from + range.to) / 2;
+    const halfWidth = Math.max((range.to - range.from) * 0.625, 5);
+
+    chart.timeScale().setVisibleLogicalRange({
+      from: center - halfWidth,
+      to: center + halfWidth,
+    });
+  };
+
+  const autoScale = () => {
+    chartRef.current?.priceScale("right").applyOptions({
+      autoScale: true,
+    });
+  };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      fitContent,
+      resetView,
+      zoomIn,
+      zoomOut,
+      autoScale,
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    volumeSeriesRef.current?.applyOptions({
+      visible: volumeVisible,
+    });
+  }, [volumeVisible]);
 
   useEffect(() => {
     drawingStateRef.current = drawingState;
@@ -1037,4 +1137,4 @@ export function RMSMCandlestickChart({
       )}
     </div>
   );
-}
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -59,6 +59,7 @@ import {
 } from "@/features/market/drawings/state";
 
 import { MarketDrawingObjectManager } from "@/features/market/components/market-drawing-object-manager";
+import { MarketChartViewControls } from "@/features/market/components/market-chart-view-controls";
 import { DRAWING_TOOL_DEFINITIONS } from "@/features/market/drawings/registry";
 import { useWatchlistStore } from "@/features/watchlists/store";
 
@@ -209,6 +210,17 @@ export default function InstrumentChartPage() {
     useState<DrawingState>(() =>
       createDrawingState("SELECT"),
     );
+  const chartViewControlsRef = useRef<{
+    fitContent: () => void;
+    resetView: () => void;
+    zoomIn: () => void;
+    zoomOut: () => void;
+    autoScale: () => void;
+  } | null>(null);
+
+  const [volumeVisible, setVolumeVisible] =
+    useState(true);
+
 
   const [indicators, setIndicators] =
     useState<IndicatorConfig[]>(DEFAULT_INDICATORS);
@@ -685,6 +697,28 @@ export default function InstrumentChartPage() {
                   </div>
                 )}
               </div>
+
+                <MarketChartViewControls
+                  volumeVisible={volumeVisible}
+                  onFitContent={() =>
+                    chartViewControlsRef.current?.fitContent()
+                  }
+                  onResetView={() =>
+                    chartViewControlsRef.current?.resetView()
+                  }
+                  onZoomIn={() =>
+                    chartViewControlsRef.current?.zoomIn()
+                  }
+                  onZoomOut={() =>
+                    chartViewControlsRef.current?.zoomOut()
+                  }
+                  onAutoScale={() =>
+                    chartViewControlsRef.current?.autoScale()
+                  }
+                  onToggleVolume={() =>
+                    setVolumeVisible((visible) => !visible)
+                  }
+                />
 
               <MarketIndicatorControls
                 indicators={indicators}
