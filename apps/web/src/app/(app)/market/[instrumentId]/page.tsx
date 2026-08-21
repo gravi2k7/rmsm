@@ -3,23 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
-  ArrowLeft,
-  Star,
-} from "lucide-react";
-import Link from "next/link";
-import {
   Alert,
   AlertDescription,
-  Badge,
   Button,
   Card,
   CardContent,
   Skeleton,
 } from "@rmsm/ui";
-import { cn } from "@rmsm/ui";
 import {
   useInstrument,
-  useQuotes,
   useCandles,
 } from "@/features/market/hooks/use-market-data";
 import { RMSMCandlestickChart } from "@/features/market/components/rmsm-candlestick-chart";
@@ -30,7 +22,6 @@ import {
   type IndicatorConfig,
 } from "@/features/market/indicators/config";
 import type { Candle, CandleInterval } from "@/features/market/types";
-import { toNumber } from "@/features/market/types";
 import type {
   DrawingState,
   DrawingType,
@@ -303,8 +294,6 @@ export default function InstrumentChartPage() {
   ]);
 
   const instrumentQuery = useInstrument(instrumentId);
-  const quotesQuery = useQuotes(instrumentId ? [instrumentId] : []);
-  const quote = quotesQuery.data?.[0];
 
   const selectedTimeframe = useMemo(
     () =>
@@ -413,12 +402,9 @@ export default function InstrumentChartPage() {
   };
 
 
-  const favorites = useWatchlistStore((s) => s.favoriteInstrumentIds);
-  const toggleFavorite = useWatchlistStore((s) => s.toggleFavorite);
   const recordRecentlyViewed = useWatchlistStore(
     (s) => s.recordRecentlyViewed,
   );
-  const isFavorite = favorites.includes(instrumentId);
 
   const handleResetChartWorkspace = () => {
     setChartLayout("SPLIT");
@@ -578,85 +564,26 @@ export default function InstrumentChartPage() {
 
   const instrument = instrumentQuery.data;
 
-  const lastPrice = toNumber(quote?.lastPrice);
-  const bidPrice = toNumber(quote?.bidPrice);
-  const askPrice = toNumber(quote?.askPrice);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/market" aria-label="Back to Market Watch">
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            </Link>
-          </Button>
-
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold">{instrument.symbol}</h1>
-
-              <Badge variant="outline">{instrument.assetClass}</Badge>
-
-              <button
-                type="button"
-                onClick={() => toggleFavorite(instrument.id)}
-                aria-label={
-                  isFavorite
-                    ? "Remove from favorites"
-                    : "Add to favorites"
-                }
-                aria-pressed={isFavorite}
-                className="rounded-sm"
-              >
-                <Star
-                  className={cn(
-                    "h-4 w-4 text-muted-foreground",
-                    isFavorite && "fill-warning text-warning",
-                  )}
-                  aria-hidden="true"
-                />
-              </button>
-            </div>
-
-            <p className="text-sm text-muted-foreground">
-              {instrument.name}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex gap-6 text-right text-sm">
-          <div>
-            <div className="text-xs text-muted-foreground">Last</div>
-            <div className="tabular-nums font-medium">
-              {lastPrice?.toFixed(5) ?? "—"}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs text-muted-foreground">Bid</div>
-            <div className="tabular-nums font-medium">
-              {bidPrice?.toFixed(5) ?? "—"}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs text-muted-foreground">Ask</div>
-            <div className="tabular-nums font-medium">
-              {askPrice?.toFixed(5) ?? "—"}
-            </div>
-          </div>
-        </div>
-      </div>
-
       <Card className="min-h-0 flex-1">
         <CardContent className="flex h-full min-h-0 flex-col p-2">
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-2 pb-2">
-            <MarketTimeframeMenu
-              value={interval}
-              options={TIMEFRAMES}
-              onChange={setInterval}
-            />
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                className="truncate text-sm font-semibold"
+                title={instrument.symbol}
+              >
+                {instrument.symbol}
+              </span>
+
+              <MarketTimeframeMenu
+                value={interval}
+                options={TIMEFRAMES}
+                onChange={setInterval}
+              />
+            </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1">

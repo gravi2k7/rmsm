@@ -29,6 +29,7 @@ import { trendLineTool } from "./tools/trend-line";
 import { verticalLineTool } from "./tools/vertical-line";
 import { advancedDrawingTools } from "./tools/advanced";
 import {
+  fibonacciDrawingTools,
   fibonacciExtensionLevels,
   fibonacciProjectionLevels,
   fibonacciRetracementLevels,
@@ -51,6 +52,7 @@ const DRAWING_TOOL_ADAPTERS: readonly DrawingToolAdapter[] = [
   rectangleTool,
   arrowTool,
   textTool,
+  ...fibonacciDrawingTools,
   ...advancedDrawingTools,
   selectTool,
 ];
@@ -828,6 +830,10 @@ const ENDPOINT_EDITABLE_TYPES = new Set<DrawingType>([
   "PARALLEL_CHANNEL",
   "PRICE_CHANNEL",
   "REGRESSION_CHANNEL",
+  "FIB_RETRACEMENT",
+  "FIB_EXTENSION",
+  "FIB_PROJECTION",
+  "FIB_TIME",
 ]);
 
 function getEndpointHit(

@@ -6,6 +6,8 @@ import { Input, Tabs, TabsList, TabsTrigger, Button, Alert, AlertDescription } f
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useInstruments, useQuotes } from "@/features/market/hooks/use-market-data";
 import { MarketWatchTable } from "@/features/market/components/market-watch-table";
+import { MarketStatusWidget } from "@/features/market/components/market-status-widget";
+import { TradingSessionsWidget } from "@/features/market/components/trading-sessions-widget";
 import { useWatchlistStore } from "@/features/watchlists/store";
 import type { AssetClass } from "@/features/market/types";
 
@@ -56,6 +58,38 @@ export default function MarketWatchPage() {
         <h1 className="text-xl font-semibold">Market Watch</h1>
         <p className="text-sm text-muted-foreground">Live instrument prices from the Enterprise Market Data API.</p>
       </div>
+
+      <section
+        aria-label="Market context"
+        className="grid gap-4 lg:grid-cols-2"
+      >
+        <div className="rounded-lg border bg-card p-4">
+          <div className="mb-3">
+            <h2 className="text-sm font-semibold">
+              Market Status
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Exchange open and closed status.
+            </p>
+          </div>
+
+          <MarketStatusWidget />
+        </div>
+
+        <div className="rounded-lg border bg-card p-4">
+          <div className="mb-3">
+            <h2 className="text-sm font-semibold">
+              Trading Sessions
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Global trading-session activity in UTC.
+            </p>
+          </div>
+
+          <TradingSessionsWidget />
+        </div>
+      </section>
+
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Tabs

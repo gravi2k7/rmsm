@@ -78,6 +78,7 @@ export interface CandleParams {
   from: string;
   to: string;
   limit?: number;
+  before?: string;
 }
 
 export function useCandles(params: CandleParams | null) {
@@ -90,9 +91,11 @@ export function useCandles(params: CandleParams | null) {
           interval: params!.interval,
           from: params!.from,
           to: params!.to,
-          limit: params!.limit ?? 500,
+          limit: params!.limit ?? 5000,
+          before: params!.before,
         })}`,
       ),
     enabled: params !== null,
+    refetchInterval: 10_000,
   });
 }

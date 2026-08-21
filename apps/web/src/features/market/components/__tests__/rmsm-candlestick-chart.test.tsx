@@ -79,6 +79,7 @@ beforeEach(() => {
     setData: chartState.setData,
     priceScale: chartState.priceScale,
     priceToCoordinate: vi.fn(() => 100),
+    coordinateToPrice: vi.fn((y: number) => y),
   }));
 });
 
@@ -582,6 +583,55 @@ describe("MKT-UI-018 keyboard behavior", () => {
     };
   }
 
+  it.each([
+    "PARALLEL_CHANNEL",
+    "PRICE_CHANNEL",
+    "REGRESSION_CHANNEL",
+  ] as const)(
+    "creates %s from three chart clicks",
+    (tool) => {
+      const onDrawingStateChange = vi.fn();
+
+      render(
+        <RMSMCandlestickChart
+          candles={[candle()]}
+          height={500}
+          activeDrawingTool={tool}
+          onDrawingStateChange={onDrawingStateChange}
+        />,
+      );
+
+      const subscribeClick =
+        chartState.subscribeClick.mock.calls[0]?.[0];
+
+      expect(subscribeClick).toBeTypeOf("function");
+
+      subscribeClick({
+        point: { x: 100, y: 100 },
+      });
+
+      subscribeClick({
+        point: { x: 200, y: 200 },
+      });
+
+      subscribeClick({
+        point: { x: 300, y: 150 },
+      });
+
+      const calls = onDrawingStateChange.mock.calls;
+      const nextState =
+        calls[calls.length - 1]?.[0] as DrawingState;
+
+      expect(nextState.drawings).toHaveLength(1);
+      expect(nextState.drawings[0]?.type).toBe(tool);
+      expect(nextState.drawings[0]?.points).toEqual([
+        { time: 1, price: 100 },
+        { time: 1, price: 200 },
+        { time: 1, price: 150 },
+      ]);
+    },
+  );
+
   function renderKeyboardChart(
     state: DrawingState,
     onDrawingStateChange: (nextState: DrawingState) => void,
@@ -598,6 +648,114 @@ describe("MKT-UI-018 keyboard behavior", () => {
 
     return screen.getByTestId("rmsm-candlestick-chart");
   }
+
+  it.each([
+    ["ABCD", 4],
+    ["XABCD", 5],
+    ["HEAD_SHOULDERS", 5],
+    ["TRIANGLE", 4],
+    ["WEDGE", 4],
+  ] as const)(
+    "creates %s through the chart click path",
+    (tool, clickCount) => {
+      const onDrawingStateChange = vi.fn();
+
+      render(
+        <RMSMCandlestickChart
+          candles={[candle()]}
+          height={500}
+          activeDrawingTool={tool}
+          onDrawingStateChange={onDrawingStateChange}
+        />,
+      );
+
+      expect(
+        screen.getByTestId("rmsm-candlestick-chart"),
+      ).toBeInTheDocument();
+
+      const subscribeClick =
+        chartState.subscribeClick.mock.calls.at(-1)?.[0];
+
+      expect(subscribeClick).toBeTypeOf("function");
+
+      for (let index = 0; index < clickCount; index += 1) {
+        subscribeClick({
+          point: {
+            x: 100 + index * 100,
+            y: 100 + index * 20,
+          },
+        });
+      }
+
+      expect(onDrawingStateChange).toHaveBeenCalled();
+
+      const calls = onDrawingStateChange.mock.calls;
+      const finalState =
+        calls[calls.length - 1]?.[0];
+
+      expect(finalState.drawings).toHaveLength(1);
+      expect(finalState.drawings[0]?.type).toBe(tool);
+      expect(finalState.drawings[0]?.points).toHaveLength(
+        clickCount,
+      );
+    },
+  );
+
+  it.each([
+    ["TREND_LINE", 2],
+    ["RAY", 2],
+    ["HORIZONTAL_LINE", 1],
+    ["VERTICAL_LINE", 1],
+    ["RECTANGLE", 2],
+    ["ARROW", 2],
+    ["TEXT", 1],
+    ["FORECAST", 2],
+    ["PROJECTION", 2],
+    ["MEASURE_PRICE", 2],
+    ["MEASURE_TIME", 2],
+    ["MEASURE_PRICE_TIME", 2],
+    ["MEASURE_RANGE", 2],
+  ] as const)(
+    "creates %s through the chart click path",
+    (tool, clickCount) => {
+      const onDrawingStateChange = vi.fn();
+
+      render(
+        <RMSMCandlestickChart
+          candles={[candle()]}
+          height={500}
+          activeDrawingTool={tool}
+          onDrawingStateChange={onDrawingStateChange}
+        />,
+      );
+
+      const subscribeClick =
+        chartState.subscribeClick.mock.calls.at(-1)?.[0];
+
+      expect(subscribeClick).toBeTypeOf("function");
+
+      for (let index = 0; index < clickCount; index += 1) {
+        subscribeClick({
+          point: {
+            x: 100 + index * 100,
+            y: 100 + index * 20,
+          },
+        });
+      }
+
+      expect(onDrawingStateChange).toHaveBeenCalled();
+
+      const calls = onDrawingStateChange.mock.calls;
+      const finalState =
+        calls[calls.length - 1]?.[0];
+
+      expect(finalState.drawings).toHaveLength(1);
+      expect(finalState.drawings[0]?.type).toBe(tool);
+      expect(finalState.drawings[0]?.points).toHaveLength(
+        clickCount,
+      );
+    },
+  );
 
   it("deletes the selected drawing with Delete", () => {
     const state = createDrawingStateFixture();

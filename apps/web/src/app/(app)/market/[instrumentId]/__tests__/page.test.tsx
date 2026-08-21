@@ -57,6 +57,43 @@ vi.mock("@/features/market/components/market-indicator-pane", () => ({
   ),
 }));
 
+vi.mock("@/features/market/components/market-timeframe-menu", () => ({
+  MarketTimeframeMenu: ({
+    value,
+    options,
+    onChange,
+  }: {
+    value: string;
+    options: readonly {
+      value: string;
+      label: string;
+    }[];
+    onChange: (value: string) => void;
+  }) => (
+    <div data-testid="market-timeframe-menu">
+      <button
+        type="button"
+        aria-label="Chart timeframe"
+        data-timeframe-value={value}
+      >
+        {options.find((option) => option.value === value)?.label ??
+          value}
+      </button>
+
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          data-testid={`timeframe-option-${option.label}`}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  ),
+}));
+
 const SAMPLE_INSTRUMENT = {
   id: "instr-1",
   exchangeId: "ex-1",
@@ -169,8 +206,6 @@ describe("InstrumentChartPage", () => {
     });
 
     expect(useInstrumentMock).toHaveBeenCalledWith("instr-1");
-    expect(useQuotesMock).toHaveBeenCalledWith(["instr-1"]);
-
     const candleParams = useCandlesMock.mock.calls.at(-1)?.[0];
 
     expect(candleParams).toEqual(
@@ -188,8 +223,6 @@ describe("InstrumentChartPage", () => {
       "data-candle-count",
       "2",
     );
-
-    expect(screen.getByText("1m · 2 candles")).toBeInTheDocument();
 
     const chart = screen.getByTestId("rmsm-candlestick-chart");
 
@@ -266,7 +299,9 @@ describe("InstrumentChartPage", () => {
       expect(screen.getByText("EURUSD")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "15m" }));
+    fireEvent.click(
+      screen.getByTestId("timeframe-option-15m"),
+    );
 
     await waitFor(() => {
       const candleParams = useCandlesMock.mock.calls.at(-1)?.[0];
@@ -280,15 +315,6 @@ describe("InstrumentChartPage", () => {
       );
     });
 
-    await waitFor(() => {
-      expect(
-        screen.getByText("15m · 2 candles"),
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId("rmsm-candlestick-chart"),
-      ).toBeInTheDocument();
-    });
 
     const chart = screen.getByTestId(
       "rmsm-candlestick-chart",
@@ -343,7 +369,7 @@ describe("InstrumentChartPage", () => {
 
     for (const [label, expectedInterval, expectedLimit] of timeframes) {
       fireEvent.click(
-        screen.getByRole("button", { name: label }),
+        screen.getByTestId(`timeframe-option-${label}`),
       );
 
       await waitFor(() => {
@@ -411,22 +437,20 @@ describe("InstrumentChartPage", () => {
       "true",
     );
 
-    const trendLineButton = screen.getByRole("button", {
+    const trendLineItem = screen.getByRole("menuitem", {
       name: "Trend Line",
     });
 
-    expect(trendLineButton).toHaveAttribute(
-      "aria-pressed",
-      "false",
+    expect(trendLineItem).not.toHaveAttribute(
+      "aria-current",
     );
 
-    fireEvent.click(trendLineButton);
+    fireEvent.click(trendLineItem);
 
     expect(chart).toHaveAttribute(
       "data-active-drawing-tool",
       "TREND_LINE",
     );
-
 
     expect(drawingToolsButton).toHaveAttribute(
       "aria-expanded",
@@ -440,57 +464,79 @@ describe("InstrumentChartPage", () => {
       "true",
     );
 
-    const rectangleButton = screen.getByRole("button", {
+    const rectangleItem = screen.getByRole("menuitem", {
       name: "Rectangle",
     });
 
-    expect(rectangleButton).toHaveAttribute(
-      "aria-pressed",
+    expect(rectangleItem).not.toHaveAttribute(
+      "aria-current",
+    );
+
+    fireEvent.click(rectangleItem);
+
+    expect(chart).toHaveAttribute(
+      "data-active-drawing-tool",
+      "RECTANGLE",
+    );
+
+    expect(drawingToolsButton).toHaveAttribute(
+      "aria-expanded",
       "false",
     );
 
-      fireEvent.click(rectangleButton);
+    fireEvent.click(drawingToolsButton);
 
-      expect(chart).toHaveAttribute(
-        "data-active-drawing-tool",
-        "RECTANGLE",
-      );
-
-      fireEvent.click(drawingToolsButton);
-
-      const selectedRectangleButton = screen.getByRole("button", {
-        name: "Rectangle",
-      });
-
-      expect(selectedRectangleButton).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
-
-    expect(trendLineButton).toHaveAttribute(
-      "aria-pressed",
-      "false",
+    expect(drawingToolsButton).toHaveAttribute(
+      "aria-expanded",
+      "true",
     );
 
-    const selectButton = screen.getByRole("button", {
+    const selectedRectangleItem = screen.getByRole(
+      "menuitem",
+      { name: "Rectangle" },
+    );
+
+    expect(selectedRectangleItem).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+
+    expect(
+      screen.getByRole("menuitem", {
+        name: "Trend Line",
+      }),
+    ).not.toHaveAttribute("aria-current");
+
+    const selectItem = screen.getByRole("menuitem", {
       name: "Select",
     });
 
-    fireEvent.click(selectButton);
+    fireEvent.click(selectItem);
 
     expect(chart).toHaveAttribute(
       "data-active-drawing-tool",
       "SELECT",
     );
 
+    expect(drawingToolsButton).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+
     fireEvent.click(drawingToolsButton);
 
-    const selectedSelectButton = screen.getByRole("button", {
-      name: "Select",
-    });
+    expect(drawingToolsButton).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
 
-    expect(selectedSelectButton).toHaveAttribute(
-      "aria-pressed",
+    const selectedSelectItem = screen.getByRole(
+      "menuitem",
+      { name: "Select" },
+    );
+
+    expect(selectedSelectItem).toHaveAttribute(
+      "aria-current",
       "true",
     );
   });

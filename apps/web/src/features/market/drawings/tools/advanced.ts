@@ -27,10 +27,6 @@ export const advancedDrawingTools: readonly AdvancedDrawingTool[] = [
   tool("PRICE_CHANNEL", 3, 3),
   tool("REGRESSION_CHANNEL", 3, 3),
 
-  tool("FIB_RETRACEMENT", 2, 2),
-  tool("FIB_EXTENSION", 3, 3),
-  tool("FIB_PROJECTION", 3, 3),
-  tool("FIB_TIME", 2, 2),
 
   tool("ABCD", 4, 4),
   tool("XABCD", 5, 5),

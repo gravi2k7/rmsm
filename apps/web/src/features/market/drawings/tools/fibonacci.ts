@@ -108,3 +108,46 @@ export function fibonacciTimeLevels(
     label: labelForRatio(ratio),
   }));
 }
+
+
+export interface FibonacciDrawingTool {
+  type:
+    | "FIB_RETRACEMENT"
+    | "FIB_EXTENSION"
+    | "FIB_PROJECTION"
+    | "FIB_TIME";
+  minPoints: number;
+  maxPoints: number;
+  isComplete(points: DrawingPoint[]): boolean;
+}
+
+function fibonacciTool(
+  type: FibonacciDrawingTool["type"],
+  points: number,
+): FibonacciDrawingTool {
+  return {
+    type,
+    minPoints: points,
+    maxPoints: points,
+    isComplete: (value) => value.length === points,
+  };
+}
+
+export const fibonacciRetracementTool =
+  fibonacciTool("FIB_RETRACEMENT", 2);
+
+export const fibonacciExtensionTool =
+  fibonacciTool("FIB_EXTENSION", 3);
+
+export const fibonacciProjectionTool =
+  fibonacciTool("FIB_PROJECTION", 3);
+
+export const fibonacciTimeTool =
+  fibonacciTool("FIB_TIME", 2);
+
+export const fibonacciDrawingTools: readonly FibonacciDrawingTool[] = [
+  fibonacciRetracementTool,
+  fibonacciExtensionTool,
+  fibonacciProjectionTool,
+  fibonacciTimeTool,
+];

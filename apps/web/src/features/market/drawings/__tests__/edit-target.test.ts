@@ -213,6 +213,148 @@ describe("getDrawingEditTarget", () => {
     });
   });
 
+  it("returns ENDPOINT for Fibonacci retracement anchors", () => {
+    const drawingValue = drawing({
+      type: "FIB_RETRACEMENT",
+      id: "fib-retracement-1",
+      points: [
+        { time: 100, price: 100 },
+        { time: 500, price: 500 },
+      ],
+    });
+
+    expect(
+      getDrawingEditTarget(
+        state([drawingValue]),
+        { x: 101, y: 101 },
+        context,
+      ),
+    ).toEqual({
+      drawingId: "fib-retracement-1",
+      mode: "ENDPOINT",
+      pointIndex: 0,
+    });
+
+    expect(
+      getDrawingEditTarget(
+        state([drawingValue]),
+        { x: 499, y: 499 },
+        context,
+      ),
+    ).toEqual({
+      drawingId: "fib-retracement-1",
+      mode: "ENDPOINT",
+      pointIndex: 1,
+    });
+  });
+
+  it("returns ENDPOINT for Fibonacci extension anchors", () => {
+    const drawingValue = drawing({
+      type: "FIB_EXTENSION",
+      id: "fib-extension-1",
+      points: [
+        { time: 100, price: 100 },
+        { time: 300, price: 300 },
+        { time: 500, price: 200 },
+      ],
+    });
+
+    expect(
+      getDrawingEditTarget(
+        state([drawingValue]),
+        { x: 299, y: 301 },
+        context,
+      ),
+    ).toEqual({
+      drawingId: "fib-extension-1",
+      mode: "ENDPOINT",
+      pointIndex: 1,
+    });
+
+    expect(
+      getDrawingEditTarget(
+        state([drawingValue]),
+        { x: 499, y: 201 },
+        context,
+      ),
+    ).toEqual({
+      drawingId: "fib-extension-1",
+      mode: "ENDPOINT",
+      pointIndex: 2,
+    });
+  });
+
+  it("returns ENDPOINT for Fibonacci projection anchors", () => {
+    const drawingValue = drawing({
+      type: "FIB_PROJECTION",
+      id: "fib-projection-1",
+      points: [
+        { time: 100, price: 100 },
+        { time: 300, price: 300 },
+        { time: 500, price: 200 },
+      ],
+    });
+
+    expect(
+      getDrawingEditTarget(
+        state([drawingValue]),
+        { x: 101, y: 101 },
+        context,
+      ),
+    ).toEqual({
+      drawingId: "fib-projection-1",
+      mode: "ENDPOINT",
+      pointIndex: 0,
+    });
+
+    expect(
+      getDrawingEditTarget(
+        state([drawingValue]),
+        { x: 501, y: 199 },
+        context,
+      ),
+    ).toEqual({
+      drawingId: "fib-projection-1",
+      mode: "ENDPOINT",
+      pointIndex: 2,
+    });
+  });
+
+  it("returns ENDPOINT for Fibonacci time anchors", () => {
+    const drawingValue = drawing({
+      type: "FIB_TIME",
+      id: "fib-time-1",
+      points: [
+        { time: 100, price: 100 },
+        { time: 500, price: 150 },
+      ],
+    });
+
+    expect(
+      getDrawingEditTarget(
+        state([drawingValue]),
+        { x: 101, y: 101 },
+        context,
+      ),
+    ).toEqual({
+      drawingId: "fib-time-1",
+      mode: "ENDPOINT",
+      pointIndex: 0,
+    });
+
+    expect(
+      getDrawingEditTarget(
+        state([drawingValue]),
+        { x: 499, y: 149 },
+        context,
+      ),
+    ).toEqual({
+      drawingId: "fib-time-1",
+      mode: "ENDPOINT",
+      pointIndex: 1,
+    });
+  });
+
   it("does not return an edit target for a locked drawing", () => {
     const line = drawing({
       type: "TREND_LINE",

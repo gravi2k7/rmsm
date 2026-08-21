@@ -63,6 +63,131 @@ describe("MarketWatchPage", () => {
     });
   });
 
+  it("renders market status and trading sessions context", async () => {
+    useAuthStore.setState({
+      accessToken: "token",
+      refreshToken: "refresh",
+      user: null,
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes("/market-data/instruments")) {
+          return jsonResponse({
+            data: [],
+            pagination: {
+              page: 1,
+              pageSize: 25,
+              totalCount: 0,
+              totalPages: 0,
+              hasNextPage: false,
+              hasPreviousPage: false,
+            },
+          });
+        }
+
+        if (url.includes("/market-data/quotes")) {
+          return jsonResponse([]);
+        }
+
+        if (
+          url.includes("/markets?pageSize=100") ||
+          url.includes("/market-data/status")
+        ) {
+          return jsonResponse({
+            items: [
+              {
+                id: "exchange-1",
+                name: "New York Stock Exchange",
+                isOpen: true,
+              },
+            ],
+          });
+        }
+
+        return jsonResponse({});
+      }),
+    );
+
+    renderMarketWatch();
+
+    expect(
+      screen.getByRole("region", {
+        name: "Market context",
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText("Market Status"),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText("Trading Sessions"),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("New York Stock Exchange"),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("keeps market context independent from instrument loading failures", async () => {
+    useAuthStore.setState({
+      accessToken: "token",
+      refreshToken: "refresh",
+      user: null,
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes("/market-data/instruments")) {
+          return jsonResponse(
+            { error: { message: "instrument failure" } },
+            500,
+          );
+        }
+
+        if (
+          url.includes("/markets?pageSize=100") ||
+          url.includes("/market-data/status")
+        ) {
+          return jsonResponse({
+            items: [
+              {
+                id: "exchange-1",
+                name: "London Stock Exchange",
+                isOpen: false,
+              },
+            ],
+          });
+        }
+
+        return jsonResponse([]);
+      }),
+    );
+
+    renderMarketWatch();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/couldn't load instruments/i),
+      ).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByRole("region", {
+        name: "Market context",
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText("Trading Sessions"),
+    ).toBeInTheDocument();
+  });
+
   it("shows an error state when instruments fail to load", async () => {
     useAuthStore.setState({ accessToken: "token", refreshToken: "refresh", user: null });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ error: { message: "boom" } }, 500)));

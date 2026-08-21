@@ -4,13 +4,20 @@ import { type ComponentType } from "react";
 
 import {
   ArrowUpRight,
+  ChartNoAxesCombined,
   ChevronDown,
+  CircleDot,
+  Crosshair,
+  DraftingCompass,
+  GitBranch,
   Minus,
   MoveUpRight,
   MoveVertical,
   MousePointer2,
   PenTool,
+  Ruler,
   Square,
+  Triangle,
   Type,
   TrendingUp,
 } from "lucide-react";
@@ -42,28 +49,28 @@ const DRAWING_TOOL_ICONS: Record<
   ARROW: ArrowUpRight,
   TEXT: Type,
 
-  PARALLEL_CHANNEL: MoveUpRight,
-  PRICE_CHANNEL: MoveVertical,
-  REGRESSION_CHANNEL: TrendingUp,
+  PARALLEL_CHANNEL: GitBranch,
+  PRICE_CHANNEL: DraftingCompass,
+  REGRESSION_CHANNEL: ChartNoAxesCombined,
 
   FIB_RETRACEMENT: PenTool,
-  FIB_EXTENSION: PenTool,
-  FIB_PROJECTION: PenTool,
-  FIB_TIME: PenTool,
+  FIB_EXTENSION: Crosshair,
+  FIB_PROJECTION: MoveUpRight,
+  FIB_TIME: CircleDot,
 
-  ABCD: Square,
-  XABCD: Square,
-  HEAD_SHOULDERS: PenTool,
-  TRIANGLE: Square,
-  WEDGE: Square,
+  ABCD: GitBranch,
+  XABCD: Crosshair,
+  HEAD_SHOULDERS: ChartNoAxesCombined,
+  TRIANGLE: Triangle,
+  WEDGE: DraftingCompass,
 
   FORECAST: TrendingUp,
   PROJECTION: ArrowUpRight,
 
-  MEASURE_PRICE: Minus,
+  MEASURE_PRICE: Ruler,
   MEASURE_TIME: MoveVertical,
   MEASURE_PRICE_TIME: MoveUpRight,
-  MEASURE_RANGE: Square,
+  MEASURE_RANGE: Ruler,
 };
 
 const GROUPS: Array<{
@@ -154,14 +161,25 @@ export function MarketDrawingToolsMenu({
         aria-expanded={open}
         aria-haspopup="menu"
         title="Drawing tools"
-        className="gap-1"
+        className={cn(
+          "gap-1.5",
+          open && "bg-accent text-accent-foreground",
+        )}
         onClick={() => onOpenChange(!open)}
       >
         <ActiveIcon className="h-4 w-4" />
         <span className="hidden sm:inline">
-          {activeDefinition?.label ?? "Draw"}
+          {activeDrawingTool === "SELECT"
+            ? "Draw"
+            : activeDefinition?.label ?? "Draw"}
         </span>
-        <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 opacity-70 transition-transform",
+            open && "rotate-180",
+          )}
+          aria-hidden="true"
+        />
       </Button>
 
       {open && (
@@ -170,20 +188,27 @@ export function MarketDrawingToolsMenu({
           aria-label="Drawing tools"
           className={cn(
             "absolute left-0 top-full z-50 mt-2",
-            "w-[320px] max-w-[min(320px,calc(100vw-2rem))] rounded-lg border bg-popover p-2",
-            "shadow-xl",
+            "w-[320px] max-w-[min(320px,calc(100vw-2rem))]",
+            "rounded-lg border bg-popover p-2 shadow-xl",
+            "origin-top-left",
           )}
         >
-          <div className="mb-2 flex items-center gap-2 border-b px-2 pb-2">
-            <PenTool className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <div className="text-sm font-semibold">
-                Drawing Tools
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                Select a tool to draw on the chart
+          <div className="mb-2 flex items-center justify-between gap-2 border-b px-2 pb-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <PenTool className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <div className="text-sm font-semibold">
+                  Drawing Tools
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  Select a tool to draw on the chart
+                </div>
               </div>
             </div>
+
+            <span className="shrink-0 text-[10px] text-muted-foreground">
+              {activeDefinition?.label ?? "Select"}
+            </span>
           </div>
 
           <div className="max-h-[min(70vh,520px)] overflow-y-auto pr-1">
