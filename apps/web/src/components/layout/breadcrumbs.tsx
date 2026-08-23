@@ -4,12 +4,24 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { flattenNavigationItems } from "@/lib/navigation";
+import { useInstrument } from "@/features/market/hooks/use-market-data";
 
 /** Derives breadcrumbs from the current pathname rather than requiring
  * every page to declare its own. */
 export function Breadcrumbs() {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
+
+  const isMarketInstrumentRoute =
+    segments[0] === "market" && Boolean(segments[1]);
+
+  const instrumentId =
+    isMarketInstrumentRoute && segments[1]
+      ? segments[1]
+      : null;
+
+  const instrumentQuery = useInstrument(instrumentId);
+
   if (segments.length === 0) return null;
 
   // Flattened (including nested `children`) so a breadcrumb still
@@ -17,11 +29,22 @@ export function Breadcrumbs() {
   // menu, not just today's top-level-only registry.
   const topLevelItem = flattenNavigationItems().find((item) => item.href === `/${segments[0]}`);
   const crumbs = [
-    { label: topLevelItem?.label ?? segments[0], href: topLevelItem?.href ?? `/${segments[0]}` },
-    ...segments.slice(1).map((segment, i) => ({
-      label: decodeURIComponent(segment),
-      href: `/${segments.slice(0, i + 2).join("/")}`,
-    })),
+    {
+      label: topLevelItem?.label ?? segments[0],
+      href: topLevelItem?.href ?? `/${segments[0]}`,
+    },
+    ...segments.slice(1).map((segment, i) => {
+      const isInstrumentSegment =
+        segments[0] === "market" && i === 0;
+
+      return {
+        label:
+          isInstrumentSegment && instrumentQuery.data?.symbol
+            ? instrumentQuery.data.symbol
+            : decodeURIComponent(segment),
+        href: `/${segments.slice(0, i + 2).join("/")}`,
+      };
+    }),
   ];
 
   return (

@@ -1,0 +1,61 @@
+export const CTRADER_FIX_VERSION = "FIX.4.4";
+
+export const CTRADER_FIX_MESSAGE_TYPES = {
+  LOGON: "A",
+  LOGOUT: "5",
+  HEARTBEAT: "0",
+  TEST_REQUEST: "1",
+  RESEND_REQUEST: "2",
+  SEQUENCE_RESET: "4",
+  MARKET_DATA_REQUEST: "V",
+  MARKET_DATA_SNAPSHOT: "W",
+  MARKET_DATA_REJECT: "Y",
+  SECURITY_LIST_REQUEST: "x",
+  SECURITY_LIST_RESPONSE: "y",
+} as const;
+
+export const CTRADER_FIX_MD_ENTRY_TYPES = {
+  BID: "0",
+  OFFER: "1",
+} as const;
+
+export const CTRADER_FIX_DEFAULTS = {
+  port: 5211,
+  heartbeatIntervalMs: 30_000,
+  connectTimeoutMs: 10_000,
+  reconnectDelayMs: 5_000,
+  maxReconnectAttempts: 0,
+} as const;
+
+export const CTRADER_FIX_TAGS = {
+  BEGIN_STRING: 8,
+  BODY_LENGTH: 9,
+  MSG_TYPE: 35,
+  SENDER_COMP_ID: 49,
+  SENDER_SUB_ID: 50,
+  TARGET_COMP_ID: 56,
+  TARGET_SUB_ID: 57,
+  SENDING_TIME: 52,
+  MSG_SEQ_NUM: 34,
+  RESET_SEQ_NUM_FLAG: 141,
+  ENCRYPT_METHOD: 98,
+  HEART_BT_INT: 108,
+  USERNAME: 553,
+  PASSWORD: 554,
+  MD_REQ_ID: 262,
+  SECURITY_REQ_ID: 320,
+  SUBSCRIPTION_REQUEST_TYPE: 263,
+  MARKET_DEPTH: 264,
+  MD_UPDATE_TYPE: 265,
+  NO_RELATED_SYM: 146,
+  SYMBOL: 55,
+  NO_MD_ENTRIES: 268,
+  MD_ENTRY_TYPE: 269,
+  MD_ENTRY_PX: 270,
+  MD_ENTRY_SIZE: 271,
+  MD_ENTRY_DATE: 272,
+  MD_ENTRY_TIME: 273,
+  CHECK_SUM: 10,
+} as const;
+
+export const CTRADER_FIX_SOH = "\x01";

@@ -7,6 +7,7 @@ export interface CreateInstrumentAliasInput {
   instrumentId: string;
   providerId: string;
   providerSymbol: string;
+  providerInstrumentId?: string;
 }
 
 @Injectable()
@@ -15,7 +16,10 @@ export class InstrumentAliasRepository {
   async upsert(data: CreateInstrumentAliasInput, client: DbClient = prisma): Promise<InstrumentAliasModel> {
     const row = await client.instrumentAlias.upsert({
       where: { providerId_providerSymbol: { providerId: data.providerId, providerSymbol: data.providerSymbol } },
-      update: { instrumentId: data.instrumentId },
+      update: {
+        instrumentId: data.instrumentId,
+        providerInstrumentId: data.providerInstrumentId,
+      },
       create: data,
     });
     return toInstrumentAliasModel(row);
@@ -33,4 +37,17 @@ export class InstrumentAliasRepository {
     const rows = await client.instrumentAlias.findMany({ where: { instrumentId } });
     return rows.map(toInstrumentAliasModel);
   }
+
+  async findByProvider(
+    providerId: string,
+    client: DbClient = prisma,
+  ): Promise<InstrumentAliasModel[]> {
+    const rows = await client.instrumentAlias.findMany({
+      where: { providerId },
+      orderBy: { providerSymbol: "asc" },
+    });
+
+    return rows.map(toInstrumentAliasModel);
+  }
+
 }

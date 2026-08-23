@@ -1759,6 +1759,8 @@ enum MarketDataProviderType {
   /// OHLC candles via /coins/{id}/ohlc). Added as a pure enum-value
   /// addition — no other schema change required.
   COINGECKO
+  /// cTrader FIX Price Connection — live bid/ask market data
+  CTRADER
 }
 
 /// How a given piece of market data reached this system — distinct from
@@ -2005,12 +2007,13 @@ model Instrument {
 /// MarketTick row, which is why those rows only ever reference
 /// `instrumentId`, never a raw provider symbol string.
 model InstrumentAlias {
-  id             String   @id @default(uuid())
-  instrumentId   String
-  providerId     String
-  providerSymbol String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                   String   @id @default(uuid())
+  instrumentId         String
+  providerId           String
+  providerSymbol       String
+  providerInstrumentId String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   instrument Instrument                @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
   provider   MarketDataProviderConfig  @relation(fields: [providerId], references: [id], onDelete: Cascade)

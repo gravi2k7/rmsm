@@ -79,12 +79,18 @@ export class TwelveDataMapper {
   }
 
   toNormalizedQuote(response: TwelveDataQuoteResponse): NormalizedQuote {
+    const quoteTimestamp =
+      typeof response.last_quote_at === "number"
+        ? new Date(response.last_quote_at * 1000)
+        : undefined;
+
     const providerTimestamp =
       typeof response.timestamp === "number"
         ? new Date(response.timestamp * 1000)
         : undefined;
 
     const eventTime =
+      quoteTimestamp ??
       providerTimestamp ??
       (response.datetime
         ? this.parseTwelveDataDatetime(response.datetime)
@@ -96,7 +102,11 @@ export class TwelveDataMapper {
       askPrice: response.ask,
       lastPrice: response.close,
       eventTime,
-      ...(providerTimestamp ? { sourceTimestamp: providerTimestamp } : {}),
+      ...(quoteTimestamp
+        ? { sourceTimestamp: quoteTimestamp }
+        : providerTimestamp
+          ? { sourceTimestamp: providerTimestamp }
+          : {}),
     };
   }
 

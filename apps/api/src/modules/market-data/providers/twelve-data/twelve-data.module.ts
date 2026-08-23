@@ -76,16 +76,11 @@ export class TwelveDataRegistrarService implements OnModuleInit {
     const requestsPerMinute = config?.rateLimitPerMinute ?? TWELVE_DATA_DEFAULT_REQUESTS_PER_MINUTE;
 
     const rateLimiter = new TwelveDataRateLimiter(requestsPerMinute);
-    const client = new TwelveDataClient(
-      {
+      const client = new TwelveDataClient({
         apiKey: this.env.TWELVE_DATA_API_KEY ?? "",
         baseUrl,
         timeoutMs: this.env.TWELVE_DATA_TIMEOUT,
-        retryCount: this.env.TWELVE_DATA_RETRY_COUNT,
-        retryDelayMs: this.env.TWELVE_DATA_RETRY_DELAY,
-      },
-      rateLimiter,
-    );
+      });
     const mapper = new TwelveDataMapper();
     const errorMapper = new TwelveDataErrorMapper();
     const healthProvider = new TwelveDataHealthProvider(client, errorMapper);

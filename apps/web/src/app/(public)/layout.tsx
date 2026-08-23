@@ -4,7 +4,6 @@ import { SkipLink } from "@rmsm/ui";
 import { AnnouncementBar, Breadcrumbs, Footer, Header } from "@/components/public";
 import { AnalyticsProvider } from "@/components/providers/analytics-provider";
 import { ConsentProvider } from "@/components/providers/consent-provider";
-import { ThemeProvider } from "@/components/providers/theme-provider";
 import { buildMetadata } from "@/lib/seo";
 
 // Deferred: only relevant once consent is still "pending" (most first-time
@@ -25,7 +24,6 @@ export const metadata = buildMetadata();
 
 export default function PublicLayout({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider>
       <AnalyticsProvider>
         <ConsentProvider>
           <SkipLink />
@@ -37,6 +35,5 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
           <CookieBanner />
         </ConsentProvider>
       </AnalyticsProvider>
-    </ThemeProvider>
   );
 }

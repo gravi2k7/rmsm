@@ -78,6 +78,26 @@ export class MarketCandleRepository {
     return toMarketCandleModel(row);
   }
 
+  async findCurrentLiveCandle(
+    instrumentId: string,
+    interval: CandleInterval,
+    eventTime: Date,
+    client: DbClient = prisma,
+  ): Promise<MarketCandleModel | null> {
+    const row = await client.marketCandle.findUnique({
+      where: {
+        instrumentId_interval_eventTime_source: {
+          instrumentId,
+          interval,
+          eventTime,
+          source: MarketDataSource.LIVE,
+        },
+      },
+    });
+
+    return row ? toMarketCandleModel(row) : null;
+  }
+
   async findById(id: string, client: DbClient = prisma): Promise<MarketCandleModel | null> {
     const row = await client.marketCandle.findUnique({ where: { id } });
     return row ? toMarketCandleModel(row) : null;

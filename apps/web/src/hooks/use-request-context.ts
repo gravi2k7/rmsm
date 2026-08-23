@@ -1,14 +1,31 @@
 "use client";
 
-import { useSessionStore } from "@/lib/session-store";
+import { useAuthStore } from "@/lib/auth-store";
+import { useOrganizationStore } from "@/lib/organization-store";
 import type { RequestContext } from "@/lib/api-client";
 
-/** Returns a ready `RequestContext` once both org id and access token are
- * present in the session store, otherwise `null` — callers gate on this
- * to show the "connect a session" prompt instead of firing requests. */
+/**
+ * Returns the canonical authenticated organization request context.
+ *
+ * The authenticated application state is the source of truth:
+ *   - accessToken      -> auth-store
+ *   - organizationId  -> active organization store
+ *
+ * The legacy session-store must not be required for normal application
+ * requests. It exists only as a compatibility bridge for older tooling.
+ */
 export function useRequestContext(): RequestContext | null {
-  const organizationId = useSessionStore((s) => s.organizationId);
-  const accessToken = useSessionStore((s) => s.accessToken);
-  if (!organizationId || !accessToken) return null;
-  return { organizationId, accessToken };
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const organizationId = useOrganizationStore(
+    (state) => state.activeOrganization?.id ?? null,
+  );
+
+  if (!organizationId || !accessToken) {
+    return null;
+  }
+
+  return {
+    organizationId,
+    accessToken,
+  };
 }

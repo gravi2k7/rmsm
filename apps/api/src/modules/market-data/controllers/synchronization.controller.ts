@@ -24,6 +24,10 @@ import { MarketDataAdminService } from "../services/market-data-admin.service";
 import { HistoricalImportService } from "../services/historical-import.service";
 import { ReferenceDataSynchronizationService } from "../services/reference-data-synchronization.service";
 import { QuoteSynchronizationService } from "../services/quote-synchronization.service";
+import { CTraderInstrumentCatalogBootstrapService } from "../providers/ctrader/ctrader-fix.catalog.bootstrap";
+import { CTraderFixInstrumentResolver } from "../providers/ctrader/ctrader-fix.instrument-resolver";
+import type { CTraderCatalogSynchronizationResult } from "../providers/ctrader/ctrader-fix.catalog-synchronizer";
+import { CTraderCatalogSynchronizationDto } from "../dto/ctrader-catalog-synchronization.dto";
 import { ImportJobResponseDto } from "../dto/responses/import-job-response.dto";
 import { SynchronizationHealthResponseDto } from "../dto/responses/synchronization-health-response.dto";
 import { ImportHistoricalCandlesDto } from "../dto/import-historical-candles.dto";
@@ -62,6 +66,8 @@ export class SynchronizationController {
     private readonly historicalImportService: HistoricalImportService,
     private readonly referenceDataSynchronizationService: ReferenceDataSynchronizationService,
     private readonly quoteSynchronizationService: QuoteSynchronizationService,
+    private readonly cTraderCatalogBootstrapService: CTraderInstrumentCatalogBootstrapService,
+    private readonly cTraderInstrumentResolver: CTraderFixInstrumentResolver,
   ) {}
 
   @Post("reference-data")
@@ -77,6 +83,31 @@ export class SynchronizationController {
   })
   synchronizeTwelveDataReferenceData() {
     return this.referenceDataSynchronizationService.synchronizeTwelveData();
+  }
+
+  @Post("ctrader/catalog")
+  @RequirePermissions("market-data.admin.manage")
+  @ApiOperation({
+    operationId: "synchronizeCTraderCatalog",
+    summary: "Synchronize the cTrader instrument catalog.",
+    description:
+      "Requests the cTrader FIX SecurityList catalog and synchronizes entries that resolve to existing canonical RMSM instruments through provider aliases.",
+  })
+  @ApiOkResponse({
+    description: "cTrader catalog synchronization result.",
+  })
+  synchronizeCTraderCatalog(
+    @Body() dto: CTraderCatalogSynchronizationDto,
+  ): Promise<CTraderCatalogSynchronizationResult> {
+    return this.cTraderCatalogBootstrapService.bootstrap({
+      providerId: dto.providerId,
+      timeoutMs: dto.timeoutMs,
+      resolve: (entry) =>
+        this.cTraderInstrumentResolver.resolve(
+          dto.providerId,
+          entry,
+        ),
+    });
   }
 
   @Post("quotes/:instrumentId")

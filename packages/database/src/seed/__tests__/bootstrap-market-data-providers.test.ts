@@ -23,6 +23,10 @@ class FakePrisma {
 
   marketDataProviderConfig = {
     count: async () => this.rows.size,
+    findMany: async ({ select }: { select: { type: boolean } }) =>
+      [...this.rows.values()].map((row) =>
+        select.type ? { type: row.type } : row,
+      ),
     create: async ({ data }: { data: { type: string; name: string; baseUrl?: string; rateLimitPerMinute?: number; supportedAssetClasses?: string[]; priority?: number; isActive?: boolean } }) => {
       const id = randomUUID();
       const row = {
@@ -59,14 +63,14 @@ describe("bootstrapMarketDataProviders", () => {
     prisma = new FakePrisma();
   });
 
-  it("first run: creates exactly the 4 default providers when the table is empty", async () => {
+  it("first run: creates exactly the 6 default providers when the table is empty", async () => {
     const result = await bootstrapMarketDataProviders(prisma as never);
 
-    expect(result).toEqual({ status: "seeded", count: 4 });
-    expect(prisma.rows.size).toBe(4);
+    expect(result).toEqual({ status: "seeded", count: 6 });
+    expect(prisma.rows.size).toBe(6);
 
     const types = [...prisma.rows.values()].map((r) => r.type).sort();
-    expect(types).toEqual(["ALPHA_VANTAGE", "COINGECKO", "TWELVE_DATA", "YAHOO_FINANCE"]);
+    expect(types).toEqual(["ALPHA_VANTAGE", "BINANCE", "COINGECKO", "CTRADER", "TWELVE_DATA", "YAHOO_FINANCE"]);
   });
 
   it("seeds every default provider's fields exactly as configured", async () => {
@@ -88,18 +92,68 @@ describe("bootstrapMarketDataProviders", () => {
     await bootstrapMarketDataProviders(prisma as never);
     const secondResult = await bootstrapMarketDataProviders(prisma as never);
 
-    expect(secondResult).toEqual({ status: "already_seeded", count: 4 });
-    expect(prisma.rows.size).toBe(4);
+    expect(secondResult).toEqual({ status: "already_seeded", count: 6 });
+    expect(prisma.rows.size).toBe(6);
   });
 
-  it("does nothing if the table already has rows, even if it doesn't have all 4 providers (table-level gate, not per-type upsert)", async () => {
-    await prisma.marketDataProviderConfig.create({ data: { type: "TWELVE_DATA", name: "Pre-existing manual row" } });
+  it("adds missing built-in providers when the table already contains providers", async () => {
+    await prisma.marketDataProviderConfig.create({
+      data: {
+        type: "TWELVE_DATA",
+        name: "Pre-existing manual row",
+      },
+    });
 
     const result = await bootstrapMarketDataProviders(prisma as never);
 
-    expect(result).toEqual({ status: "already_seeded", count: 1 });
-    expect(prisma.rows.size).toBe(1);
-    expect([...prisma.rows.values()][0]?.name).toBe("Pre-existing manual row");
+    expect(result).toEqual({ status: "already_seeded", count: 6 });
+    expect(prisma.rows.size).toBe(6);
+
+    const types = [...prisma.rows.values()].map((r) => r.type).sort();
+    expect(types).toEqual([
+      "ALPHA_VANTAGE",
+      "BINANCE",
+      "COINGECKO",
+      "CTRADER",
+      "TWELVE_DATA",
+      "YAHOO_FINANCE",
+    ]);
+
+    expect(
+      [...prisma.rows.values()].find((r) => r.type === "TWELVE_DATA")?.name,
+    ).toBe("Pre-existing manual row");
+  });
+
+  it("does not create a duplicate when Binance already exists", async () => {
+    await prisma.marketDataProviderConfig.create({
+      data: {
+        type: "BINANCE",
+        name: "Existing Binance",
+        baseUrl: "https://custom-binance.example",
+        rateLimitPerMinute: 100,
+        supportedAssetClasses: ["CRYPTO"],
+        priority: 5,
+        isActive: false,
+      },
+    });
+
+    const result = await bootstrapMarketDataProviders(prisma as never);
+
+    expect(result).toEqual({ status: "already_seeded", count: 6 });
+    expect(prisma.rows.size).toBe(6);
+
+    const binanceRows = [...prisma.rows.values()].filter(
+      (r) => r.type === "BINANCE",
+    );
+
+    expect(binanceRows).toHaveLength(1);
+    expect(binanceRows[0]).toMatchObject({
+      name: "Existing Binance",
+      baseUrl: "https://custom-binance.example",
+      rateLimitPerMinute: 100,
+      priority: 5,
+      isActive: false,
+    });
   });
 
   it("treats a concurrent-seed serialization failure (P2034) as a safe no-op, not an error", async () => {
@@ -107,7 +161,7 @@ describe("bootstrapMarketDataProviders", () => {
 
     const result = await bootstrapMarketDataProviders(prisma as never);
 
-    expect(result).toEqual({ status: "already_seeded", count: 4 });
+    expect(result).toEqual({ status: "already_seeded", count: 0 });
     // The fake's create() never ran on this process's side (a different
     // "process" — simulated by the thrown error — is understood to have
     // done the actual insert instead), consistent with what would

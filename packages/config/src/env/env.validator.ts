@@ -10,6 +10,7 @@ import { coinGeckoSchema } from "../schemas/coingecko.schema";
 import { alphaVantageSchema } from "../schemas/alphavantage.schema";
 import { yahooFinanceSchema } from "../schemas/yahoo-finance.schema";
 import { metaTrader5Schema } from "../schemas/metatrader5.schema";
+import { ctraderFixSchema } from "../schemas/ctrader-fix.schema";
 import { emailSchema } from "../schemas/email.schema";
 import { booleanFromString, durationMs } from "./env.parser";
 import { ConfigValidationError } from "../types/config.types";
@@ -76,6 +77,7 @@ const mergedEnvSchema = appSchema
   .merge(alphaVantageSchema)
   .merge(yahooFinanceSchema)
   .merge(metaTrader5Schema)
+  .merge(ctraderFixSchema)
   .merge(emailSchema)
   .merge(platformIntegrationsSchema);
 
@@ -157,6 +159,47 @@ export const envSchema = mergedEnvSchema.superRefine((data, ctx) => {
       path: ["CORS_ALLOWED_ORIGINS"],
       message: `must not include a wildcard ("*") in ${data.NODE_ENV} — list explicit origins instead (e.g. "https://app.example.com,https://admin.example.com").`,
     });
+  }
+
+  // cTrader FIX is optional in every environment, but once enabled in
+  // staging/production its credential boundary must be complete. A
+  // partially configured connection is more dangerous than a disabled
+  // provider because it can pass configuration validation and fail only
+  // when the connection is first attempted.
+  const ctraderCredentialFields = [
+    "CTRADER_FIX_SENDER_COMP_ID",
+    "CTRADER_FIX_USERNAME",
+    "CTRADER_FIX_PASSWORD",
+  ] as const;
+
+  const ctraderConfiguredFields = ctraderCredentialFields.filter(
+    (field) => {
+      const value = data[field];
+      return typeof value === "string" && value.trim().length > 0;
+    },
+  );
+
+  if (
+    ctraderConfiguredFields.length > 0 &&
+    ctraderConfiguredFields.length < ctraderCredentialFields.length
+  ) {
+    for (const field of ctraderCredentialFields) {
+      const value = data[field];
+
+      if (
+        typeof value !== "string" ||
+        value.trim().length === 0
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [field],
+          message:
+            `must be configured when cTrader FIX is enabled in ${data.NODE_ENV} ` +
+            `(CTRADER_FIX_SENDER_COMP_ID, CTRADER_FIX_USERNAME, and CTRADER_FIX_PASSWORD ` +
+            `must be provided together).`,
+        });
+      }
+    }
   }
 });
 

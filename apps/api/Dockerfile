@@ -77,6 +77,8 @@ RUN chmod +x scripts/build-api-deps.sh
 
 RUN ./scripts/build-api-deps.sh
 
+RUN chown -R rmsm:rmsm /workspace
+
 
 FROM build AS production
 

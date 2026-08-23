@@ -1,14 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common";
 import type { CandleInterval } from "@rmsm/database";
-import { TwelveDataRateLimiter } from "./twelve-data.rate-limit";
 import type { TwelveDataApiError } from "./twelve-data.error-mapper";
 
 export interface TwelveDataClientConfig {
   apiKey: string;
   baseUrl: string;
   timeoutMs: number;
-  retryCount: number;
-  retryDelayMs: number;
 }
 
 export interface TwelveDataCandleValue {
@@ -35,6 +32,7 @@ export interface TwelveDataQuoteResponse {
   currency?: string;
   datetime?: string;
   timestamp?: number;
+  last_quote_at?: number;
   open?: string;
   high?: string;
   low?: string;
@@ -216,7 +214,6 @@ export class TwelveDataClient {
 
   constructor(
     private readonly config: TwelveDataClientConfig,
-    private readonly rateLimiter: TwelveDataRateLimiter,
   ) {}
 
   async getTimeSeries(params: { symbol: string; interval: CandleInterval; startDate?: Date; endDate?: Date; outputsize?: number }): Promise<TwelveDataTimeSeriesResponse> {
@@ -292,63 +289,62 @@ export class TwelveDataClient {
     return date.toISOString().slice(0, 19).replace("T", " ");
   }
 
-  private async request<T extends { status?: string; code?: number; message?: string }>(path: string, params: Record<string, string>): Promise<T> {
-    const attempts = this.config.retryCount + 1;
-    let lastError: TwelveDataApiError = { isNetworkFailure: true, message: "Twelve Data request never attempted" };
+  private async request<T extends { status?: string; code?: number; message?: string }>(
+    path: string,
+    params: Record<string, string>,
+  ): Promise<T> {
+    const startedAt = Date.now();
 
-    for (let attempt = 1; attempt <= attempts; attempt++) {
-      const waitMs = await this.rateLimiter.getWaitTimeMs();
-      if (waitMs > 0) {
-        this.logger.log({ msg: "twelve_data.rate_limit.wait", path, waitMs, attempt });
-        await this.sleep(waitMs);
-      }
+    // Retry, backoff, provider rate limiting, and circuit breaking are
+    // centralized in ProviderOrchestrationService. This client performs
+    // exactly one HTTP attempt per invocation.
+    this.logger.log({
+      msg: "twelve_data.request",
+      path,
+      params,
+    });
 
-      const startedAt = Date.now();
-      // `params` never contains `apikey` at this point — it is appended
-      // only inside fetchOnce(), so this log line can never leak it.
-      this.logger.log({ msg: "twelve_data.request", path, params, attempt, of: attempts });
+    try {
+      const result = await this.fetchOnce<T>(path, params);
+      const latencyMs = Date.now() - startedAt;
 
-      try {
-        this.rateLimiter.recordCall();
-        const result = await this.fetchOnce<T>(path, params);
-        const latencyMs = Date.now() - startedAt;
+      if (result.status === "error") {
+        const apiError: TwelveDataApiError = {
+          httpStatus: result.code,
+          message: result.message,
+        };
 
-        if (result.status === "error") {
-          const apiError: TwelveDataApiError = { httpStatus: result.code, message: result.message };
-          lastError = apiError;
-          this.logger.warn({ msg: "twelve_data.response.error", path, latencyMs, attempt, httpStatus: result.code, message: result.message });
-          if (!this.isRetryableStatus(result.code) || attempt === attempts) {
-            throw apiError;
-          }
-          await this.backoff(attempt);
-          continue;
-        }
-
-        this.logger.log({ msg: "twelve_data.response", path, latencyMs, attempt });
-        return result;
-      } catch (err) {
-        const classified = this.classifyThrown(err);
-        lastError = classified;
         this.logger.warn({
-          msg: "twelve_data.request.failed",
+          msg: "twelve_data.response.error",
           path,
-          attempt,
-          of: attempts,
-          isTimeout: classified.isTimeout ?? false,
-          isNetworkFailure: classified.isNetworkFailure ?? false,
-          httpStatus: classified.httpStatus,
+          latencyMs,
+          httpStatus: result.code,
+          message: result.message,
         });
 
-        const isFinalAttempt = attempt === attempts;
-        const retryable = Boolean(classified.isTimeout) || Boolean(classified.isNetworkFailure) || this.isRetryableStatus(classified.httpStatus);
-        if (isFinalAttempt || !retryable) {
-          throw classified;
-        }
-        await this.backoff(attempt);
+        throw apiError;
       }
-    }
 
-    throw lastError;
+      this.logger.log({
+        msg: "twelve_data.response",
+        path,
+        latencyMs,
+      });
+
+      return result;
+    } catch (err) {
+      const classified = this.classifyThrown(err);
+
+      this.logger.warn({
+        msg: "twelve_data.request.failed",
+        path,
+        isTimeout: classified.isTimeout ?? false,
+        isNetworkFailure: classified.isNetworkFailure ?? false,
+        httpStatus: classified.httpStatus,
+      });
+
+      throw classified;
+    }
   }
 
   private async fetchOnce<T>(path: string, params: Record<string, string>): Promise<T> {
@@ -396,15 +392,4 @@ export class TwelveDataClient {
     return undefined;
   }
 
-  private isRetryableStatus(status?: number): boolean {
-    return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
-  }
-
-  private async backoff(attempt: number): Promise<void> {
-    await this.sleep(this.config.retryDelayMs * 2 ** (attempt - 1));
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
 }

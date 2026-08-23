@@ -71,7 +71,8 @@ export class InstrumentOnboardingService {
         exchangeId = exchange.id;
       } else if (
         request.assetClass !== "FOREX" &&
-        request.assetClass !== "COMMODITY"
+        request.assetClass !== "COMMODITY" &&
+        request.assetClass !== "CRYPTO"
       ) {
         throw new ValidationError(
           `Exchange code is required for ${request.assetClass} instruments.`,

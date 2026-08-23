@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 import { JsonLd } from "@/components/public/json-ld";
 import { siteConfig } from "@/config";
 import { organizationJsonLd, websiteJsonLd } from "@/lib/seo";
@@ -37,7 +38,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             placed in <body>, not just <head>. */}
         <JsonLd data={organizationJsonLd()} />
         <JsonLd data={websiteJsonLd()} />
-        <QueryProvider>{children}</QueryProvider>
+        <ThemeProvider>
+          <QueryProvider>{children}</QueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

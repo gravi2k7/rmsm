@@ -12,8 +12,6 @@ import { AlphaVantageHealthProvider } from "./alphavantage.health";
 import { AlphaVantageCacheService } from "./alphavantage.cache";
 import { AlphaVantageProvider } from "./alphavantage.provider";
 import {
-  ALPHA_VANTAGE_DEFAULT_RETRY_COUNT,
-  ALPHA_VANTAGE_DEFAULT_RETRY_DELAY_MS,
   ALPHA_VANTAGE_DEFAULT_REQUESTS_PER_MINUTE,
   ALPHA_VANTAGE_DEFAULT_REQUESTS_PER_DAY,
 } from "./alphavantage.constants";
@@ -59,16 +57,11 @@ export class AlphaVantageRegistrarService implements OnModuleInit {
     const requestsPerMinute = config?.rateLimitPerMinute ?? this.env.ALPHA_VANTAGE_RATE_LIMIT ?? ALPHA_VANTAGE_DEFAULT_REQUESTS_PER_MINUTE;
 
     const rateLimiter = new AlphaVantageRateLimiter(requestsPerMinute, ALPHA_VANTAGE_DEFAULT_REQUESTS_PER_DAY);
-    const client = new AlphaVantageClient(
-      {
+      const client = new AlphaVantageClient({
         apiKey: this.env.ALPHA_VANTAGE_API_KEY,
         baseUrl,
         timeoutMs: this.env.ALPHA_VANTAGE_TIMEOUT,
-        retryCount: ALPHA_VANTAGE_DEFAULT_RETRY_COUNT,
-        retryDelayMs: ALPHA_VANTAGE_DEFAULT_RETRY_DELAY_MS,
-      },
-      rateLimiter,
-    );
+      });
     const mapper = new AlphaVantageMapper();
     const errorMapper = new AlphaVantageErrorMapper();
     const healthProvider = new AlphaVantageHealthProvider(client, errorMapper);

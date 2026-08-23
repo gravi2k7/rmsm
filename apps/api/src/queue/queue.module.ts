@@ -16,10 +16,6 @@ import { loadConfig } from "@rmsm/config";
 
   const url = new URL(REDIS_URL);
 
-  console.log("REDIS_URL:", REDIS_URL);
-  console.log("PASSWORD RAW:", url.password);
-  console.log("PASSWORD DECODED:", decodeURIComponent(url.password));
-
   return {
     connection: {
       host: url.hostname,

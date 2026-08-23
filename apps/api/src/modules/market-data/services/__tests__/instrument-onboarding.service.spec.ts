@@ -161,6 +161,29 @@ describe("InstrumentOnboardingService", () => {
     ).rejects.toThrow(ValidationError);
   });
 
+  it("accepts decentralized crypto without an exchange", async () => {
+    const { service, instrumentRepository } = buildService();
+
+    await expect(
+      service.onboard({
+        providerConfigId: "provider-1",
+        providerSymbol: "bitcoin",
+        name: "Bitcoin",
+        assetClass: "CRYPTO",
+        currency: "USD",
+      }),
+    ).resolves.toEqual(instrument);
+
+    expect(instrumentRepository.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        exchangeId: null,
+        symbol: "bitcoin",
+        assetClass: "CRYPTO",
+      }),
+      expect.anything(),
+    );
+  });
+
   it("throws when the supplied exchange does not exist", async () => {
     const { service } = buildService({
       exchangeRepository: {

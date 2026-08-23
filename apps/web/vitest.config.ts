@@ -2,6 +2,7 @@ import { defineConfig } from "vitest/config";
 import { resolve } from "node:path";
 
 export default defineConfig({
+  cacheDir: "/tmp/rmsm-vitest",
   resolve: {
     alias: {
       "@": resolve(__dirname, "src"),

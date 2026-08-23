@@ -112,6 +112,7 @@ export interface InstrumentAliasModel {
   instrumentId: string;
   providerId: string;
   providerSymbol: string;
+  providerInstrumentId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

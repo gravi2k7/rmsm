@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsNotEmptyObject, IsOptional, IsString } from "class-validator";
+import { IsOptional, IsString } from "class-validator";
 
 export class UpsertPlatformSettingDto {
   @ApiProperty({ example: "app.support_email" })

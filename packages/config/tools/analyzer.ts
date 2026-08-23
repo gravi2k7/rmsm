@@ -19,23 +19,28 @@ import type { EnvVariableMetadata } from "./types";
 function unwrapSchema(schema: ZodTypeAny): ZodTypeAny {
   let current = schema;
 
-  while (true) {
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+
     if (current instanceof ZodEffects) {
       current = current.innerType();
+      changed = true;
       continue;
     }
 
     if (current instanceof ZodDefault) {
       current = current.removeDefault();
+      changed = true;
       continue;
     }
 
     if (current instanceof ZodOptional) {
       current = current.unwrap();
+      changed = true;
       continue;
     }
-
-    break;
   }
 
   return current;

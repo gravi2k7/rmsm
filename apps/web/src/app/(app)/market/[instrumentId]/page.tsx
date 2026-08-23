@@ -720,6 +720,7 @@ export default function InstrumentChartPage() {
                   <div className="min-h-0 flex-1">
                     <RMSMCandlestickChart
                     candles={displayCandles}
+                    interval={interval}
                     indicators={indicators}
                     activeDrawingTool={activeDrawingTool}
                     drawingState={drawingState}

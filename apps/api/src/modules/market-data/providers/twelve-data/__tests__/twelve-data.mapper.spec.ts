@@ -49,7 +49,7 @@ describe("TwelveDataMapper", () => {
   });
 
   describe("toNormalizedQuote (quotes)", () => {
-    it("maps bid/ask/last price and prefers the numeric provider timestamp for eventTime and sourceTimestamp", () => {
+    it("maps bid/ask/last price and prefers last_quote_at for eventTime and sourceTimestamp", () => {
       const response: TwelveDataQuoteResponse = {
         symbol: "AAPL",
         bid: "186.85",
@@ -57,6 +57,7 @@ describe("TwelveDataMapper", () => {
         close: "186.90",
         datetime: "2026-01-02",
         timestamp: 1767369600,
+          last_quote_at: 1767369660,
         status: "ok",
       };
 
@@ -67,8 +68,8 @@ describe("TwelveDataMapper", () => {
         bidPrice: "186.85",
         askPrice: "186.95",
         lastPrice: "186.90",
-        eventTime: new Date(1767369600 * 1000),
-        sourceTimestamp: new Date(1767369600 * 1000),
+        eventTime: new Date(1767369660 * 1000),
+        sourceTimestamp: new Date(1767369660 * 1000),
       });
     });
 

@@ -10,3 +10,4 @@ export * from "./alphavantage.config";
 export * from "./yahoo-finance.config";
 export * from "./metatrader5.config";
 export * from "./email.config";
+export * from "./ctrader-fix.config";

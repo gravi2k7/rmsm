@@ -1,42 +1,88 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { renderHook, act } from "@testing-library/react";
-import { useSessionStore } from "../../lib/session-store";
+import { act, renderHook } from "@testing-library/react";
+import { useAuthStore } from "../../lib/auth-store";
+import { useOrganizationStore } from "../../lib/organization-store";
 import { useRequestContext } from "../use-request-context";
 
 describe("useRequestContext", () => {
   beforeEach(() => {
     act(() => {
-      useSessionStore.getState().clear();
+      useAuthStore.getState().clear();
+      useOrganizationStore.getState().setActiveOrganization(null);
+      useOrganizationStore.getState().setAvailableOrganizations([]);
     });
   });
 
-  it("returns null when neither org id nor token are set", () => {
-    const { result } = renderHook(() => useRequestContext());
-    expect(result.current).toBeNull();
-  });
-
-  it("returns null when only one of org id / token is set", () => {
-    act(() => useSessionStore.getState().setOrganizationId("org-1"));
-    const { result } = renderHook(() => useRequestContext());
-    expect(result.current).toBeNull();
-  });
-
-  it("returns a populated context once both org id and token are set", () => {
+  it("returns null without an access token", () => {
     act(() => {
-      useSessionStore.getState().setOrganizationId("org-1");
-      useSessionStore.getState().setAccessToken("token-abc");
+      useOrganizationStore.getState().setActiveOrganization({
+        id: "org-1",
+        name: "Organization 1",
+        slug: "organization-1",
+      });
     });
+
     const { result } = renderHook(() => useRequestContext());
-    expect(result.current).toEqual({ organizationId: "org-1", accessToken: "token-abc" });
+
+    expect(result.current).toBeNull();
   });
 
-  it("clear() resets both fields back to null", () => {
+  it("returns null without an active organization", () => {
     act(() => {
-      useSessionStore.getState().setOrganizationId("org-1");
-      useSessionStore.getState().setAccessToken("token-abc");
-      useSessionStore.getState().clear();
+      useAuthStore.getState().setTokens({
+        accessToken: "token-abc",
+        refreshToken: "refresh-abc",
+        expiresIn: "3600",
+      });
     });
+
     const { result } = renderHook(() => useRequestContext());
+
     expect(result.current).toBeNull();
+  });
+
+  it("returns the authenticated organization request context", () => {
+    act(() => {
+      useAuthStore.getState().setTokens({
+        accessToken: "token-abc",
+        refreshToken: "refresh-abc",
+        expiresIn: "3600",
+      });
+
+      useOrganizationStore.getState().setActiveOrganization({
+        id: "org-1",
+        name: "Organization 1",
+        slug: "organization-1",
+      });
+    });
+
+    const { result } = renderHook(() => useRequestContext());
+
+    expect(result.current).toEqual({
+      organizationId: "org-1",
+      accessToken: "token-abc",
+    });
+  });
+
+  it("ignores the legacy session store", () => {
+    act(() => {
+      useAuthStore.getState().setTokens({
+        accessToken: "auth-token",
+        refreshToken: "refresh-abc",
+        expiresIn: "3600",
+      });
+
+      useOrganizationStore.getState().setActiveOrganization({
+        id: "real-org",
+        name: "Real Organization",
+        slug: "real-organization",
+      });
+    });
+
+    const { result } = renderHook(() => useRequestContext());
+
+    expect(result.current).toEqual({
+      organizationId: "real-org",
+      accessToken: "auth-token",
+    });
   });
 });

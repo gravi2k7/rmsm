@@ -151,6 +151,112 @@ describe("envSchema — default values", () => {
   });
 });
 
+describe("envSchema — cTrader production/staging credential boundary", () => {
+  const VALID_PRODUCTION = {
+    ...MINIMAL_VALID_ENV,
+    NODE_ENV: "production",
+    WEB_APP_URL: "https://app.example.com",
+    COOKIE_SECRET: "a".repeat(32),
+    TWO_FACTOR_ENCRYPTION_KEY: "b".repeat(64),
+    NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "c".repeat(64),
+    MOCK_WEBHOOK_SECRET: "d".repeat(32),
+  };
+
+  it.each(["production", "staging"] as const)(
+    "accepts cTrader as disabled when all credentials are absent in %s",
+    (nodeEnv) => {
+      const result = envSchema.safeParse({
+        ...VALID_PRODUCTION,
+        NODE_ENV: nodeEnv,
+      });
+
+      expect(result.success).toBe(true);
+    },
+  );
+
+  it.each(["production", "staging"] as const)(
+    "accepts cTrader when all credentials are configured in %s",
+    (nodeEnv) => {
+      const result = envSchema.safeParse({
+        ...VALID_PRODUCTION,
+        NODE_ENV: nodeEnv,
+        CTRADER_FIX_SENDER_COMP_ID: "RMSM",
+        CTRADER_FIX_USERNAME: "production-user",
+        CTRADER_FIX_PASSWORD: "production-password",
+      });
+
+      expect(result.success).toBe(true);
+    },
+  );
+
+  it.each([
+    ["CTRADER_FIX_SENDER_COMP_ID"],
+    ["CTRADER_FIX_USERNAME"],
+    ["CTRADER_FIX_PASSWORD"],
+  ] as const)(
+    "rejects partial cTrader configuration when only %s is supplied",
+    (field) => {
+      const result = envSchema.safeParse({
+        ...VALID_PRODUCTION,
+        [field]: "configured",
+      });
+
+      expect(result.success).toBe(false);
+
+      if (!result.success) {
+        const paths = result.error.issues.map((issue) =>
+          issue.path.join("."),
+        );
+
+        const expectedMissingFields = [
+          "CTRADER_FIX_SENDER_COMP_ID",
+          "CTRADER_FIX_USERNAME",
+          "CTRADER_FIX_PASSWORD",
+        ].filter((candidate) => candidate !== field);
+
+        expect(paths).toEqual(
+          expect.arrayContaining(expectedMissingFields),
+        );
+
+        expect(paths).not.toContain(field);
+      }
+    },
+  );
+
+  it("rejects blank cTrader credentials as partial configuration", () => {
+    const result = envSchema.safeParse({
+      ...VALID_PRODUCTION,
+      CTRADER_FIX_SENDER_COMP_ID: "RMSM",
+      CTRADER_FIX_USERNAME: "",
+      CTRADER_FIX_PASSWORD: "production-password",
+    });
+
+    expect(result.success).toBe(false);
+
+    if (!result.success) {
+      expect(
+        result.error.issues.some(
+          (issue) =>
+            issue.path.join(".") === "CTRADER_FIX_USERNAME",
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it.each(["development", "test"] as const)(
+    "does not apply the production cTrader credential boundary in %s",
+    (nodeEnv) => {
+      const result = envSchema.safeParse({
+        ...MINIMAL_VALID_ENV,
+        NODE_ENV: nodeEnv,
+        CTRADER_FIX_USERNAME: "local-user",
+      });
+
+      expect(result.success).toBe(true);
+    },
+  );
+});
+
 describe("validateEnv", () => {
   it("returns validated, typed data for a valid raw env object", () => {
     const env = validateEnv(MINIMAL_VALID_ENV);

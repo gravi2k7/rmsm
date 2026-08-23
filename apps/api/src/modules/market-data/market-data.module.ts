@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { BullModule } from "@nestjs/bullmq";
 import { prisma, TransactionManager } from "@rmsm/database";
 import { AuthModule } from "../auth/auth.module";
 import { MarketDataProviderConfigRepository } from "./repositories/market-data-provider-config.repository";
@@ -42,6 +43,27 @@ import { ProviderConnectionTestService } from "./services/provider-connection-te
 import { TwelveDataRegistrarService } from "./providers/twelve-data/twelve-data.module";
 import { AlphaVantageRegistrarService } from "./providers/alphavantage/alphavantage.module";
 import { AlphaVantageCacheService } from "./providers/alphavantage/alphavantage.cache";
+import { CoinGeckoRegistrarService } from "./providers/coingecko/coingecko.module";
+import { CoinGeckoCacheService } from "./providers/coingecko/coingecko.cache";
+import { BinanceRegistrarService } from "./providers/binance/binance.module";
+import {
+  CTraderFixClientFactory,
+  CTraderFixRegistrarService,
+  cTraderFixClientProvider,
+} from "./providers/ctrader/ctrader-fix.module";
+import { CTraderInstrumentCatalogService } from "./providers/ctrader/ctrader-fix.catalog.service";
+import { CTraderInstrumentCatalogSynchronizer } from "./providers/ctrader/ctrader-fix.catalog-synchronizer";
+import { CTraderInstrumentCatalogBootstrapService } from "./providers/ctrader/ctrader-fix.catalog.bootstrap";
+import { CTraderFixInstrumentResolver } from "./providers/ctrader/ctrader-fix.instrument-resolver";
+import { CTraderLiveQuoteIngestionService } from "./services/ctrader-live-quote-ingestion.service";
+import { CTraderLiveCandleBuilderService } from "./services/ctrader-live-candle-builder.service";
+import { MarketDataStreamPublisher } from "./services/market-data-stream.publisher";
+import { MarketDataGateway } from "./gateways/market-data.gateway";
+import { QuoteSyncQueueProcessor } from "./workers/quote-sync-queue.processor";
+import { QuoteSyncCronRegistrar } from "./workers/quote-sync-cron.registrar";
+import { LiveCandleSynchronizationService } from "./services/live-candle-synchronization.service";
+import { LiveCandleSyncQueueProcessor } from "./workers/live-candle-sync-queue.processor";
+import { LiveCandleSyncCronRegistrar } from "./workers/live-candle-sync-cron.registrar";
 
 /**
  * AI-101 Phase 2A: 13 repositories, domain-model layer (ADR-025).
@@ -59,7 +81,15 @@ import { AlphaVantageCacheService } from "./providers/alphavantage/alphavantage.
  * explicit scope.
  */
 @Module({
-  imports: [AuthModule],
+imports: [
+    AuthModule,
+    BullModule.registerQueue({
+      name: "market-data-quotes",
+    }),
+      BullModule.registerQueue({
+        name: "market-data-candles",
+      }),
+  ],
   controllers: [
     ExchangeController,
     InstrumentController,
@@ -102,12 +132,31 @@ import { AlphaVantageCacheService } from "./providers/alphavantage/alphavantage.
     HistoricalImportService,
     SynchronizationService,
     QuoteSynchronizationService,
+    LiveCandleSynchronizationService,
     ReferenceDataSynchronizationService,
     MarketDataProviderBootstrapService,
     ProviderDiagnosticsService,
     TwelveDataRegistrarService,
     AlphaVantageCacheService,
     AlphaVantageRegistrarService,
+    CoinGeckoCacheService,
+    CoinGeckoRegistrarService,
+    BinanceRegistrarService,
+    CTraderFixClientFactory,
+    cTraderFixClientProvider,
+    CTraderInstrumentCatalogSynchronizer,
+    CTraderInstrumentCatalogService,
+    CTraderInstrumentCatalogBootstrapService,
+    CTraderFixInstrumentResolver,
+    CTraderFixRegistrarService,
+    CTraderLiveQuoteIngestionService,
+    CTraderLiveCandleBuilderService,
+    MarketDataStreamPublisher,
+    MarketDataGateway,
+      QuoteSyncQueueProcessor,
+      QuoteSyncCronRegistrar,
+      LiveCandleSyncQueueProcessor,
+      LiveCandleSyncCronRegistrar,
   ],
   exports: [
     MarketDataProviderConfigRepository,

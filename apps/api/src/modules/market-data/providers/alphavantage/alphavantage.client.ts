@@ -1,6 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
 import type { CandleInterval } from "@rmsm/database";
-import { AlphaVantageRateLimiter } from "./alphavantage.rate-limit";
 import type { AlphaVantageApiError } from "./alphavantage.error-mapper";
 import { ALPHA_VANTAGE_INTERVAL_FUNCTION } from "./alphavantage.constants";
 import type {
@@ -16,8 +15,6 @@ export interface AlphaVantageClientConfig {
   apiKey: string | undefined;
   baseUrl: string;
   timeoutMs: number;
-  retryCount: number;
-  retryDelayMs: number;
 }
 
 /** A response body shape every Alpha Vantage function shares — the three possible error-signal keys, always optional, always coexisting alongside whatever data keys that specific function actually returns. */
@@ -46,13 +43,11 @@ export function toAlphaVantageRequest(interval: CandleInterval): { fn: string; i
 
 /**
  * Raw HTTP transport for Alpha Vantage's REST API — no SDK dependency,
- * same standing rule as every provider since MD-001. Owns timeout
- * (`AbortController`), retry with exponential backoff, provider-specific
- * rate limiting (delegates to `AlphaVantageRateLimiter`), and structured
- * logging that never logs the API key — it travels only as the
- * `apikey` query parameter appended inside `fetchOnce()`, after every
- * log line for that attempt has already been written, exactly matching
- * `TwelveDataClient`'s discipline for its own query-param key.
+ * same standing rule as every provider since MD-001. Owns only HTTP
+ * transport, timeout handling, envelope validation, and structured
+ * logging.
+ * Retry, rate limiting, and circuit breaking are owned centrally by
+ * `ProviderOrchestrationService`.
  *
  * The one thing genuinely unique to this client versus
  * `TwelveDataClient`/`CoinGeckoClient`: Alpha Vantage's `/query` endpoint
@@ -67,7 +62,6 @@ export class AlphaVantageClient {
 
   constructor(
     private readonly config: AlphaVantageClientConfig,
-    private readonly rateLimiter: AlphaVantageRateLimiter,
   ) {}
 
   async getGlobalQuote(symbol: string): Promise<AlphaVantageGlobalQuoteResponse> {
@@ -108,73 +102,58 @@ export class AlphaVantageClient {
     await this.getGlobalQuote("IBM");
   }
 
-  private async request<T extends AlphaVantageEnvelope>(params: Record<string, string>): Promise<T> {
-    const attempts = this.config.retryCount + 1;
-    let lastError: AlphaVantageApiError = { isNetworkFailure: true, message: "Alpha Vantage request never attempted" };
+  private async request<T extends AlphaVantageEnvelope>(
+    params: Record<string, string>,
+  ): Promise<T> {
+    const startedAt = Date.now();
 
-    for (let attempt = 1; attempt <= attempts; attempt++) {
-      const waitMs = await this.rateLimiter.getWaitTimeMs();
-      if (waitMs > 0) {
-        this.logger.log({ msg: "alphavantage.rate_limit.wait", function: params.function, waitMs, attempt });
-        await this.sleep(waitMs);
-      }
+    // `params` never contains `apikey` — appended only inside
+    // `fetchOnce()`, so this log line can never leak it.
+    this.logger.log({
+      msg: "alphavantage.request",
+      params,
+    });
 
-      const startedAt = Date.now();
-      // `params` never contains `apikey` — appended only inside
-      // fetchOnce(), so this log line can never leak it.
-      this.logger.log({ msg: "alphavantage.request", params, attempt, of: attempts });
+    try {
+      const result = await this.fetchOnce<T>(params);
+      const envelopeError = this.checkEnvelope(result);
 
-      try {
-        this.rateLimiter.recordCall();
-        const result = await this.fetchOnce<T>(params);
-        const envelopeError = this.checkEnvelope(result);
-        if (envelopeError) {
-          this.logger.warn({ msg: "alphavantage.response.envelope_error", function: params.function, attempt, ...envelopeError });
-          if (!this.isRetryableEnvelope(envelopeError) || attempt === attempts) {
-            throw envelopeError;
-          }
-          lastError = envelopeError;
-          await this.backoff(attempt);
-          continue;
-        }
-
-        this.logger.log({ msg: "alphavantage.response", function: params.function, latencyMs: Date.now() - startedAt, attempt });
-        return result;
-      } catch (err) {
-        const classified = this.classifyThrown(err);
-        lastError = classified;
+      if (envelopeError) {
         this.logger.warn({
-          msg: "alphavantage.request.failed",
+          msg: "alphavantage.response.envelope_error",
           function: params.function,
-          attempt,
-          of: attempts,
-          isTimeout: classified.isTimeout ?? false,
-          isNetworkFailure: classified.isNetworkFailure ?? false,
-          httpStatus: classified.httpStatus,
+          ...envelopeError,
         });
-
-        const isFinalAttempt = attempt === attempts;
-        const retryable = Boolean(classified.isTimeout) || Boolean(classified.isNetworkFailure) || this.isRetryableEnvelope(classified) || this.isRetryableStatus(classified.httpStatus);
-        if (isFinalAttempt || !retryable) {
-          throw classified;
-        }
-        await this.backoff(attempt);
+        throw envelopeError;
       }
-    }
 
-    throw lastError;
+      this.logger.log({
+        msg: "alphavantage.response",
+        function: params.function,
+        latencyMs: Date.now() - startedAt,
+      });
+
+      return result;
+    } catch (err) {
+      const classified = this.classifyThrown(err);
+
+      this.logger.warn({
+        msg: "alphavantage.request.failed",
+        function: params.function,
+        isTimeout: classified.isTimeout ?? false,
+        isNetworkFailure: classified.isNetworkFailure ?? false,
+        httpStatus: classified.httpStatus,
+      });
+
+      throw classified;
+    }
   }
 
-  /** Inspects the three Alpha Vantage error-signal keys on an otherwise successfully-parsed, HTTP-200 body. Returns `undefined` when none are present (a genuine success). */
   private checkEnvelope(body: AlphaVantageEnvelope): AlphaVantageApiError | undefined {
     if (body.Note) return { isNoteRateLimit: true, message: body.Note };
     if (body.Information) return { isInformationMessage: true, message: body.Information };
     if (body["Error Message"]) return { isErrorMessage: true, message: body["Error Message"] };
     return undefined;
-  }
-
-  private isRetryableEnvelope(error: AlphaVantageApiError): boolean {
-    return Boolean(error.isNoteRateLimit) || (Boolean(error.isInformationMessage) && !this.mentionsApiKey(error.message));
   }
 
   private mentionsApiKey(message?: string): boolean {
@@ -248,15 +227,5 @@ export class AlphaVantageClient {
     return envelope["Error Message"] ?? envelope.Note ?? envelope.Information;
   }
 
-  private isRetryableStatus(status?: number): boolean {
-    return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
-  }
 
-  private async backoff(attempt: number): Promise<void> {
-    await this.sleep(this.config.retryDelayMs * 2 ** (attempt - 1));
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
 }

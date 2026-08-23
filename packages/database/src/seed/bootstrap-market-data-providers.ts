@@ -10,14 +10,11 @@
  * page has nothing to show ("No providers configured") even though the
  * backend is otherwise fully wired up.
  *
- * This module is that missing provisioning step for the four providers
+ * This module is that missing provisioning step for the five providers
  * this platform already ships real integrations for (`api/src/modules/
  * market-data/providers/{twelve-data,alphavantage,coingecko,
- * yahoo-finance}`) — it does not add a fifth (BINANCE / POLYGON /
- * TRADINGVIEW_BRIDGE remain unseeded; there's no provider integration
- * behind them yet, so a row for them would just be a broken entry the
- * Admin UI could try to test-connect against with nothing on the other
- * end).
+ * yahoo-finance,binance}`) — POLYGON / TRADINGVIEW_BRIDGE remain unseeded because there is no
+ * provider integration behind them yet.
  *
  * Idempotency: `MarketDataProviderConfig.type` has no unique constraint
  * in the schema (only a composite, non-unique `@@index([type,
@@ -52,12 +49,12 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 
 export interface DefaultMarketDataProviderConfig {
-  type: "TWELVE_DATA" | "ALPHA_VANTAGE" | "COINGECKO" | "YAHOO_FINANCE";
+  type: "TWELVE_DATA" | "ALPHA_VANTAGE" | "BINANCE" | "COINGECKO" | "YAHOO_FINANCE" | "CTRADER";
   name: string;
-  baseUrl: string;
-  rateLimitPerMinute: number;
+  baseUrl: string | null;
+  rateLimitPerMinute: number | null;
   supportedAssetClasses: Prisma.MarketDataProviderConfigCreateInput["supportedAssetClasses"];
-  /** Resolution-order tiebreak (`priority`, lower wins — see the field's own schema comment). Ordered here by how broad/reliable each free-tier integration is: Twelve Data covers the most asset classes with the friendliest rate limit, Alpha Vantage next, then CoinGecko (crypto-only but generous), then Yahoo Finance (unofficial API, no key, used last). Distinct values rather than the schema's generic default of 100 for all four, so the Admin UI's priority ordering and ProviderFailoverService's failover order are meaningful out of the box instead of a four-way tie. */
+  /** Resolution-order tiebreak (`priority`, lower wins — see the field's own schema comment). Ordered here by how broad/reliable each free-tier integration is: Twelve Data covers the most asset classes, Alpha Vantage next, Binance provides high-volume crypto coverage, then CoinGecko, then Yahoo Finance. Distinct values rather than the schema's generic default of 100 for all four, so the Admin UI's priority ordering and ProviderFailoverService's failover order are meaningful out of the box. */
   priority: number;
 }
 
@@ -98,6 +95,14 @@ export const DEFAULT_MARKET_DATA_PROVIDERS: DefaultMarketDataProviderConfig[] = 
     supportedAssetClasses: ["CRYPTO"],
     priority: 30,
   },
+    {
+      type: "BINANCE",
+      name: "Binance",
+      baseUrl: "https://api.binance.com",
+      rateLimitPerMinute: 1200,
+      supportedAssetClasses: ["CRYPTO"],
+      priority: 30,
+    },
   {
     type: "YAHOO_FINANCE",
     name: "Yahoo Finance",
@@ -105,6 +110,14 @@ export const DEFAULT_MARKET_DATA_PROVIDERS: DefaultMarketDataProviderConfig[] = 
     rateLimitPerMinute: 30,
     supportedAssetClasses: ["EQUITY", "ETF"],
     priority: 40,
+  },
+  {
+    type: "CTRADER",
+    name: "cTrader",
+    baseUrl: null,
+    rateLimitPerMinute: null,
+    supportedAssetClasses: ["FOREX"],
+    priority: 1,
   },
 ];
 
@@ -117,22 +130,25 @@ const SERIALIZATION_FAILURE_CODE = "P2034";
 
 export async function bootstrapMarketDataProviders(prisma: PrismaClient): Promise<BootstrapMarketDataProvidersOutcome> {
   const existingCount = await prisma.marketDataProviderConfig.count();
-  if (existingCount > 0) {
-    // eslint-disable-next-line no-console -- seed script CLI output, not app runtime logging
-    console.log(`✓ Market data provider configs already seeded (${existingCount} row(s)) — skipping.`);
-    return { status: "already_seeded", count: existingCount };
-  }
 
   try {
     await prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
-        // Re-check inside the transaction — closes the TOCTOU window
-        // between the count() above and this write (see this file's
-        // header comment for why that window is real here).
-        const recheck = await tx.marketDataProviderConfig.count();
-        if (recheck > 0) return;
+        const existingProviders = await tx.marketDataProviderConfig.findMany({
+          select: { type: true },
+        });
 
-        for (const provider of DEFAULT_MARKET_DATA_PROVIDERS) {
+        const existingTypes = new Set(
+          existingProviders.map((provider) => provider.type),
+        );
+
+        const missingProviders = DEFAULT_MARKET_DATA_PROVIDERS.filter(
+          (provider) => !existingTypes.has(provider.type),
+        );
+
+        if (missingProviders.length === 0) return;
+
+        for (const provider of missingProviders) {
           await tx.marketDataProviderConfig.create({
             data: {
               type: provider.type,
@@ -149,15 +165,46 @@ export async function bootstrapMarketDataProviders(prisma: PrismaClient): Promis
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === SERIALIZATION_FAILURE_CODE) {
-      // eslint-disable-next-line no-console -- seed script CLI output, not app runtime logging
-      console.log("Market data provider configs are already being seeded by another process — skipping.");
-      return { status: "already_seeded", count: DEFAULT_MARKET_DATA_PROVIDERS.length };
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === SERIALIZATION_FAILURE_CODE
+    ) {
+      console.log(
+        "Market data provider bootstrap encountered a concurrent write race — another process is expected to have completed the bootstrap.",
+      );
+
+      const count = await prisma.marketDataProviderConfig.count();
+      return { status: "already_seeded", count };
     }
+
     throw error;
   }
 
-  // eslint-disable-next-line no-console -- seed script CLI output, not app runtime logging
-  console.log(`✓ Seeded ${DEFAULT_MARKET_DATA_PROVIDERS.length} default market data provider configuration(s): ${DEFAULT_MARKET_DATA_PROVIDERS.map((p) => p.name).join(", ")}`);
-  return { status: "seeded", count: DEFAULT_MARKET_DATA_PROVIDERS.length };
+  const finalCount = await prisma.marketDataProviderConfig.count();
+
+  if (existingCount === 0) {
+    console.log(
+      `✓ Seeded ${DEFAULT_MARKET_DATA_PROVIDERS.length} default market data provider configuration(s): ${DEFAULT_MARKET_DATA_PROVIDERS.map((p) => p.name).join(", ")}`,
+    );
+
+    return {
+      status: "seeded",
+      count: finalCount,
+    };
+  }
+
+  if (finalCount > existingCount) {
+    console.log(
+      `✓ Added ${finalCount - existingCount} missing market data provider configuration(s).`,
+    );
+  } else {
+    console.log(
+      `✓ Market data provider configs already complete (${finalCount} row(s)) — skipping.`,
+    );
+  }
+
+  return {
+    status: "already_seeded",
+    count: finalCount,
+  };
 }

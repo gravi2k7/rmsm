@@ -1,6 +1,7 @@
 import "./tracing";
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
+import { WsAdapter } from "@nestjs/platform-ws";
 import { ValidationPipe } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import helmet from "helmet";
@@ -14,6 +15,9 @@ async function bootstrap() {
   const config = loadConfig();
 
   const app = await NestFactory.create(AppModule, { logger: winstonLogger, rawBody: true });
+
+  // WebSocket transport for live market-data updates.
+  app.useWebSocketAdapter(new WsAdapter(app));
 
   // Security headers
   app.use(helmet());
