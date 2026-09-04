@@ -79,3 +79,32 @@ export function toNumber(value: string | null | undefined): number | null {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
+
+export function priceFormatFromTickSize(
+  tickSize: string | null | undefined,
+): {
+  precision: number;
+  minMove: number;
+} {
+  const minMove = Number(tickSize);
+
+  if (!Number.isFinite(minMove) || minMove <= 0) {
+    return {
+      precision: 2,
+      minMove: 0.01,
+    };
+  }
+
+  const normalized = minMove.toFixed(12).replace(/0+$/, "");
+  const decimalIndex = normalized.indexOf(".");
+
+  const precision =
+    decimalIndex === -1
+      ? 0
+      : normalized.length - decimalIndex - 1;
+
+  return {
+    precision,
+    minMove,
+  };
+}

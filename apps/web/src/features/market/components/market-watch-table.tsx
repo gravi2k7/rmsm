@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from "@tanstack/react-table";
 import { Star, LineChart as LineChartIcon, ArrowUpDown } from "lucide-react";
@@ -15,22 +15,109 @@ export interface MarketWatchRow {
   quote: Quote | undefined;
 }
 
+type PriceMovement = "UP" | "DOWN" | "UNCHANGED";
+
+function getPriceMovement(
+  current: number | null,
+  previous: number | null,
+): PriceMovement {
+  if (current === null || previous === null || current === previous) {
+    return "UNCHANGED";
+  }
+
+  return current > previous ? "UP" : "DOWN";
+}
+
+function movementClassName(
+  movement: PriceMovement,
+): string {
+  if (movement === "UP") {
+    return "text-green-500";
+  }
+
+  if (movement === "DOWN") {
+    return "text-red-500";
+  }
+
+  return "text-foreground";
+}
+
 function StatusBadge({ status }: { status: Instrument["status"] }) {
   const variant = status === "ACTIVE" ? "default" : status === "SUSPENDED" ? "secondary" : "outline";
   return <Badge variant={variant}>{status}</Badge>;
 }
 
-function PriceCell({ value, precision = 5 }: { value: number | null; precision?: number }) {
-  if (value === null) return <span className="text-muted-foreground">—</span>;
-  return <span className="tabular-nums">{value.toFixed(precision)}</span>;
+function PriceCell({
+  value,
+  previousValue = null,
+  precision = 5,
+}: {
+  value: number | null;
+  previousValue?: number | null;
+  precision?: number;
+}) {
+  if (value === null) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  const movement = getPriceMovement(
+    value,
+    previousValue,
+  );
+
+  return (
+    <span
+      className={cn(
+        "tabular-nums transition-colors duration-150",
+        movementClassName(movement),
+      )}
+    >
+      {value.toFixed(precision)}
+    </span>
+  );
 }
 
 export function MarketWatchTable({ rows, isLoading }: { rows: MarketWatchRow[]; isLoading: boolean }) {
   const [sorting, setSorting] = useState<SortingState>([]);
+
+  const previousPricesRef = useRef<
+    Map<string, {
+      last: number | null;
+      bid: number | null;
+      ask: number | null;
+    }>
+  >(new Map());
+
+  const watchlists = useWatchlistStore((s) => s.watchlists);
   const favorites = useWatchlistStore((s) => s.favoriteInstrumentIds);
   const toggleFavorite = useWatchlistStore((s) => s.toggleFavorite);
   const activeWatchlistId = useWatchlistStore((s) => s.activeWatchlistId);
   const addToWatchlist = useWatchlistStore((s) => s.addToWatchlist);
+
+  const effectiveWatchlistId =
+    watchlists.find((w) => w.id === activeWatchlistId)?.id ??
+    watchlists[0]?.id ??
+    null;
+
+  useEffect(() => {
+    /*
+     * Capture the last rendered quote only after the current render.
+     *
+     * Using a ref is intentional: updating the previous-price snapshot
+     * must not trigger another render. The next incoming quote can then
+     * compare against this snapshot and remain green/red until the next
+     * market update.
+     */
+    for (const row of rows) {
+      const instrumentId = row.instrument.id;
+
+      previousPricesRef.current.set(instrumentId, {
+        last: toNumber(row.quote?.lastPrice),
+        bid: toNumber(row.quote?.bidPrice),
+        ask: toNumber(row.quote?.askPrice),
+      });
+    }
+  }, [rows]);
 
   const columns = useMemo<ColumnDef<MarketWatchRow>[]>(
     () => [
@@ -48,7 +135,15 @@ export function MarketWatchTable({ rows, isLoading }: { rows: MarketWatchRow[]; 
               aria-pressed={isFavorite}
               className="text-muted-foreground hover:text-foreground"
             >
-              <Star className={cn("h-4 w-4", isFavorite && "fill-warning text-warning")} aria-hidden="true" />
+              <Star
+                className={cn(
+                  "h-4 w-4",
+                  isFavorite
+                    ? "fill-yellow-400 text-yellow-400"
+                    : "text-muted-foreground",
+                )}
+                aria-hidden="true"
+              />
             </button>
           );
         },
@@ -74,19 +169,52 @@ export function MarketWatchTable({ rows, isLoading }: { rows: MarketWatchRow[]; 
         accessorFn: (row) => toNumber(row.quote?.lastPrice) ?? 0,
         id: "last",
         header: "Last",
-        cell: ({ row }) => <PriceCell value={toNumber(row.original.quote?.lastPrice)} />,
+        cell: ({ row }) => {
+          const instrumentId = row.original.instrument.id;
+          const previous =
+            previousPricesRef.current.get(instrumentId)?.last ?? null;
+
+          return (
+            <PriceCell
+              value={toNumber(row.original.quote?.lastPrice)}
+              previousValue={previous}
+            />
+          );
+        },
       },
       {
         accessorFn: (row) => toNumber(row.quote?.bidPrice) ?? 0,
         id: "bid",
         header: "Bid",
-        cell: ({ row }) => <PriceCell value={toNumber(row.original.quote?.bidPrice)} />,
+        cell: ({ row }) => {
+          const instrumentId = row.original.instrument.id;
+          const previous =
+            previousPricesRef.current.get(instrumentId)?.bid ?? null;
+
+          return (
+            <PriceCell
+              value={toNumber(row.original.quote?.bidPrice)}
+              previousValue={previous}
+            />
+          );
+        },
       },
       {
         accessorFn: (row) => toNumber(row.quote?.askPrice) ?? 0,
         id: "ask",
         header: "Ask",
-        cell: ({ row }) => <PriceCell value={toNumber(row.original.quote?.askPrice)} />,
+        cell: ({ row }) => {
+          const instrumentId = row.original.instrument.id;
+          const previous =
+            previousPricesRef.current.get(instrumentId)?.ask ?? null;
+
+          return (
+            <PriceCell
+              value={toNumber(row.original.quote?.askPrice)}
+              previousValue={previous}
+            />
+          );
+        },
       },
       {
         id: "spread",
@@ -109,24 +237,54 @@ export function MarketWatchTable({ rows, isLoading }: { rows: MarketWatchRow[]; 
         id: "actions",
         header: "",
         enableSorting: false,
-        cell: ({ row }) => (
-          <div className="flex justify-end gap-2">
-            {activeWatchlistId && (
-              <Button variant="ghost" size="sm" onClick={() => addToWatchlist(activeWatchlistId, row.original.instrument.id)}>
-                Watch
+        cell: ({ row }) => {
+          const instrumentId = row.original.instrument.id;
+
+          const activeWatchlist = effectiveWatchlistId
+            ? watchlists.find((w) => w.id === effectiveWatchlistId)
+            : undefined;
+
+          const isWatched =
+            activeWatchlist?.instrumentIds.includes(instrumentId) ?? false;
+
+          return (
+            <div className="flex justify-end gap-2">
+              {effectiveWatchlistId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={isWatched}
+                  onClick={() => {
+                    if (!isWatched) {
+                      addToWatchlist(
+                        effectiveWatchlistId,
+                        instrumentId,
+                      );
+                    }
+                  }}
+                >
+                  {isWatched ? "Added" : "Watch"}
+                </Button>
+              )}
+
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={`/market/${instrumentId}`}>
+                  <LineChartIcon className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                  Chart
+                </Link>
               </Button>
-            )}
-            <Button variant="ghost" size="sm" asChild>
-              <Link href={`/market/${row.original.instrument.id}`}>
-                <LineChartIcon className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                Chart
-              </Link>
-            </Button>
-          </div>
-        ),
+            </div>
+          );
+        },
       },
     ],
-    [favorites, toggleFavorite, activeWatchlistId, addToWatchlist],
+    [
+      watchlists,
+      favorites,
+      toggleFavorite,
+      effectiveWatchlistId,
+      addToWatchlist,
+    ],
   );
 
   const table = useReactTable({
