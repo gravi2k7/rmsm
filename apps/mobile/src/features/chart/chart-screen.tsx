@@ -1,4 +1,7 @@
+import { useEffect, useMemo, useState } from 'react';
+
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -6,8 +9,15 @@ import {
   View,
 } from 'react-native';
 
+import { marketDataApi } from '../../api';
+import { MarketDataSocket } from '../../realtime/market-data-socket';
 import { colors } from '../../theme/colors';
 import { radius, spacing } from '../../theme/spacing';
+import type {
+  Candle,
+  CandleInterval,
+  Instrument,
+} from '../../types/market-data';
 
 type Timeframe = '1m' | '5m' | '15m' | '1H' | '4H' | '1D';
 
@@ -20,39 +30,125 @@ const timeframes: Timeframe[] = [
   '1D',
 ];
 
-const candles = [
-  { open: 48, close: 67, high: 39, low: 75 },
-  { open: 64, close: 53, high: 45, low: 72 },
-  { open: 51, close: 73, high: 42, low: 80 },
-  { open: 70, close: 62, high: 54, low: 77 },
-  { open: 59, close: 81, high: 50, low: 87 },
-  { open: 78, close: 69, high: 61, low: 84 },
-  { open: 67, close: 88, high: 57, low: 93 },
-  { open: 85, close: 76, high: 68, low: 91 },
-  { open: 74, close: 92, high: 65, low: 97 },
-  { open: 90, close: 79, high: 70, low: 96 },
-  { open: 77, close: 84, high: 71, low: 89 },
-  { open: 82, close: 68, high: 60, low: 87 },
-  { open: 66, close: 79, high: 58, low: 85 },
-  { open: 76, close: 91, high: 67, low: 96 },
-  { open: 88, close: 82, high: 73, low: 94 },
-  { open: 80, close: 95, high: 74, low: 99 },
-];
+const timeframeIntervals: Record<Timeframe, CandleInterval> = {
+  '1m': 'ONE_MINUTE',
+  '5m': 'FIVE_MINUTES',
+  '15m': 'FIFTEEN_MINUTES',
+  '1H': 'ONE_HOUR',
+  '4H': 'FOUR_HOURS',
+  '1D': 'ONE_DAY',
+};
+
+const timeframeHistoryMs: Record<Timeframe, number> = {
+  '1m': 2 * 60 * 60 * 1000,
+  '5m': 8 * 60 * 60 * 1000,
+  '15m': 24 * 60 * 60 * 1000,
+  '1H': 4 * 24 * 60 * 60 * 1000,
+  '4H': 14 * 24 * 60 * 60 * 1000,
+  '1D': 100 * 24 * 60 * 60 * 1000,
+};
+
+function getMarketDataWebSocketUrl() {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+
+  if (!apiUrl) {
+    throw new Error('EXPO_PUBLIC_API_URL is not configured');
+  }
+
+  const websocketUrl = apiUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+
+  return `${websocketUrl}/market-data/ws`;
+}
+
+type RenderCandle = {
+  open: number;
+  close: number;
+  high: number;
+  low: number;
+};
+
+function formatPrice(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === '') {
+    return '—';
+  }
+
+  const numeric = Number(value);
+
+  if (!Number.isFinite(numeric)) {
+    return '—';
+  }
+
+  return numeric.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 5,
+  });
+}
+
+function formatAxisTime(eventTime: string) {
+  const date = new Date(eventTime);
+
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+
+  return date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
+function normalizeCandles(candles: Candle[]): RenderCandle[] {
+  const parsed = candles
+    .map((candle) => ({
+      source: candle,
+      open: Number(candle.open),
+      high: Number(candle.high),
+      low: Number(candle.low),
+      close: Number(candle.close),
+    }))
+    .filter(
+      (candle) =>
+        Number.isFinite(candle.open) &&
+        Number.isFinite(candle.high) &&
+        Number.isFinite(candle.low) &&
+        Number.isFinite(candle.close),
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.source.eventTime).getTime() -
+        new Date(b.source.eventTime).getTime(),
+    )
+    .slice(-60);
+
+  if (parsed.length === 0) {
+    return [];
+  }
+
+  const minPrice = Math.min(...parsed.map((candle) => candle.low));
+  const maxPrice = Math.max(...parsed.map((candle) => candle.high));
+  const range = Math.max(maxPrice - minPrice, Number.EPSILON);
+
+  const toChartY = (price: number) =>
+    4 + ((maxPrice - price) / range) * 88;
+
+  return parsed.map((candle) => ({
+    open: toChartY(candle.open),
+    close: toChartY(candle.close),
+    high: toChartY(candle.high),
+    low: toChartY(candle.low),
+  }));
+}
 
 function Candle({
   open,
   close,
   high,
   low,
-}: {
-  open: number;
-  close: number;
-  high: number;
-  low: number;
-}) {
-  const bullish = close >= open;
+}: RenderCandle) {
+  const bullish = close <= open;
   const bodyTop = Math.min(open, close);
-  const bodyHeight = Math.max(Math.abs(close - open), 5);
+  const bodyHeight = Math.max(Math.abs(close - open), 1.5);
 
   return (
     <View style={styles.candleColumn}>
@@ -60,8 +156,8 @@ function Candle({
         style={[
           styles.wick,
           {
-            top: high,
-            height: Math.max(low - high, 8),
+            top: `${high}%`,
+            height: `${Math.max(low - high, 1)}%`,
           },
         ]}
       />
@@ -73,8 +169,8 @@ function Candle({
             ? styles.bullishCandle
             : styles.bearishCandle,
           {
-            top: bodyTop,
-            height: bodyHeight,
+            top: `${bodyTop}%`,
+            height: `${bodyHeight}%`,
           },
         ]}
       />
@@ -82,19 +178,29 @@ function Candle({
   );
 }
 
-function ChartCanvas() {
+function ChartCanvas({
+  candles,
+  latestPrice,
+  axisTimes,
+}: {
+  candles: RenderCandle[];
+  latestPrice: string;
+  axisTimes: string[];
+}) {
   return (
     <View style={styles.chartCanvas}>
       <View style={styles.gridHorizontalTop} />
       <View style={styles.gridHorizontalMiddle} />
       <View style={styles.gridHorizontalBottom} />
 
-      <View style={styles.priceLine}>
-        <View style={styles.priceLineStroke} />
-        <View style={styles.priceLabel}>
-          <Text style={styles.priceLabelText}>3,648.42</Text>
+      {latestPrice !== '—' && (
+        <View style={styles.priceLine}>
+          <View style={styles.priceLineStroke} />
+          <View style={styles.priceLabel}>
+            <Text style={styles.priceLabelText}>{latestPrice}</Text>
+          </View>
         </View>
-      </View>
+      )}
 
       <View style={styles.candles}>
         {candles.map((candle, index) => (
@@ -103,61 +209,275 @@ function ChartCanvas() {
       </View>
 
       <View style={styles.chartAxis}>
-        <Text style={styles.axisText}>14:00</Text>
-        <Text style={styles.axisText}>15:00</Text>
-        <Text style={styles.axisText}>16:00</Text>
-        <Text style={styles.axisText}>17:00</Text>
+        {axisTimes.map((time, index) => (
+          <Text key={`${time}-${index}`} style={styles.axisText}>
+            {time}
+          </Text>
+        ))}
       </View>
     </View>
   );
 }
 
+
 export function ChartScreen({
-  instrumentId = 'xauusd',
+  instrumentId,
   onBack,
   onOpenTrade,
 }: {
-  instrumentId?: string;
+  instrumentId: string;
   onBack?: () => void;
   onOpenTrade?: (instrumentId: string) => void;
 }) {
-  const instrument =
-    instrumentId === 'xauusd'
-      ? {
-          symbol: 'XAUUSD',
-          name: 'Gold Spot',
-          price: '3,648.42',
-          change: '+18.24  +0.50%',
-          bid: '3,648.42',
-          ask: '3,648.71',
+  const [selectedTimeframe, setSelectedTimeframe] =
+    useState<Timeframe>('15m');
+  const [instrument, setInstrument] = useState<Instrument | null>(null);
+  const [candles, setCandles] = useState<Candle[]>([]);
+  const [liveBid, setLiveBid] = useState<string | null>(null);
+  const [liveAsk, setLiveAsk] = useState<string | null>(null);
+  const [liveLast, setLiveLast] = useState<string | null>(null);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadChart = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const to = new Date();
+        const from = new Date(
+          to.getTime() - timeframeHistoryMs[selectedTimeframe],
+        );
+
+        const [instrumentResponse, candlesResponse] =
+          await Promise.all([
+            marketDataApi.getInstrument(instrumentId),
+            marketDataApi.getCandles({
+              instrumentId,
+              interval: timeframeIntervals[selectedTimeframe],
+              from: from.toISOString(),
+              to: to.toISOString(),
+              limit: 100,
+            }),
+          ]);
+
+        if (cancelled) {
+          return;
         }
-      : {
-          symbol: instrumentId.toUpperCase(),
-          name: instrumentId.toUpperCase(),
-          price: '—',
-          change: '—',
-          bid: '—',
-          ask: '—',
-        };
+
+        setInstrument(instrumentResponse);
+        setCandles(candlesResponse);
+      } catch (err) {
+        if (!cancelled) {
+          setInstrument(null);
+          setCandles([]);
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'Failed to load chart data',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadChart();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [instrumentId, selectedTimeframe]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const socket = new MarketDataSocket(
+      getMarketDataWebSocketUrl(),
+      [instrumentId],
+      {
+      onConnected: () => {
+        if (!cancelled) {
+          setSocketConnected(true);
+        }
+      },
+
+      onQuote: (message) => {
+        if (cancelled || message.data.instrumentId !== instrumentId) {
+          return;
+        }
+
+        setLiveBid(message.data.bidPrice ?? null);
+        setLiveAsk(message.data.askPrice ?? null);
+        setLiveLast(message.data.lastPrice ?? null);
+      },
+
+      onCandle: (message) => {
+        if (
+          cancelled ||
+          message.data.instrumentId !== instrumentId ||
+          message.data.interval !== timeframeIntervals[selectedTimeframe]
+        ) {
+          return;
+        }
+
+        setCandles((current) => {
+          const incoming = message.data;
+
+          const incomingCandle: Candle = {
+            id: [
+              incoming.instrumentId,
+              incoming.interval,
+              incoming.eventTime,
+            ].join(":"),
+            instrumentId: incoming.instrumentId,
+            interval: incoming.interval,
+            eventTime: incoming.eventTime,
+            open: incoming.open,
+            high: incoming.high,
+            low: incoming.low,
+            close: incoming.close,
+            volume: incoming.volume,
+            providerId: incoming.providerId,
+            source: incoming.source,
+            isCorrection: false,
+          };
+
+          const existingIndex = current.findIndex(
+            (candle) =>
+              candle.instrumentId === incomingCandle.instrumentId &&
+              candle.interval === incomingCandle.interval &&
+              candle.eventTime === incomingCandle.eventTime,
+          );
+
+          if (existingIndex >= 0) {
+            const next = [...current];
+            next[existingIndex] = incomingCandle;
+            return next;
+          }
+
+          return [...current, incomingCandle]
+            .sort(
+              (a, b) =>
+                new Date(a.eventTime).getTime() -
+                new Date(b.eventTime).getTime(),
+            )
+            .slice(-100);
+        });
+      },
+
+      onError: () => {
+        if (!cancelled) {
+          setSocketConnected(false);
+        }
+      },
+
+      onClosed: () => {
+        if (!cancelled) {
+          setSocketConnected(false);
+        }
+      },
+    });
+
+    try {
+      void socket.connect();
+    } catch {
+      setSocketConnected(false);
+    }
+
+    return () => {
+      cancelled = true;
+      socket.disconnect();
+    };
+  }, [instrumentId, selectedTimeframe]);
+
+  const renderCandles = useMemo(
+    () => normalizeCandles(candles),
+    [candles],
+  );
+
+  const latestCandle = useMemo(() => {
+    if (candles.length === 0) {
+      return null;
+    }
+
+    return [...candles].sort(
+      (a, b) =>
+        new Date(a.eventTime).getTime() -
+        new Date(b.eventTime).getTime(),
+    )[candles.length - 1];
+  }, [candles]);
+
+  const axisTimes = useMemo(() => {
+    if (candles.length === 0) {
+      return [];
+    }
+
+    const sorted = [...candles].sort(
+      (a, b) =>
+        new Date(a.eventTime).getTime() -
+        new Date(b.eventTime).getTime(),
+    );
+
+    const indexes = [
+      0,
+      Math.floor((sorted.length - 1) / 3),
+      Math.floor(((sorted.length - 1) * 2) / 3),
+      sorted.length - 1,
+    ];
+
+    return indexes.map((index) =>
+      formatAxisTime(sorted[index].eventTime),
+    );
+  }, [candles]);
+
+  const symbol = instrument?.symbol ?? instrumentId.toUpperCase();
+  const name = instrument?.name ?? 'Loading instrument...';
+
+  const currentPrice = liveLast
+    ? formatPrice(liveLast)
+    : latestCandle
+      ? formatPrice(latestCandle.close)
+      : '—';
+
+  const bidPrice = liveBid
+    ? formatPrice(liveBid)
+    : '—';
+
+  const askPrice = liveAsk
+    ? formatPrice(liveAsk)
+    : '—';
 
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={onBack}
+        >
           <Text style={styles.backText}>‹</Text>
         </TouchableOpacity>
 
         <View style={styles.instrument}>
           <View>
             <View style={styles.instrumentTitleRow}>
-              <Text style={styles.symbol}>{instrument.symbol}</Text>
-              <View style={styles.liveBadge}>
-                <View style={styles.liveDot} />
-                <Text style={styles.liveText}>LIVE</Text>
-              </View>
+              <Text style={styles.symbol}>{symbol}</Text>
+
+              {socketConnected && (
+                <View style={styles.liveBadge}>
+                  <View style={styles.liveDot} />
+                  <Text style={styles.liveText}>LIVE</Text>
+                </View>
+              )}
             </View>
 
-            <Text style={styles.name}>{instrument.name}</Text>
+            <Text style={styles.name}>{name}</Text>
           </View>
         </View>
 
@@ -181,16 +501,21 @@ export function ChartScreen({
 
       <View style={styles.quoteRow}>
         <View>
-          <Text style={styles.currentPrice}>{instrument.price}</Text>
+          <Text style={styles.currentPrice}>
+            {currentPrice}
+          </Text>
+
           <Text style={styles.positiveChange}>
-            {instrument.change}
+            {error
+              ? 'Chart data unavailable'
+              : `${candles.length} candles`}
           </Text>
         </View>
 
         <View style={styles.quoteSide}>
           <Text style={styles.bidAskLabel}>BID / ASK</Text>
           <Text style={styles.bidAsk}>
-            3,648.42 / 3,648.71
+            {bidPrice} / {askPrice}
           </Text>
         </View>
       </View>
@@ -201,29 +526,57 @@ export function ChartScreen({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.timeframeContent}
         >
-          {timeframes.map((timeframe, index) => (
-            <TouchableOpacity
-              key={timeframe}
-              style={[
-                styles.timeframe,
-                index === 2 && styles.timeframeActive,
-              ]}
-            >
-              <Text
+          {timeframes.map((timeframe) => {
+            const active = timeframe === selectedTimeframe;
+
+            return (
+              <TouchableOpacity
+                key={timeframe}
                 style={[
-                  styles.timeframeText,
-                  index === 2 && styles.timeframeTextActive,
+                  styles.timeframe,
+                  active && styles.timeframeActive,
                 ]}
+                onPress={() => setSelectedTimeframe(timeframe)}
               >
-                {timeframe}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text
+                  style={[
+                    styles.timeframeText,
+                    active && styles.timeframeTextActive,
+                  ]}
+                >
+                  {timeframe}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
       <View style={styles.chartWrapper}>
-        <ChartCanvas />
+        {loading ? (
+          <View style={styles.chartState}>
+            <ActivityIndicator />
+            <Text style={styles.chartStateText}>
+              Loading chart...
+            </Text>
+          </View>
+        ) : error ? (
+          <View style={styles.chartState}>
+            <Text style={styles.chartStateText}>{error}</Text>
+          </View>
+        ) : renderCandles.length === 0 ? (
+          <View style={styles.chartState}>
+            <Text style={styles.chartStateText}>
+              No candle data available.
+            </Text>
+          </View>
+        ) : (
+          <ChartCanvas
+            candles={renderCandles}
+            latestPrice={currentPrice}
+            axisTimes={axisTimes}
+          />
+        )}
 
         <View style={styles.chartTools}>
           {['＋', '╱', '⌕', 'ƒ', '↻'].map((tool) => (
@@ -257,10 +610,44 @@ export function ChartScreen({
         <Text style={styles.statsTitle}>Market Stats</Text>
 
         <View style={styles.statsRow}>
-          <Stat label="Open" value="3,630.18" />
-          <Stat label="High" value="3,657.82" />
-          <Stat label="Low" value="3,621.40" />
-          <Stat label="Prev." value="3,630.18" />
+          <Stat
+            label="Open"
+            value={
+              latestCandle
+                ? formatPrice(latestCandle.open)
+                : '—'
+            }
+          />
+          <Stat
+            label="High"
+            value={
+              latestCandle
+                ? formatPrice(latestCandle.high)
+                : '—'
+            }
+          />
+          <Stat
+            label="Low"
+            value={
+              latestCandle
+                ? formatPrice(latestCandle.low)
+                : '—'
+            }
+          />
+          <Stat
+            label="Prev."
+            value={
+              candles.length > 1
+                ? formatPrice(
+                    [...candles].sort(
+                      (a, b) =>
+                        new Date(a.eventTime).getTime() -
+                        new Date(b.eventTime).getTime(),
+                    )[candles.length - 2].close,
+                  )
+                : '—'
+            }
+          />
         </View>
       </View>
     </View>
@@ -467,6 +854,18 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
     overflow: 'hidden',
+  },
+
+  chartState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+
+  chartStateText: {
+    color: colors.textSecondary,
+    fontSize: 12,
   },
 
   chartCanvas: {

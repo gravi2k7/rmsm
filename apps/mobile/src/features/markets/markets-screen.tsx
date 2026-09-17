@@ -1,4 +1,7 @@
+import React from 'react';
+
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,7 +12,9 @@ import {
 
 import { colors } from '../../theme/colors';
 import { radius, spacing } from '../../theme/spacing';
-import { mockMarkets, type MarketInstrument } from '../../types/market';
+import { marketDataApi } from '../../api';
+import { MarketDataSocket } from '../../realtime/market-data-socket';
+import type { Instrument, Quote } from '../../types/market-data';
 
 type MarketCategory = 'Watchlist' | 'Forex' | 'Indices' | 'Crypto';
 
@@ -83,10 +88,12 @@ function Sparkline({ positive }: { positive: boolean }) {
 
 function MarketCard({
   market,
+  quote,
   favorite,
   onPress,
 }: {
-  market: MarketInstrument;
+  market: Instrument;
+  quote?: Quote;
   favorite: boolean;
   onPress: () => void;
 }) {
@@ -105,19 +112,16 @@ function MarketCard({
         </View>
       </View>
 
-      <Sparkline positive={market.positive} />
+      <Sparkline positive />
 
       <View style={styles.quote}>
-        <Text style={styles.price}>{market.bid}</Text>
-        <Text
-          style={[
-            styles.change,
-            market.positive
-              ? styles.positive
-              : styles.negative,
-          ]}
-        >
-          {market.changePercent}
+        <Text style={styles.price}>
+          {quote?.lastPrice ?? quote?.bidPrice ?? '—'}
+        </Text>
+        <Text style={styles.change}>
+          {quote?.bidPrice && quote?.askPrice
+            ? `B ${quote.bidPrice} / A ${quote.askPrice}`
+            : '—'}
         </Text>
       </View>
 
@@ -138,6 +142,135 @@ export function MarketsScreen({
 }: {
   onOpenChart?: (instrumentId: string) => void;
 }) {
+  const [markets, setMarkets] = React.useState<Instrument[]>([]);
+  const [quotes, setQuotes] = React.useState<Record<string, Quote>>({});
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadMarkets = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await marketDataApi.listInstruments({
+          status: 'ACTIVE',
+          page: 1,
+          pageSize: 100,
+        });
+
+        if (!cancelled) {
+          setMarkets(response.data);
+
+          if (response.data.length > 0) {
+            const latestQuotes = await marketDataApi.getLatestQuotes(
+              response.data.map((market) => market.id),
+            );
+
+            if (!cancelled) {
+              setQuotes(
+                latestQuotes.reduce<Record<string, Quote>>(
+                  (result, quote) => {
+                    result[quote.instrumentId] = quote;
+                    return result;
+                  },
+                  {},
+                ),
+              );
+            }
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'Failed to load markets',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadMarkets();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (markets.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const instrumentIds = markets.map((market) => market.id);
+
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+
+    if (!apiUrl) {
+      setError('EXPO_PUBLIC_API_URL is not configured');
+      return;
+    }
+
+    const websocketUrl = apiUrl
+      .replace(/^http:/, 'ws:')
+      .replace(/^https:/, 'wss:');
+
+    const socket = new MarketDataSocket(
+      `${websocketUrl}/market-data/ws`,
+      instrumentIds,
+      {
+        onQuote: (message) => {
+          if (cancelled) {
+            return;
+          }
+
+          const quote = message.data;
+
+          setQuotes((current) => ({
+            ...current,
+            [quote.instrumentId]: {
+              id: [
+                quote.instrumentId,
+                quote.eventTime,
+              ].join(':'),
+              instrumentId: quote.instrumentId,
+              bidPrice: quote.bidPrice ?? null,
+              askPrice: quote.askPrice ?? null,
+              lastPrice: quote.lastPrice ?? null,
+              bidSize: quote.bidSize ?? null,
+              askSize: quote.askSize ?? null,
+              eventTime: quote.eventTime,
+              providerId: 'stream',
+              source: 'websocket',
+            },
+          }));
+        },
+
+        onError: () => {
+          if (!cancelled) {
+            setError('Market-data WebSocket connection error');
+          }
+        },
+      },
+    );
+
+    void socket.connect();
+
+    return () => {
+      cancelled = true;
+      socket.disconnect();
+    };
+  }, [markets]);
+
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
@@ -201,20 +334,50 @@ export function MarketsScreen({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
       >
-        {mockMarkets.map((market, index) => (
-          <MarketCard
-            key={market.id}
-            market={market}
-            favorite={index === 3}
-            onPress={() => onOpenChart?.(market.id)}
-          />
-        ))}
+        {loading ? (
+          <View style={styles.stateContainer}>
+            <ActivityIndicator />
+            <Text style={styles.stateText}>Loading markets...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.stateContainer}>
+            <Text style={styles.stateText}>{error}</Text>
+          </View>
+        ) : markets.length === 0 ? (
+          <View style={styles.stateContainer}>
+            <Text style={styles.stateText}>
+              No active markets found.
+            </Text>
+          </View>
+        ) : (
+          markets.map((market, index) => (
+            <MarketCard
+              key={market.id}
+              market={market}
+              quote={quotes[market.id]}
+              favorite={index === 3}
+              onPress={() => onOpenChart?.(market.id)}
+            />
+          ))
+        )}
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  stateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xl,
+    gap: spacing.sm,
+  },
+
+  stateText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+
   screen: {
     flex: 1,
   },

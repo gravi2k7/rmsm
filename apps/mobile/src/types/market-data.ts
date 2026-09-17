@@ -56,15 +56,57 @@ export type Candle = {
   supersedesId?: string | null;
 };
 
+export type MarketDataStreamQuote = {
+  instrumentId: string;
+  providerSymbol: string;
+  bidPrice?: string | null;
+  askPrice?: string | null;
+  lastPrice?: string | null;
+  bidSize?: string | null;
+  askSize?: string | null;
+  eventTime: string;
+  sourceTimestamp?: string | null;
+};
+
+export type MarketDataStreamCandle = {
+  instrumentId: string;
+  providerSymbol: string;
+  providerId: string;
+  interval: CandleInterval;
+  source: string;
+  eventTime: string;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  volume: string;
+  sourceTimestamp?: string | null;
+};
+
 export type MarketDataStreamMessage =
   | {
       type: "market-data.connected";
     }
   | {
       type: "market-data.quote";
-      data: Quote;
+      data: MarketDataStreamQuote;
     }
   | {
       type: "market-data.candle";
-      data: Candle;
+      data: MarketDataStreamCandle;
+    }
+  | {
+      type: "market-data.subscribed";
+      instrumentIds: string[];
+    }
+  | {
+      type: "market-data.unsubscribed";
+      instrumentIds: string[];
+    }
+  | {
+      type: "market-data.heartbeat";
+    }
+  | {
+      type: "market-data.error";
+      error: string;
     };

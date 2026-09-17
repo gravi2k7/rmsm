@@ -1,15 +1,20 @@
+import { getAccessToken } from "../auth/auth-storage";
 import type { MarketDataStreamMessage } from "../types/market-data";
 
 export type MarketDataSocketHandlers = {
   onConnected?: () => void;
-  onQuote?: (message: Extract<
-    MarketDataStreamMessage,
-    { type: "market-data.quote" }
-  >) => void;
-  onCandle?: (message: Extract<
-    MarketDataStreamMessage,
-    { type: "market-data.candle" }
-  >) => void;
+  onQuote?: (
+    message: Extract<
+      MarketDataStreamMessage,
+      { type: "market-data.quote" }
+    >,
+  ) => void;
+  onCandle?: (
+    message: Extract<
+      MarketDataStreamMessage,
+      { type: "market-data.candle" }
+    >,
+  ) => void;
   onError?: (error: Error) => void;
   onClosed?: () => void;
 };
@@ -19,10 +24,11 @@ export class MarketDataSocket {
 
   constructor(
     private readonly url: string,
+    private readonly instrumentIds: string[],
     private readonly handlers: MarketDataSocketHandlers = {},
   ) {}
 
-  connect(): void {
+  async connect(): Promise<void> {
     if (
       this.socket &&
       (this.socket.readyState === WebSocket.OPEN ||
@@ -31,11 +37,37 @@ export class MarketDataSocket {
       return;
     }
 
-    const socket = new WebSocket(this.url);
+    const accessToken = await getAccessToken();
+
+    if (!accessToken) {
+      this.handlers.onError?.(
+        new Error("Market-data WebSocket requires authentication"),
+      );
+      return;
+    }
+
+    if (this.instrumentIds.length === 0) {
+      this.handlers.onError?.(
+        new Error("Market-data WebSocket requires instruments"),
+      );
+      return;
+    }
+
+    const separator = this.url.includes("?") ? "&" : "?";
+    const websocketUrl =
+      `${this.url}${separator}` +
+      `accessToken=${encodeURIComponent(accessToken)}`;
+
+    const socket = new WebSocket(websocketUrl);
     this.socket = socket;
 
     socket.onopen = () => {
-      // The current RMSM gateway requires no client subscription message.
+      socket.send(
+        JSON.stringify({
+          type: "market-data.subscribe",
+          instrumentIds: this.instrumentIds,
+        }),
+      );
     };
 
     socket.onmessage = (event) => {
@@ -55,6 +87,15 @@ export class MarketDataSocket {
 
           case "market-data.candle":
             this.handlers.onCandle?.(message);
+            break;
+
+          case "market-data.error":
+            this.handlers.onError?.(new Error(message.error));
+            break;
+
+          case "market-data.subscribed":
+          case "market-data.unsubscribed":
+          case "market-data.heartbeat":
             break;
         }
       } catch {
