@@ -19,5 +19,8 @@ import { GetPortfolioHandler, ListPositionsHandler, ListTradesHandler } from "./
     ListPositionsHandler,
     ListTradesHandler,
   ],
+  exports: [
+    PORTFOLIO_REPOSITORY,
+  ],
 })
 export class PortfolioApplicationModule {}
