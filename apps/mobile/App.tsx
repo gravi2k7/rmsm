@@ -10,7 +10,6 @@ import {
 import { useState } from 'react';
 
 import { colors } from './src/theme/colors';
-import { mockMarkets } from './src/types/market';
 
 type Tab = 'Markets' | 'Chart' | 'Trade' | 'Orders' | 'More';
 
@@ -29,56 +28,7 @@ function Header({ title, subtitle }: { title: string; subtitle?: string }) {
   );
 }
 
-function MarketsScreen() {
-  return (
-    <>
-      <Header title="Markets" subtitle="Watchlist" />
-
-      <View style={styles.searchBox}>
-        <Text style={styles.searchIcon}>⌕</Text>
-        <Text style={styles.searchText}>Search instruments</Text>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {mockMarkets.map((market) => (
-          <TouchableOpacity key={market.id} style={styles.marketCard}>
-            <View style={styles.marketLeft}>
-              <View style={styles.instrumentIcon}>
-                <Text style={styles.instrumentIconText}>
-                  {market.symbol.slice(0, 1)}
-                </Text>
-              </View>
-
-              <View>
-                <Text style={styles.symbol}>{market.symbol}</Text>
-                <Text style={styles.instrumentName}>{market.name}</Text>
-              </View>
-            </View>
-
-            <View style={styles.marketRight}>
-              <Text style={styles.price}>{market.bid}</Text>
-              <Text
-                style={[
-                  styles.change,
-                  {
-                    color: market.positive
-                      ? colors.success
-                      : colors.danger,
-                  },
-                ]}
-              >
-                {market.changePercent}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </>
-  );
-}
+import { MarketsScreen } from './src/features/markets/markets-screen';
 
 function ChartScreen() {
   return (
