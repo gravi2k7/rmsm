@@ -9,6 +9,7 @@ import {
 
 import { colors } from '../../theme/colors';
 import { radius, spacing } from '../../theme/spacing';
+import type { MoreDetailKey } from '../../navigation/navigation';
 
 type MoreItemProps = {
   icon: string;
@@ -55,7 +56,11 @@ function MoreItem({
   );
 }
 
-export function MoreScreen() {
+export function MoreScreen({
+  onOpenDetail,
+}: {
+  onOpenDetail?: (detail: MoreDetailKey) => void;
+}) {
   return (
     <ScrollView
       style={styles.container}
@@ -97,18 +102,21 @@ export function MoreScreen() {
           icon="◎"
           title="Account & Profile"
           subtitle="Personal details and account information"
+          onPress={() => onOpenDetail?.('account')}
         />
 
         <MoreItem
           icon="▣"
           title="Portfolio"
           subtitle="Positions, exposure and performance"
+          onPress={() => onOpenDetail?.('portfolio')}
         />
 
         <MoreItem
           icon="◒"
           title="Analytics"
           subtitle="Trading performance and statistics"
+          onPress={() => onOpenDetail?.('analytics')}
         />
       </View>
 
@@ -119,18 +127,21 @@ export function MoreScreen() {
           icon="⚙"
           title="Trading Settings"
           subtitle="Execution and trading preferences"
+          onPress={() => onOpenDetail?.('trading-settings')}
         />
 
         <MoreItem
           icon="◉"
           title="Notifications"
           subtitle="Alerts and notification preferences"
+          onPress={() => onOpenDetail?.('notifications')}
         />
 
         <MoreItem
           icon="☾"
           title="Appearance"
           subtitle="Dark theme and display preferences"
+          onPress={() => onOpenDetail?.('appearance')}
         />
       </View>
 
@@ -141,6 +152,7 @@ export function MoreScreen() {
           icon="◆"
           title="Security"
           subtitle="Password, sessions and security controls"
+          onPress={() => onOpenDetail?.('security')}
         />
       </View>
 
@@ -151,12 +163,14 @@ export function MoreScreen() {
           icon="?"
           title="Help & Support"
           subtitle="Get help with RMSM"
+          onPress={() => onOpenDetail?.('support')}
         />
 
         <MoreItem
           icon="ⓘ"
           title="About RMSM"
           subtitle="Version 1.0.0"
+          onPress={() => onOpenDetail?.('about')}
         />
       </View>
 

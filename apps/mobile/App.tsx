@@ -14,7 +14,10 @@ import { ChartScreen } from './src/features/chart/chart-screen';
 import { TradeScreen } from './src/features/trade/trade-screen';
 import { OrdersScreen } from './src/features/orders/orders-screen';
 import { MoreScreen } from './src/features/more/more-screen';
-import type { AppTab, AppScreen } from './src/navigation/navigation';
+import {
+  MoreDetailScreen,
+} from './src/features/more/more-detail-screen';
+import type { AppTab, AppScreen, MoreDetailKey } from './src/navigation/navigation';
 
 const tabs: AppTab[] = ['Markets', 'Chart', 'Trade', 'Orders', 'More'];
 
@@ -42,6 +45,13 @@ export default function App() {
     setScreen({
       type: 'trade',
       instrumentId,
+    });
+  };
+
+  const openMoreDetail = (detail: MoreDetailKey) => {
+    setScreen({
+      type: 'more-detail',
+      detail,
     });
   };
 
@@ -74,7 +84,7 @@ export default function App() {
             return <OrdersScreen onOpenChart={openChart} />;
 
           case 'More':
-            return <MoreScreen />;
+            return <MoreScreen onOpenDetail={openMoreDetail} />;
         }
 
       case 'chart':
@@ -96,6 +106,14 @@ export default function App() {
                 instrumentId: screen.instrumentId,
               })
             }
+          />
+        );
+
+      case 'more-detail':
+        return (
+          <MoreDetailScreen
+            detail={screen.detail}
+            onBack={() => openTab('More')}
           />
         );
     }
