@@ -17,11 +17,15 @@ import { MoreScreen } from './src/features/more/more-screen';
 import {
   MoreDetailScreen,
 } from './src/features/more/more-detail-screen';
+import { LoginScreen } from './src/features/auth/login-screen';
+import { AuthProvider, useAuth } from './src/auth/auth-context';
 import type { AppTab, AppScreen, MoreDetailKey } from './src/navigation/navigation';
 
 const tabs: AppTab[] = ['Markets', 'Chart', 'Trade', 'Orders', 'More'];
 
-export default function App() {
+function AuthenticatedApp() {
+  const { status, logout } = useAuth();
+
   const [screen, setScreen] = useState<AppScreen>({
     type: 'tab',
     tab: 'Markets',
@@ -84,7 +88,12 @@ export default function App() {
             return <OrdersScreen onOpenChart={openChart} />;
 
           case 'More':
-            return <MoreScreen onOpenDetail={openMoreDetail} />;
+            return (
+              <MoreScreen
+                onOpenDetail={openMoreDetail}
+                onSignOut={logout}
+              />
+            );
         }
 
       case 'chart':
@@ -118,6 +127,22 @@ export default function App() {
         );
     }
   };
+
+  if (status === "loading") {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingTitle}>RMSM</Text>
+          <Text style={styles.loadingText}>Restoring session...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return <LoginScreen />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -209,4 +234,34 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: '800',
   },
+
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  loadingTitle: {
+    color: colors.text,
+    fontSize: 28,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+
+  loadingText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    marginTop: 8,
+  },
 });
+
+
+function AppWithAuth() {
+  return (
+    <AuthProvider>
+      <AuthenticatedApp />
+    </AuthProvider>
+  );
+}
+
+export default AppWithAuth;

@@ -58,8 +58,10 @@ function MoreItem({
 
 export function MoreScreen({
   onOpenDetail,
+  onSignOut,
 }: {
   onOpenDetail?: (detail: MoreDetailKey) => void;
+  onSignOut?: () => Promise<void> | void;
 }) {
   return (
     <ScrollView
@@ -177,6 +179,7 @@ export function MoreScreen({
       <TouchableOpacity
         activeOpacity={0.75}
         style={styles.signOutButton}
+        onPress={() => void onSignOut?.()}
       >
         <Text style={styles.signOutIcon}>↪</Text>
         <Text style={styles.signOutText}>Sign Out</Text>
