@@ -1,28 +1,44 @@
 import { INestApplication, ValidationPipe } from "@nestjs/common";
-import { Test } from "@nestjs/testing";
+import { Test, TestingModuleBuilder } from "@nestjs/testing";
 import { PermissionsGuard } from "../../../modules/auth/guards/permissions.guard";
 import { TestAuthGuard } from "./test-auth.guard";
 import { GlobalExceptionFilter } from "../../../common/filters/http-exception.filter";
+import { AppConfigModule } from "../../../config/app-config.module";
+
+type ProviderOverride = {
+  token: unknown;
+  value: unknown;
+};
 
 /**
  * Builds a real, running `INestApplication` from a single application
- * module (`MarketApplicationModule`, `StrategyApplicationModule`, etc.),
- * with the same `ValidationPipe`/`GlobalExceptionFilter` configuration
- * `main.ts` applies in production — so these integration tests exercise
- * real request validation and real error-response shaping, not a
- * simplified test-only substitute. `PermissionsGuard` is overridden with
- * `TestAuthGuard` (see that file's own doc comment for why); nothing
- * else about the module under test is mocked.
+ * module with the same ValidationPipe/GlobalExceptionFilter configuration
+ * used by main.ts.
+ *
+ * PermissionsGuard is overridden with TestAuthGuard.
+ *
+ * Optional provider overrides allow integration tests to replace external
+ * infrastructure dependencies with deterministic test doubles without
+ * changing production module wiring.
  */
-export async function createIntegrationTestApp(module: new (...args: unknown[]) => unknown): Promise<INestApplication> {
-  const moduleRef = await Test.createTestingModule({
-    imports: [module as never],
-  })
-    .overrideGuard(PermissionsGuard)
-    .useClass(TestAuthGuard)
-    .compile();
+export async function createIntegrationTestApp(
+  module: new (...args: unknown[]) => unknown,
+  providerOverrides: ProviderOverride[] = [],
+): Promise<INestApplication> {
+  let builder: TestingModuleBuilder = Test.createTestingModule({
+    imports: [AppConfigModule, module as never],
+  }).overrideGuard(PermissionsGuard).useClass(TestAuthGuard);
+
+  for (const override of providerOverrides) {
+    builder = builder
+      .overrideProvider(override.token)
+      .useValue(override.value);
+  }
+
+  const moduleRef = await builder.compile();
 
   const app = moduleRef.createNestApplication();
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -31,7 +47,10 @@ export async function createIntegrationTestApp(module: new (...args: unknown[]) 
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+
   app.useGlobalFilters(new GlobalExceptionFilter());
+
   await app.init();
+
   return app;
 }

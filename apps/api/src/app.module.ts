@@ -20,6 +20,7 @@ import { OrganizationDashboardModule } from "./modules/organizations/dashboard/o
 import { BillingModule } from "./modules/billing/billing.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { MarketDataModule } from "./modules/market-data/market-data.module";
+import { ExecutionApplicationModule } from "./application/execution/execution.module";
 import { IndicatorEngineModule } from "./modules/indicator-engine/indicator-engine.module";
 import { StrategyEngineModule } from "./modules/strategy-engine/strategy-engine.module";
 import { AiModule } from "./modules/ai/ai.module";
@@ -58,6 +59,7 @@ const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
     BillingModule,
     NotificationsModule,
     MarketDataModule,
+    ExecutionApplicationModule,
     IndicatorEngineModule,
     StrategyEngineModule,
     AiModule,
