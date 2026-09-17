@@ -31,6 +31,7 @@ function Header({ title, subtitle }: { title: string; subtitle?: string }) {
 import { MarketsScreen } from './src/features/markets/markets-screen';
 import { ChartScreen } from './src/features/chart/chart-screen';
 import { TradeScreen } from './src/features/trade/trade-screen';
+import { OrdersScreen as NativeOrdersScreen } from './src/features/orders/orders-screen';
 
 function TradeRow({
   label,
@@ -44,37 +45,6 @@ function TradeRow({
       <Text style={styles.tradeRowLabel}>{label}</Text>
       <Text style={styles.tradeRowValue}>{value}</Text>
     </View>
-  );
-}
-
-function OrdersScreen() {
-  return (
-    <>
-      <Header title="Orders" />
-
-      <View style={styles.segmented}>
-        <Text style={styles.segmentActive}>Positions</Text>
-        <Text style={styles.segment}>Pending</Text>
-        <Text style={styles.segment}>History</Text>
-      </View>
-
-      <View style={styles.positionCard}>
-        <View style={styles.positionTop}>
-          <View>
-            <Text style={styles.symbol}>XAUUSD</Text>
-            <Text style={styles.instrumentName}>BUY · 1</Text>
-          </View>
-
-          <Text style={styles.profit}>+$42.18</Text>
-        </View>
-
-        <View style={styles.positionDetails}>
-          <TradeRow label="Entry" value="3,606.24" />
-          <TradeRow label="Current" value="3,648.42" />
-          <TradeRow label="Quantity" value="1" />
-        </View>
-      </View>
-    </>
   );
 }
 
@@ -118,7 +88,7 @@ export default function App() {
       case 'Trade':
         return <TradeScreen />;
       case 'Orders':
-        return <OrdersScreen />;
+        return <NativeOrdersScreen />;
       case 'More':
         return <MoreScreen />;
     }
