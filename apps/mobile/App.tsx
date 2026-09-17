@@ -1,0 +1,816 @@
+import { StatusBar } from 'expo-status-bar';
+import {
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useState } from 'react';
+
+import { colors } from './src/theme/colors';
+import { mockMarkets } from './src/types/market';
+
+type Tab = 'Markets' | 'Chart' | 'Trade' | 'Orders' | 'More';
+
+const tabs: Tab[] = ['Markets', 'Chart', 'Trade', 'Orders', 'More'];
+
+function Header({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <View style={styles.header}>
+      <View>
+        <Text style={styles.brand}>RMSM</Text>
+        <Text style={styles.title}>{title}</Text>
+      </View>
+
+      <View style={styles.statusDot} />
+    </View>
+  );
+}
+
+function MarketsScreen() {
+  return (
+    <>
+      <Header title="Markets" subtitle="Watchlist" />
+
+      <View style={styles.searchBox}>
+        <Text style={styles.searchIcon}>⌕</Text>
+        <Text style={styles.searchText}>Search instruments</Text>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {mockMarkets.map((market) => (
+          <TouchableOpacity key={market.id} style={styles.marketCard}>
+            <View style={styles.marketLeft}>
+              <View style={styles.instrumentIcon}>
+                <Text style={styles.instrumentIconText}>
+                  {market.symbol.slice(0, 1)}
+                </Text>
+              </View>
+
+              <View>
+                <Text style={styles.symbol}>{market.symbol}</Text>
+                <Text style={styles.instrumentName}>{market.name}</Text>
+              </View>
+            </View>
+
+            <View style={styles.marketRight}>
+              <Text style={styles.price}>{market.bid}</Text>
+              <Text
+                style={[
+                  styles.change,
+                  {
+                    color: market.positive
+                      ? colors.success
+                      : colors.danger,
+                  },
+                ]}
+              >
+                {market.changePercent}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </>
+  );
+}
+
+function ChartScreen() {
+  return (
+    <>
+      <Header title="Chart" />
+
+      <View style={styles.chartHeader}>
+        <View>
+          <Text style={styles.symbol}>XAUUSD</Text>
+          <Text style={styles.instrumentName}>Gold Spot</Text>
+        </View>
+
+        <View style={styles.chartPriceBlock}>
+          <Text style={styles.chartPrice}>3,648.42</Text>
+          <Text style={styles.positiveText}>+0.50%</Text>
+        </View>
+      </View>
+
+      <View style={styles.timeframes}>
+        {['1m', '5m', '15m', '1H', '4H', '1D'].map(
+          (timeframe, index) => (
+            <TouchableOpacity
+              key={timeframe}
+              style={[
+                styles.timeframe,
+                index === 2 && styles.timeframeActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.timeframeText,
+                  index === 2 && styles.timeframeTextActive,
+                ]}
+              >
+                {timeframe}
+              </Text>
+            </TouchableOpacity>
+          ),
+        )}
+      </View>
+
+      <View style={styles.chartArea}>
+        <View style={styles.chartGridLine} />
+        <View style={styles.chartGridLineTwo} />
+
+        <Text style={styles.chartPlaceholder}>CANDLESTICK CHART</Text>
+        <Text style={styles.chartSubtext}>
+          Live market data will connect here
+        </Text>
+      </View>
+    </>
+  );
+}
+
+function TradeScreen() {
+  const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
+
+  return (
+    <>
+      <Header title="Trade" />
+
+      <View style={styles.tradeInstrument}>
+        <View>
+          <Text style={styles.symbol}>XAUUSD</Text>
+          <Text style={styles.instrumentName}>Gold Spot</Text>
+        </View>
+
+        <Text style={styles.tradeMarketPrice}>3,648.42</Text>
+      </View>
+
+      <View style={styles.sideSelector}>
+        <TouchableOpacity
+          onPress={() => setSide('BUY')}
+          style={[
+            styles.sideButton,
+            styles.buyButton,
+            side === 'BUY' && styles.buyButtonActive,
+          ]}
+        >
+          <Text style={styles.sideLabel}>BUY</Text>
+          <Text style={styles.sidePrice}>3,648.71</Text>
+          <Text style={styles.sideHint}>ASK</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setSide('SELL')}
+          style={[
+            styles.sideButton,
+            styles.sellButton,
+            side === 'SELL' && styles.sellButtonActive,
+          ]}
+        >
+          <Text style={styles.sideLabel}>SELL</Text>
+          <Text style={styles.sidePrice}>3,648.42</Text>
+          <Text style={styles.sideHint}>BID</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.formCard}>
+        <TradeRow label="Quantity" value="1" />
+        <TradeRow label="Order Type" value="MARKET" />
+        <TradeRow label="Stop Loss" value="Optional" />
+        <TradeRow label="Take Profit" value="Optional" />
+      </View>
+
+      <TouchableOpacity
+        style={[
+          styles.executeButton,
+          {
+            backgroundColor:
+              side === 'BUY' ? colors.success : colors.danger,
+          },
+        ]}
+      >
+        <Text style={styles.executeText}>
+          {side === 'BUY' ? 'BUY XAUUSD' : 'SELL XAUUSD'}
+        </Text>
+      </TouchableOpacity>
+    </>
+  );
+}
+
+function TradeRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.tradeRow}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={styles.rowValue}>{value}</Text>
+    </View>
+  );
+}
+
+function OrdersScreen() {
+  return (
+    <>
+      <Header title="Orders" />
+
+      <View style={styles.segmented}>
+        <Text style={styles.segmentActive}>Positions</Text>
+        <Text style={styles.segment}>Pending</Text>
+        <Text style={styles.segment}>History</Text>
+      </View>
+
+      <View style={styles.positionCard}>
+        <View style={styles.positionTop}>
+          <View>
+            <Text style={styles.symbol}>XAUUSD</Text>
+            <Text style={styles.instrumentName}>BUY · 1</Text>
+          </View>
+
+          <Text style={styles.profit}>+$42.18</Text>
+        </View>
+
+        <View style={styles.positionDetails}>
+          <TradeRow label="Entry" value="3,606.24" />
+          <TradeRow label="Current" value="3,648.42" />
+          <TradeRow label="Quantity" value="1" />
+        </View>
+      </View>
+    </>
+  );
+}
+
+function MoreScreen() {
+  return (
+    <>
+      <Header title="More" />
+
+      <View style={styles.profileCard}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>R</Text>
+        </View>
+
+        <View>
+          <Text style={styles.profileName}>RMSM Account</Text>
+          <Text style={styles.profileSubtitle}>Demo Account</Text>
+        </View>
+      </View>
+
+      {['Portfolio', 'Analytics', 'Watchlists', 'Settings'].map(
+        (item) => (
+          <TouchableOpacity key={item} style={styles.menuItem}>
+            <Text style={styles.menuText}>{item}</Text>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+        ),
+      )}
+    </>
+  );
+}
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<Tab>('Markets');
+
+  const renderScreen = () => {
+    switch (activeTab) {
+      case 'Markets':
+        return <MarketsScreen />;
+      case 'Chart':
+        return <ChartScreen />;
+      case 'Trade':
+        return <TradeScreen />;
+      case 'Orders':
+        return <OrdersScreen />;
+      case 'More':
+        return <MoreScreen />;
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
+
+      <View style={styles.content}>{renderScreen()}</View>
+
+      <View style={styles.bottomNav}>
+        {tabs.map((tab) => {
+          const active = tab === activeTab;
+
+          return (
+            <TouchableOpacity
+              key={tab}
+              onPress={() => setActiveTab(tab)}
+              style={styles.navItem}
+            >
+              <View
+                style={[
+                  styles.navIndicator,
+                  active && styles.navIndicatorActive,
+                ]}
+              />
+
+              <Text
+                style={[
+                  styles.navText,
+                  active && styles.navTextActive,
+                ]}
+              >
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+
+  header: {
+    height: 78,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  brand: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 2,
+  },
+
+  title: {
+    color: colors.text,
+    fontSize: 27,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+
+  statusDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 9,
+    backgroundColor: colors.success,
+  },
+
+  searchBox: {
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    marginBottom: 14,
+  },
+
+  searchIcon: {
+    color: colors.textSecondary,
+    fontSize: 22,
+    marginRight: 8,
+  },
+
+  searchText: {
+    color: colors.textMuted,
+    fontSize: 14,
+  },
+
+  scrollContent: {
+    paddingBottom: 24,
+  },
+
+  marketCard: {
+    minHeight: 76,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  marketLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  instrumentIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 11,
+  },
+
+  instrumentIconText: {
+    color: colors.accent,
+    fontWeight: '800',
+  },
+
+  symbol: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  instrumentName: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 3,
+  },
+
+  marketRight: {
+    alignItems: 'flex-end',
+  },
+
+  price: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  change: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+
+  chartPriceBlock: {
+    alignItems: 'flex-end',
+  },
+
+  chartPrice: {
+    color: colors.text,
+    fontSize: 19,
+    fontWeight: '700',
+  },
+
+  positiveText: {
+    color: colors.success,
+    fontSize: 12,
+    marginTop: 3,
+  },
+
+  timeframes: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: 4,
+    marginTop: 10,
+  },
+
+  timeframe: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+
+  timeframeActive: {
+    backgroundColor: colors.accentSoft,
+  },
+
+  timeframeText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  timeframeTextActive: {
+    color: colors.accent,
+  },
+
+  chartArea: {
+    flex: 1,
+    minHeight: 360,
+    marginTop: 14,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+
+  chartGridLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '45%',
+    height: 1,
+    backgroundColor: colors.border,
+  },
+
+  chartGridLineTwo: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '65%',
+    height: 1,
+    backgroundColor: colors.border,
+  },
+
+  chartPlaceholder: {
+    color: colors.textMuted,
+    fontSize: 11,
+    letterSpacing: 1.5,
+    fontWeight: '700',
+  },
+
+  chartSubtext: {
+    color: colors.textMuted,
+    fontSize: 11,
+    marginTop: 7,
+  },
+
+  tradeInstrument: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  tradeMarketPrice: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+
+  sideSelector: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+
+  sideButton: {
+    flex: 1,
+    minHeight: 105,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    justifyContent: 'center',
+  },
+
+  buyButton: {
+    backgroundColor: colors.successSoft,
+    borderColor: '#195D43',
+  },
+
+  buyButtonActive: {
+    borderColor: colors.success,
+  },
+
+  sellButton: {
+    backgroundColor: colors.dangerSoft,
+    borderColor: '#67262C',
+  },
+
+  sellButtonActive: {
+    borderColor: colors.danger,
+  },
+
+  sideLabel: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  sidePrice: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 7,
+  },
+
+  sideHint: {
+    color: colors.textSecondary,
+    fontSize: 9,
+    marginTop: 3,
+  },
+
+  formCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: 12,
+    paddingHorizontal: 14,
+  },
+
+  tradeRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+
+  rowLabel: {
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
+
+  rowValue: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  executeButton: {
+    height: 54,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+  },
+
+  executeText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+  segmented: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 14,
+  },
+
+  segment: {
+    flex: 1,
+    textAlign: 'center',
+    color: colors.textSecondary,
+    paddingVertical: 9,
+    fontSize: 12,
+  },
+
+  segmentActive: {
+    flex: 1,
+    textAlign: 'center',
+    color: colors.accent,
+    backgroundColor: colors.accentSoft,
+    borderRadius: 8,
+    paddingVertical: 9,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  positionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+  },
+
+  positionTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+
+  profit: {
+    color: colors.success,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+  positionDetails: {
+    marginTop: 10,
+  },
+
+  profileCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
+  avatarText: {
+    color: colors.accent,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+
+  profileName: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  profileSubtitle: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 3,
+  },
+
+  menuItem: {
+    height: 56,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+
+  menuText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  chevron: {
+    color: colors.textMuted,
+    fontSize: 25,
+  },
+
+  bottomNav: {
+    height: 70,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 4,
+  },
+
+  navItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 70,
+  },
+
+  navIndicator: {
+    width: 22,
+    height: 3,
+    borderRadius: 3,
+    backgroundColor: 'transparent',
+    marginBottom: 7,
+  },
+
+  navIndicatorActive: {
+    backgroundColor: colors.accent,
+  },
+
+  navText: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+
+  navTextActive: {
+    color: colors.accent,
+  },
+});
