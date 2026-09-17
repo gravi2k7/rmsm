@@ -1,5 +1,11 @@
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useState } from 'react';
 
 import { colors } from './src/theme/colors';
@@ -8,30 +14,90 @@ import { ChartScreen } from './src/features/chart/chart-screen';
 import { TradeScreen } from './src/features/trade/trade-screen';
 import { OrdersScreen } from './src/features/orders/orders-screen';
 import { MoreScreen } from './src/features/more/more-screen';
+import type { AppTab, AppScreen } from './src/navigation/navigation';
 
-type Tab = 'Markets' | 'Chart' | 'Trade' | 'Orders' | 'More';
-
-const tabs: Tab[] = ['Markets', 'Chart', 'Trade', 'Orders', 'More'];
+const tabs: AppTab[] = ['Markets', 'Chart', 'Trade', 'Orders', 'More'];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('Markets');
+  const [screen, setScreen] = useState<AppScreen>({
+    type: 'tab',
+    tab: 'Markets',
+  });
+
+  const openTab = (tab: AppTab) => {
+    setScreen({
+      type: 'tab',
+      tab,
+    });
+  };
+
+  const openChart = (instrumentId: string) => {
+    setScreen({
+      type: 'chart',
+      instrumentId,
+    });
+  };
+
+  const openTrade = (instrumentId: string) => {
+    setScreen({
+      type: 'trade',
+      instrumentId,
+    });
+  };
+
+  const activeTab =
+    screen.type === 'tab'
+      ? screen.tab
+      : screen.type === 'chart'
+        ? 'Chart'
+        : 'Trade';
 
   const renderScreen = () => {
-    switch (activeTab) {
-      case 'Markets':
-        return <MarketsScreen />;
+    switch (screen.type) {
+      case 'tab':
+        switch (screen.tab) {
+          case 'Markets':
+            return <MarketsScreen onOpenChart={openChart} />;
 
-      case 'Chart':
-        return <ChartScreen />;
+          case 'Chart':
+            return (
+              <ChartScreen
+                instrumentId="xauusd"
+                onOpenTrade={openTrade}
+              />
+            );
 
-      case 'Trade':
-        return <TradeScreen />;
+          case 'Trade':
+            return <TradeScreen instrumentId="xauusd" />;
 
-      case 'Orders':
-        return <OrdersScreen />;
+          case 'Orders':
+            return <OrdersScreen />;
 
-      case 'More':
-        return <MoreScreen />;
+          case 'More':
+            return <MoreScreen />;
+        }
+
+      case 'chart':
+        return (
+          <ChartScreen
+            instrumentId={screen.instrumentId}
+            onBack={() => openTab('Markets')}
+            onOpenTrade={openTrade}
+          />
+        );
+
+      case 'trade':
+        return (
+          <TradeScreen
+            instrumentId={screen.instrumentId}
+            onBack={() =>
+              setScreen({
+                type: 'chart',
+                instrumentId: screen.instrumentId,
+              })
+            }
+          />
+        );
     }
   };
 
@@ -49,7 +115,7 @@ export default function App() {
             <TouchableOpacity
               key={tab}
               activeOpacity={0.75}
-              onPress={() => setActiveTab(tab)}
+              onPress={() => openTab(tab)}
               style={styles.navItem}
             >
               <View

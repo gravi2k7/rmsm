@@ -12,8 +12,29 @@ import { radius, spacing } from '../../theme/spacing';
 
 type OrderType = 'Market' | 'Limit' | 'Stop';
 
-export function TradeScreen() {
+export function TradeScreen({
+  instrumentId = 'xauusd',
+  onBack,
+}: {
+  instrumentId?: string;
+  onBack?: () => void;
+}) {
   const [orderType, setOrderType] = useState<OrderType>('Market');
+
+  const instrument =
+    instrumentId === 'xauusd'
+      ? {
+          symbol: 'XAUUSD',
+          name: 'Gold Spot',
+          bid: '3,648.42',
+          ask: '3,648.71',
+        }
+      : {
+          symbol: instrumentId.toUpperCase(),
+          name: instrumentId.toUpperCase(),
+          bid: '—',
+          ask: '—',
+        };
   const [quantity, setQuantity] = useState(1);
   const [takeProfit, setTakeProfit] = useState(false);
   const [stopLoss, setStopLoss] = useState(false);
@@ -35,9 +56,20 @@ export function TradeScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Trade</Text>
-          <Text style={styles.subtitle}>Place your order</Text>
+        <View style={styles.headerLeft}>
+          {onBack && (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={onBack}
+            >
+              <Text style={styles.backText}>‹</Text>
+            </TouchableOpacity>
+          )}
+
+          <View>
+            <Text style={styles.title}>Trade</Text>
+            <Text style={styles.subtitle}>Place your order</Text>
+          </View>
         </View>
 
         <View style={styles.liveBadge}>
@@ -53,8 +85,8 @@ export function TradeScreen() {
           </View>
 
           <View>
-            <Text style={styles.symbol}>XAUUSD</Text>
-            <Text style={styles.instrumentName}>Gold Spot</Text>
+            <Text style={styles.symbol}>{instrument.symbol}</Text>
+            <Text style={styles.instrumentName}>{instrument.name}</Text>
           </View>
         </View>
 
@@ -66,7 +98,7 @@ export function TradeScreen() {
       <View style={styles.quoteCard}>
         <Quote
           label="BID"
-          value="3,648.42"
+          value={instrument.bid}
           secondary="SELL"
           negative
         />
@@ -75,7 +107,7 @@ export function TradeScreen() {
 
         <Quote
           label="ASK"
-          value="3,648.71"
+          value={instrument.ask}
           secondary="BUY"
           positive
         />
@@ -198,7 +230,7 @@ export function TradeScreen() {
         <View style={styles.executionRow}>
           <TouchableOpacity style={styles.sellButton}>
             <Text style={styles.executionLabel}>SELL</Text>
-            <Text style={styles.executionPrice}>3,648.42</Text>
+            <Text style={styles.executionPrice}>{instrument.bid}</Text>
             <Text style={styles.executionSubtext}>
               Bid • {quantity.toFixed(2)} Lots
             </Text>
@@ -206,7 +238,7 @@ export function TradeScreen() {
 
           <TouchableOpacity style={styles.buyButton}>
             <Text style={styles.executionLabel}>BUY</Text>
-            <Text style={styles.executionPrice}>3,648.71</Text>
+            <Text style={styles.executionPrice}>{instrument.ask}</Text>
             <Text style={styles.executionSubtext}>
               Ask • {quantity.toFixed(2)} Lots
             </Text>
@@ -316,6 +348,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.lg,
+  },
+
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+
+  backText: {
+    color: colors.text,
+    fontSize: 28,
+    lineHeight: 30,
   },
 
   title: {

@@ -84,12 +84,18 @@ function Sparkline({ positive }: { positive: boolean }) {
 function MarketCard({
   market,
   favorite,
+  onPress,
 }: {
   market: MarketInstrument;
   favorite: boolean;
+  onPress: () => void;
 }) {
   return (
-    <TouchableOpacity activeOpacity={0.8} style={styles.marketCard}>
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={onPress}
+      style={styles.marketCard}
+    >
       <View style={styles.marketIdentity}>
         <InstrumentBadge symbol={market.symbol} />
 
@@ -127,7 +133,11 @@ function MarketCard({
   );
 }
 
-export function MarketsScreen() {
+export function MarketsScreen({
+  onOpenChart,
+}: {
+  onOpenChart?: (instrumentId: string) => void;
+}) {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
@@ -196,6 +206,7 @@ export function MarketsScreen() {
             key={market.id}
             market={market}
             favorite={index === 3}
+            onPress={() => onOpenChart?.(market.id)}
           />
         ))}
       </ScrollView>

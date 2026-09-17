@@ -112,7 +112,34 @@ function ChartCanvas() {
   );
 }
 
-export function ChartScreen() {
+export function ChartScreen({
+  instrumentId = 'xauusd',
+  onBack,
+  onOpenTrade,
+}: {
+  instrumentId?: string;
+  onBack?: () => void;
+  onOpenTrade?: (instrumentId: string) => void;
+}) {
+  const instrument =
+    instrumentId === 'xauusd'
+      ? {
+          symbol: 'XAUUSD',
+          name: 'Gold Spot',
+          price: '3,648.42',
+          change: '+18.24  +0.50%',
+          bid: '3,648.42',
+          ask: '3,648.71',
+        }
+      : {
+          symbol: instrumentId.toUpperCase(),
+          name: instrumentId.toUpperCase(),
+          price: '—',
+          change: '—',
+          bid: '—',
+          ask: '—',
+        };
+
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
@@ -123,20 +150,27 @@ export function ChartScreen() {
         <View style={styles.instrument}>
           <View>
             <View style={styles.instrumentTitleRow}>
-              <Text style={styles.symbol}>XAUUSD</Text>
+              <Text style={styles.symbol}>{instrument.symbol}</Text>
               <View style={styles.liveBadge}>
                 <View style={styles.liveDot} />
                 <Text style={styles.liveText}>LIVE</Text>
               </View>
             </View>
 
-            <Text style={styles.name}>Gold Spot</Text>
+            <Text style={styles.name}>{instrument.name}</Text>
           </View>
         </View>
 
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.headerButton}>
             <Text style={styles.headerButtonText}>☆</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.tradeButton}
+            onPress={() => onOpenTrade?.(instrumentId)}
+          >
+            <Text style={styles.tradeButtonText}>Trade</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.headerButton}>
@@ -147,9 +181,9 @@ export function ChartScreen() {
 
       <View style={styles.quoteRow}>
         <View>
-          <Text style={styles.currentPrice}>3,648.42</Text>
+          <Text style={styles.currentPrice}>{instrument.price}</Text>
           <Text style={styles.positiveChange}>
-            +18.24  +0.50%
+            {instrument.change}
           </Text>
         </View>
 
@@ -320,6 +354,23 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     gap: 5,
+  },
+
+  tradeButton: {
+    height: 36,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  tradeButtonText: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '800',
   },
 
   headerButton: {
