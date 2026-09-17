@@ -30,80 +30,19 @@ function Header({ title, subtitle }: { title: string; subtitle?: string }) {
 
 import { MarketsScreen } from './src/features/markets/markets-screen';
 import { ChartScreen } from './src/features/chart/chart-screen';
+import { TradeScreen } from './src/features/trade/trade-screen';
 
-function TradeScreen() {
-  const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
-
-  return (
-    <>
-      <Header title="Trade" />
-
-      <View style={styles.tradeInstrument}>
-        <View>
-          <Text style={styles.symbol}>XAUUSD</Text>
-          <Text style={styles.instrumentName}>Gold Spot</Text>
-        </View>
-
-        <Text style={styles.tradeMarketPrice}>3,648.42</Text>
-      </View>
-
-      <View style={styles.sideSelector}>
-        <TouchableOpacity
-          onPress={() => setSide('BUY')}
-          style={[
-            styles.sideButton,
-            styles.buyButton,
-            side === 'BUY' && styles.buyButtonActive,
-          ]}
-        >
-          <Text style={styles.sideLabel}>BUY</Text>
-          <Text style={styles.sidePrice}>3,648.71</Text>
-          <Text style={styles.sideHint}>ASK</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => setSide('SELL')}
-          style={[
-            styles.sideButton,
-            styles.sellButton,
-            side === 'SELL' && styles.sellButtonActive,
-          ]}
-        >
-          <Text style={styles.sideLabel}>SELL</Text>
-          <Text style={styles.sidePrice}>3,648.42</Text>
-          <Text style={styles.sideHint}>BID</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.formCard}>
-        <TradeRow label="Quantity" value="1" />
-        <TradeRow label="Order Type" value="MARKET" />
-        <TradeRow label="Stop Loss" value="Optional" />
-        <TradeRow label="Take Profit" value="Optional" />
-      </View>
-
-      <TouchableOpacity
-        style={[
-          styles.executeButton,
-          {
-            backgroundColor:
-              side === 'BUY' ? colors.success : colors.danger,
-          },
-        ]}
-      >
-        <Text style={styles.executeText}>
-          {side === 'BUY' ? 'BUY XAUUSD' : 'SELL XAUUSD'}
-        </Text>
-      </TouchableOpacity>
-    </>
-  );
-}
-
-function TradeRow({ label, value }: { label: string; value: string }) {
+function TradeRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   return (
     <View style={styles.tradeRow}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
+      <Text style={styles.tradeRowLabel}>{label}</Text>
+      <Text style={styles.tradeRowValue}>{value}</Text>
     </View>
   );
 }
@@ -523,6 +462,17 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     marginTop: 12,
     paddingHorizontal: 14,
+  },
+
+  tradeRowLabel: {
+    color: colors.textSecondary,
+    fontSize: 10,
+  },
+
+  tradeRowValue: {
+    color: colors.text,
+    fontSize: 10,
+    fontWeight: '700',
   },
 
   tradeRow: {
