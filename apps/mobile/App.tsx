@@ -29,59 +29,7 @@ function Header({ title, subtitle }: { title: string; subtitle?: string }) {
 }
 
 import { MarketsScreen } from './src/features/markets/markets-screen';
-
-function ChartScreen() {
-  return (
-    <>
-      <Header title="Chart" />
-
-      <View style={styles.chartHeader}>
-        <View>
-          <Text style={styles.symbol}>XAUUSD</Text>
-          <Text style={styles.instrumentName}>Gold Spot</Text>
-        </View>
-
-        <View style={styles.chartPriceBlock}>
-          <Text style={styles.chartPrice}>3,648.42</Text>
-          <Text style={styles.positiveText}>+0.50%</Text>
-        </View>
-      </View>
-
-      <View style={styles.timeframes}>
-        {['1m', '5m', '15m', '1H', '4H', '1D'].map(
-          (timeframe, index) => (
-            <TouchableOpacity
-              key={timeframe}
-              style={[
-                styles.timeframe,
-                index === 2 && styles.timeframeActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.timeframeText,
-                  index === 2 && styles.timeframeTextActive,
-                ]}
-              >
-                {timeframe}
-              </Text>
-            </TouchableOpacity>
-          ),
-        )}
-      </View>
-
-      <View style={styles.chartArea}>
-        <View style={styles.chartGridLine} />
-        <View style={styles.chartGridLineTwo} />
-
-        <Text style={styles.chartPlaceholder}>CANDLESTICK CHART</Text>
-        <Text style={styles.chartSubtext}>
-          Live market data will connect here
-        </Text>
-      </View>
-    </>
-  );
-}
+import { ChartScreen } from './src/features/chart/chart-screen';
 
 function TradeScreen() {
   const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');
