@@ -32,6 +32,7 @@ import { MarketsScreen } from './src/features/markets/markets-screen';
 import { ChartScreen } from './src/features/chart/chart-screen';
 import { TradeScreen } from './src/features/trade/trade-screen';
 import { OrdersScreen as NativeOrdersScreen } from './src/features/orders/orders-screen';
+import { MoreScreen } from './src/features/more/more-screen';
 
 function TradeRow({
   label,
@@ -45,34 +46,6 @@ function TradeRow({
       <Text style={styles.tradeRowLabel}>{label}</Text>
       <Text style={styles.tradeRowValue}>{value}</Text>
     </View>
-  );
-}
-
-function MoreScreen() {
-  return (
-    <>
-      <Header title="More" />
-
-      <View style={styles.profileCard}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>R</Text>
-        </View>
-
-        <View>
-          <Text style={styles.profileName}>RMSM Account</Text>
-          <Text style={styles.profileSubtitle}>Demo Account</Text>
-        </View>
-      </View>
-
-      {['Portfolio', 'Analytics', 'Watchlists', 'Settings'].map(
-        (item) => (
-          <TouchableOpacity key={item} style={styles.menuItem}>
-            <Text style={styles.menuText}>{item}</Text>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-        ),
-      )}
-    </>
   );
 }
 
