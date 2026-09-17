@@ -71,7 +71,7 @@ export default function App() {
             return <TradeScreen instrumentId="xauusd" />;
 
           case 'Orders':
-            return <OrdersScreen />;
+            return <OrdersScreen onOpenChart={openChart} />;
 
           case 'More':
             return <MoreScreen />;

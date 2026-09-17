@@ -3,6 +3,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -60,8 +61,37 @@ const pendingOrders = [
   },
 ];
 
-export function OrdersScreen() {
+export function OrdersScreen({
+  onOpenChart,
+}: {
+  onOpenChart?: (instrumentId: string) => void;
+}) {
   const [tab, setTab] = useState<OrdersTab>('Positions');
+
+  const [openPositions, setOpenPositions] = useState(positions);
+  const [openOrders, setOpenOrders] = useState(pendingOrders);
+
+  const closePosition = (positionId: string) => {
+    setOpenPositions((items) =>
+      items.filter((item) => item.id !== positionId),
+    );
+  };
+
+  const cancelOrder = (orderId: string) => {
+    setOpenOrders((items) =>
+      items.filter((item) => item.id !== orderId),
+    );
+  };
+
+  const updateOrderTrigger = (orderId: string, trigger: string) => {
+    setOpenOrders((items) =>
+      items.map((item) =>
+        item.id === orderId
+          ? { ...item, trigger }
+          : item,
+      ),
+    );
+  };
 
   return (
     <ScrollView
@@ -116,8 +146,8 @@ export function OrdersScreen() {
                   ]}
                 >
                   {value === 'Positions'
-                    ? positions.length
-                    : pendingOrders.length}
+                    ? openPositions.length
+                    : openOrders.length}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -131,6 +161,8 @@ export function OrdersScreen() {
             <PositionCard
               key={position.id}
               position={position}
+              onOpenChart={() => onOpenChart?.(position.id === 'position-1' ? 'xauusd' : 'nas100')}
+              onClose={() => closePosition(position.id)}
             />
           ))}
         </View>
@@ -140,6 +172,10 @@ export function OrdersScreen() {
             <PendingOrderCard
               key={order.id}
               order={order}
+              onCancel={() => cancelOrder(order.id)}
+              onUpdateTrigger={(trigger) =>
+                updateOrderTrigger(order.id, trigger)
+              }
             />
           ))}
         </View>
@@ -206,8 +242,12 @@ function AccountMetric({
 
 function PositionCard({
   position,
+  onOpenChart,
+  onClose,
 }: {
   position: (typeof positions)[number];
+  onOpenChart: () => void;
+  onClose: () => void;
 }) {
   return (
     <View style={styles.positionCard}>
@@ -274,13 +314,19 @@ function PositionCard({
       </View>
 
       <View style={styles.cardActions}>
-        <TouchableOpacity style={styles.detailsButton}>
+        <TouchableOpacity
+          style={styles.detailsButton}
+          onPress={onOpenChart}
+        >
           <Text style={styles.detailsButtonText}>
-            Details
+            Chart
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.closeButton}>
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={onClose}
+        >
           <Text style={styles.closeButtonText}>Close Position</Text>
         </TouchableOpacity>
       </View>
@@ -290,10 +336,16 @@ function PositionCard({
 
 function PendingOrderCard({
   order,
+  onCancel,
+  onUpdateTrigger,
 }: {
   order: (typeof pendingOrders)[number];
+  onCancel: () => void;
+  onUpdateTrigger: (trigger: string) => void;
 }) {
   const buy = order.side === 'BUY';
+  const [editing, setEditing] = useState(false);
+  const [trigger, setTrigger] = useState(order.trigger);
 
   return (
     <View style={styles.positionCard}>
@@ -351,17 +403,51 @@ function PendingOrderCard({
 
       <View style={styles.triggerCard}>
         <Text style={styles.triggerLabel}>Trigger Price</Text>
-        <Text style={styles.triggerValue}>{order.trigger}</Text>
+
+        {editing ? (
+          <TextInput
+            value={trigger}
+            onChangeText={setTrigger}
+            keyboardType="decimal-pad"
+            selectTextOnFocus
+            style={styles.triggerInput}
+          />
+        ) : (
+          <Text style={styles.triggerValue}>{order.trigger}</Text>
+        )}
       </View>
 
       <View style={styles.cardActions}>
-        <TouchableOpacity style={styles.detailsButton}>
-          <Text style={styles.detailsButtonText}>
-            Edit
-          </Text>
-        </TouchableOpacity>
+        {editing ? (
+          <TouchableOpacity
+            style={styles.detailsButton}
+            onPress={() => {
+              onUpdateTrigger(trigger);
+              setEditing(false);
+            }}
+          >
+            <Text style={styles.detailsButtonText}>
+              Save
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.detailsButton}
+            onPress={() => {
+              setTrigger(order.trigger);
+              setEditing(true);
+            }}
+          >
+            <Text style={styles.detailsButtonText}>
+              Edit
+            </Text>
+          </TouchableOpacity>
+        )}
 
-        <TouchableOpacity style={styles.cancelButton}>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={onCancel}
+        >
           <Text style={styles.cancelButtonText}>
             Cancel Order
           </Text>
@@ -800,6 +886,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     marginTop: 3,
+  },
+
+  triggerInput: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+    minWidth: 120,
+    paddingVertical: 2,
+    paddingHorizontal: 0,
   },
 
   cancelButton: {
