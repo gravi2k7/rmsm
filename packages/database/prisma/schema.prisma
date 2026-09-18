@@ -130,6 +130,7 @@ model User {
 
   @@index([status])
   @@map("users")
+  tradingAccounts          TradingAccount[] @relation("TradingAccountOwner")
 }
 
 model Profile {
@@ -576,6 +577,7 @@ model Organization {
   @@index([status])
   @@index([slug])
   @@map("organizations")
+  tradingAccounts          TradingAccount[]
 }
 
 model OrganizationMembership {
@@ -1997,6 +1999,9 @@ model Instrument {
   @@index([assetClass, status])
   @@index([status])
   @@map("instruments")
+  tradingOrders             TradingOrder[]
+  tradingPositions          TradingPosition[]
+  tradingTrades             TradingTrade[]
 }
 
 /// A provider's own symbol/code for an instrument this system already
@@ -3057,4 +3062,192 @@ model License {
   @@index([organizationId, status])
   @@index([status])
   @@map("licenses")
+}
+
+enum TradingAccountType {
+  DEMO
+  LIVE
+}
+
+enum TradingAccountStatus {
+  ACTIVE
+  RESET
+  CLOSED
+}
+
+enum TradingLedgerEntryType {
+  INITIAL_DEPOSIT
+  VIRTUAL_DEPOSIT
+  RESET
+  WITHDRAWAL
+  TRADE_DEBIT
+  TRADE_CREDIT
+  FEE
+  ADJUSTMENT
+}
+
+enum TradingOrderSide {
+  BUY
+  SELL
+}
+
+enum TradingOrderType {
+  MARKET
+  LIMIT
+  STOP
+  STOP_LIMIT
+}
+
+enum TradingOrderStatus {
+  PENDING
+  FILLED
+  REJECTED
+  CANCELLED
+}
+
+enum TradingPositionSide {
+  LONG
+  SHORT
+}
+
+enum TradingPositionStatus {
+  OPEN
+  CLOSED
+}
+
+model TradingAccount {
+  id              String               @id @default(uuid())
+  organizationId  String
+  ownerUserId     String
+  type            TradingAccountType
+  name            String
+  currency        String               @default("USD")
+  startingBalance Decimal?             @db.Decimal(24, 8)
+  balance         Decimal              @db.Decimal(24, 8)
+  status          TradingAccountStatus @default(ACTIVE)
+  leverage        Decimal              @default(1) @db.Decimal(10, 2)
+
+  // Reserved for future LIVE broker connectivity.
+  brokerConnectionId String?
+  brokerAccountId    String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  closedAt  DateTime?
+
+  organization  Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner         User                 @relation("TradingAccountOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  ledgerEntries TradingLedgerEntry[]
+  orders        TradingOrder[]
+  positions     TradingPosition[]
+  trades        TradingTrade[]
+
+  @@index([organizationId])
+  @@index([ownerUserId])
+  @@index([organizationId, ownerUserId])
+  @@index([organizationId, type])
+  @@index([status])
+  @@map("trading_accounts")
+}
+
+model TradingLedgerEntry {
+  id           String                 @id @default(uuid())
+  accountId    String
+  type         TradingLedgerEntryType
+  amount       Decimal                @db.Decimal(24, 8)
+  balanceAfter Decimal                @db.Decimal(24, 8)
+  reference    String?
+  metadata     Json                   @default("{}")
+  createdAt    DateTime               @default(now())
+
+  account TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@index([accountId, type])
+  @@map("trading_ledger_entries")
+}
+
+model TradingOrder {
+  id              String             @id @default(uuid())
+  accountId       String
+  instrumentId    String
+  side            TradingOrderSide
+  type            TradingOrderType   @default(MARKET)
+  quantity        Decimal            @db.Decimal(30, 10)
+  limitPrice      Decimal?           @db.Decimal(24, 10)
+  stopPrice       Decimal?           @db.Decimal(24, 10)
+  status          TradingOrderStatus @default(PENDING)
+  requestedPrice  Decimal?           @db.Decimal(24, 10)
+  executedPrice   Decimal?           @db.Decimal(24, 10)
+  rejectionReason String?
+  createdAt       DateTime           @default(now())
+  filledAt        DateTime?
+  triggeredAt     DateTime?
+
+  account    TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  instrument Instrument     @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  fills      TradingFill[]
+
+  @@index([accountId, createdAt])
+  @@index([accountId, status])
+  @@index([instrumentId, createdAt])
+  @@map("trading_orders")
+}
+
+model TradingFill {
+  id         String   @id @default(uuid())
+  orderId    String
+  price      Decimal  @db.Decimal(24, 10)
+  quantity   Decimal  @db.Decimal(30, 10)
+  commission Decimal  @default(0) @db.Decimal(24, 8)
+  filledAt   DateTime @default(now())
+
+  order TradingOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, filledAt])
+  @@map("trading_fills")
+}
+
+model TradingPosition {
+  id                String                @id @default(uuid())
+  accountId         String
+  instrumentId      String
+  side              TradingPositionSide
+  quantity          Decimal               @db.Decimal(30, 10)
+  averageEntryPrice Decimal               @db.Decimal(24, 10)
+  stopLossPrice     Decimal?              @db.Decimal(24, 10)
+  takeProfitPrice   Decimal?              @db.Decimal(24, 10)
+  status            TradingPositionStatus @default(OPEN)
+  openedAt          DateTime              @default(now())
+  closedAt          DateTime?
+  averageExitPrice  Decimal?              @db.Decimal(24, 10)
+  realizedPnl       Decimal?              @db.Decimal(24, 8)
+
+  account    TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  instrument Instrument     @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, status])
+  @@index([accountId, instrumentId, status])
+  @@index([instrumentId, status])
+  @@map("trading_positions")
+}
+
+model TradingTrade {
+  id           String              @id @default(uuid())
+  accountId    String
+  instrumentId String
+  side         TradingPositionSide
+  quantity     Decimal             @db.Decimal(30, 10)
+  entryPrice   Decimal             @db.Decimal(24, 10)
+  exitPrice    Decimal             @db.Decimal(24, 10)
+  realizedPnl  Decimal             @db.Decimal(24, 8)
+  openedAt     DateTime
+  closedAt     DateTime
+
+  account    TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  instrument Instrument     @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, closedAt])
+  @@index([accountId, instrumentId, closedAt])
+  @@map("trading_trades")
 }

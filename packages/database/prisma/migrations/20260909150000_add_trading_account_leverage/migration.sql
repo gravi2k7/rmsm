@@ -1,0 +1,2 @@
+ALTER TABLE "trading_accounts"
+ADD COLUMN "leverage" DECIMAL(10,2) NOT NULL DEFAULT 1;
