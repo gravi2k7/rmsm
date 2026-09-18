@@ -1,12 +1,20 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { MarketDataSource } from "@rmsm/database";
 
 import { CTraderFixClient } from "../providers/ctrader/ctrader-fix.client";
 import { InstrumentAliasRepository } from "../repositories/instrument-alias.repository";
-import { MarketQuoteRepository } from "../repositories/market-quote.repository";
-
 import { MarketDataProviderConfigRepository } from "../repositories/market-data-provider-config.repository";
 import { MarketDataStreamPublisher } from "./market-data-stream.publisher";
+
+interface LiveQuote {
+  providerSymbol: string;
+  bidPrice?: string;
+  askPrice?: string;
+  lastPrice?: string;
+  bidSize?: string;
+  askSize?: string;
+  eventTime: Date;
+  sourceTimestamp?: Date;
+}
 
 @Injectable()
 export class CTraderLiveQuoteIngestionService implements OnModuleInit {
@@ -16,45 +24,64 @@ export class CTraderLiveQuoteIngestionService implements OnModuleInit {
 
   private subscriptionGeneration = 0;
 
+  /**
+   * Live provider context is loaded once when the FIX session logs on.
+   *
+   * Quotes are deliberately NOT persisted here. They are transient market
+   * data used by the realtime stream and the in-memory candle builder.
+   */
+  private providerId: string | null = null;
+
+  private readonly aliasesBySymbol = new Map<
+    string,
+    {
+      instrumentId: string;
+      providerSymbol: string;
+      providerInstrumentId?: string | null;
+    }
+  >();
+
   constructor(
     private readonly client: CTraderFixClient,
     private readonly providerConfigRepository: MarketDataProviderConfigRepository,
     private readonly aliases: InstrumentAliasRepository,
-    private readonly quotes: MarketQuoteRepository,
     private readonly streamPublisher: MarketDataStreamPublisher,
   ) {}
 
   onModuleInit(): void {
-    this.client.on("quote", (quote) => {
-      void this.persistQuote(quote).catch((error: unknown) => {
-        const message =
-          error instanceof Error ? error.message : String(error);
-
-        this.logger.error(
-          `Failed to persist cTrader live quote for ${quote.providerSymbol}: ${message}`,
-        );
-      });
+    this.client.on("quote", (quote: LiveQuote) => {
+      this.handleQuote(quote);
     });
 
     this.client.on("loggedOn", () => {
-      void this.subscribeConfiguredSymbols().catch((error: unknown) => {
-        const message =
-          error instanceof Error ? error.message : String(error);
-
-        this.logger.error(
-          `Failed to subscribe cTrader live symbols: ${message}`,
-        );
-      });
+      void this.handleLoggedOn();
     });
 
-    this.logger.log("cTrader live quote ingestion listener registered.");
+    this.logger.log(
+      "cTrader live quote ingestion listener registered.",
+    );
   }
 
-  private async subscribeConfiguredSymbols(): Promise<void> {
-    const generation = ++this.subscriptionGeneration;
+  private async handleLoggedOn(): Promise<void> {
+    try {
+      await this.loadLiveContext();
+      await this.subscribeConfiguredSymbols();
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : String(error);
 
+      this.logger.error(
+        `Failed to initialize cTrader live quote ingestion: ${message}`,
+      );
+    }
+  }
+
+  private async loadLiveContext(): Promise<void> {
     const provider =
       await this.providerConfigRepository.findByType("CTRADER");
+
+    this.aliasesBySymbol.clear();
+    this.providerId = null;
 
     if (!provider || !provider.isActive) {
       this.logger.warn(
@@ -65,9 +92,59 @@ export class CTraderLiveQuoteIngestionService implements OnModuleInit {
 
     const aliases = await this.aliases.findByProvider(provider.id);
 
+    this.providerId = provider.id;
+
+    for (const alias of aliases) {
+      this.aliasesBySymbol.set(alias.providerSymbol, {
+        instrumentId: alias.instrumentId,
+        providerSymbol: alias.providerSymbol,
+        providerInstrumentId: alias.providerInstrumentId,
+      });
+    }
+
+    this.logger.log(
+      `Loaded cTrader live context: ${aliases.length} instrument alias(es).`,
+    );
+  }
+
+  private handleQuote(quote: LiveQuote): void {
+    const alias = this.aliasesBySymbol.get(quote.providerSymbol);
+
+    if (!this.providerId || !alias) {
+      return;
+    }
+
+    /*
+     * Quotes are transient realtime market data.
+     *
+     * Publish immediately. PostgreSQL is intentionally not involved in the
+     * quote path.
+     */
+    this.streamPublisher.publishQuote({
+      instrumentId: alias.instrumentId,
+      providerSymbol: quote.providerSymbol,
+      bidPrice: quote.bidPrice,
+      askPrice: quote.askPrice,
+      lastPrice: quote.lastPrice,
+      bidSize: quote.bidSize,
+      askSize: quote.askSize,
+      eventTime: quote.eventTime,
+      sourceTimestamp: quote.sourceTimestamp,
+    });
+  }
+
+  private async subscribeConfiguredSymbols(): Promise<void> {
+    const generation = ++this.subscriptionGeneration;
+
+    if (!this.providerId) {
+      return;
+    }
+
+    const aliases = [...this.aliasesBySymbol.values()];
+
     if (aliases.length === 0) {
       this.logger.warn(
-        `cTrader FIX logged on but no InstrumentAlias records exist for provider ${provider.id}.`,
+        `cTrader FIX logged on but no InstrumentAlias records exist for provider ${this.providerId}.`,
       );
       return;
     }
@@ -81,17 +158,17 @@ export class CTraderLiveQuoteIngestionService implements OnModuleInit {
         return;
       }
 
-      const requestId =
-        `RMSM-QUOTE-${alias.providerSymbol}-${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2, 8)}`;
-
       if (!alias.providerInstrumentId) {
         this.logger.warn(
           `Skipping cTrader live subscription without providerInstrumentId: ${alias.providerSymbol}`,
         );
         continue;
       }
+
+      const requestId =
+        `RMSM-QUOTE-${alias.providerSymbol}-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`;
 
       try {
         await this.client.subscribe(
@@ -114,65 +191,4 @@ export class CTraderLiveQuoteIngestionService implements OnModuleInit {
       }
     }
   }
-
-  private async persistQuote(quote: {
-    providerSymbol: string;
-    bidPrice?: string;
-    askPrice?: string;
-    lastPrice?: string;
-    bidSize?: string;
-    askSize?: string;
-    eventTime: Date;
-    sourceTimestamp?: Date;
-  }): Promise<void> {
-    const provider =
-      await this.providerConfigRepository.findByType("CTRADER");
-
-    if (!provider || !provider.isActive) {
-      return;
-    }
-
-    const alias = await this.aliases.findByProviderSymbol(
-      provider.id,
-      quote.providerSymbol,
-    );
-
-    if (!alias) {
-      this.logger.debug(
-        `Ignoring cTrader quote without InstrumentAlias: ${quote.providerSymbol}`,
-      );
-      return;
-    }
-
-    const persisted = await this.quotes.create({
-      instrumentId: alias.instrumentId,
-      bidPrice: quote.bidPrice,
-      askPrice: quote.askPrice,
-      lastPrice: quote.lastPrice,
-      bidSize: quote.bidSize,
-      askSize: quote.askSize,
-      eventTime: quote.eventTime,
-      providerId: provider.id,
-      source: MarketDataSource.LIVE,
-      sourceTimestamp: quote.sourceTimestamp,
-    });
-
-    this.streamPublisher.publishQuote({
-      instrumentId: alias.instrumentId,
-      providerSymbol: quote.providerSymbol,
-      bidPrice: quote.bidPrice,
-      askPrice: quote.askPrice,
-      lastPrice: quote.lastPrice,
-      bidSize: quote.bidSize,
-      askSize: quote.askSize,
-      eventTime: quote.eventTime,
-      sourceTimestamp: quote.sourceTimestamp,
-    });
-
-    this.logger.debug(
-      `Persisted cTrader live quote: ${quote.providerSymbol} -> ${persisted.id}`,
-    );
-
-  }
-
 }
