@@ -97,6 +97,10 @@ const DEFAULT_PERMISSIONS: { key: string; group: string; description: string }[]
   { key: "strategy-engine.write", group: "strategy-engine", description: "Create/update/clone/archive strategies and versions; request approval." },
   { key: "strategy-engine.approve", group: "strategy-engine", description: "Approve/reject/publish strategy versions." },
 
+  // ── Execution permissions ──────────────────────────────────────────
+  { key: "executions.read", group: "executions", description: "View orders and execution attempts." },
+  { key: "executions.write", group: "executions", description: "Place and execute trading orders." },
+
   // ── AI Phase 5.1, Milestone 1: AI-201 Gateway ──────────────────────
   { key: "ai-gateway.use", group: "ai-gateway", description: "Call the AI Gateway — chat, stream, embed, moderate." },
 
@@ -209,6 +213,8 @@ const ROLE_GRANTS: Record<string, string[]> = {
     "strategy-engine.read",
     "strategy-engine.write",
     "strategy-engine.approve",
+    "executions.read",
+    "executions.write",
     "ai-gateway.use",
     // Module 005, Domain 1: Enterprise Administration — platform
     // operational tier, same as billing.admin.manage/notification.admin.manage

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -7,8 +7,21 @@ import {
   View,
 } from 'react-native';
 
+import { marketDataApi, tradingApi } from '../../api';
+import { MarketDataSocket } from '../../realtime/market-data-socket';
+import type { Instrument } from '../../types/market-data';
 import { colors } from '../../theme/colors';
 import { radius, spacing } from '../../theme/spacing';
+
+function getMarketDataWebSocketUrl(): string {
+  const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL;
+
+  if (!apiBaseUrl) {
+    throw new Error('EXPO_PUBLIC_API_URL is not configured');
+  }
+
+  return apiBaseUrl.replace(/^http/i, 'ws').replace(/\/$/, '') + '/market-data/ws';
+}
 
 type OrderType = 'Market' | 'Limit' | 'Stop';
 
@@ -20,24 +33,128 @@ export function TradeScreen({
   onBack?: () => void;
 }) {
   const [orderType, setOrderType] = useState<OrderType>('Market');
-
-  const instrument =
-    instrumentId === 'xauusd'
-      ? {
-          symbol: 'XAUUSD',
-          name: 'Gold Spot',
-          bid: '3,648.42',
-          ask: '3,648.71',
-        }
-      : {
-          symbol: instrumentId.toUpperCase(),
-          name: instrumentId.toUpperCase(),
-          bid: '—',
-          ask: '—',
-        };
+  const [instrument, setInstrument] = useState<Instrument | null>(null);
+  const [liveBid, setLiveBid] = useState<string | null>(null);
+  const [liveAsk, setLiveAsk] = useState<string | null>(null);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [executing, setExecuting] = useState(false);
+  const [resultMessage, setResultMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [takeProfit, setTakeProfit] = useState(false);
   const [stopLoss, setStopLoss] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadInstrument = async () => {
+      try {
+        setLoading(true);
+        setErrorMessage(null);
+
+        const response = await marketDataApi.getInstrument(instrumentId);
+
+        if (!cancelled) {
+          setInstrument(response);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setInstrument(null);
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : 'Failed to load instrument',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadInstrument();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [instrumentId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const socket = new MarketDataSocket(
+      getMarketDataWebSocketUrl(),
+      [instrumentId],
+      {
+        onConnected: () => {
+          if (!cancelled) {
+            setSocketConnected(true);
+          }
+        },
+        onQuote: (message) => {
+          if (cancelled || message.data.instrumentId !== instrumentId) {
+            return;
+          }
+
+          setLiveBid(message.data.bidPrice ?? null);
+          setLiveAsk(message.data.askPrice ?? null);
+        },
+        onError: (error) => {
+          if (!cancelled) {
+            setSocketConnected(false);
+            setErrorMessage(error.message);
+          }
+        },
+        onClosed: () => {
+          if (!cancelled) {
+            setSocketConnected(false);
+          }
+        },
+      },
+    );
+
+    void socket.connect();
+
+    return () => {
+      cancelled = true;
+      socket.disconnect();
+    };
+  }, [instrumentId]);
+
+  const bid = liveBid ?? '—';
+  const ask = liveAsk ?? '—';
+
+  const executeOrder = async (side: 'BUY' | 'SELL') => {
+    if (orderType !== 'Market' || executing) {
+      return;
+    }
+
+    setExecuting(true);
+    setResultMessage(null);
+    setErrorMessage(null);
+
+    try {
+      const response = await tradingApi.executeMarketOrder({
+        instrumentId,
+        side,
+        quantityUnits: quantity,
+      });
+
+      setResultMessage(
+        `${response.side} ${response.quantity} ${response.symbolCode} FILLED @ ${response.executionPrice}`,
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Order execution failed',
+      );
+    } finally {
+      setExecuting(false);
+    }
+  };
 
   const increaseQuantity = () => {
     setQuantity((value) => Number((value + 0.01).toFixed(2)));
@@ -74,7 +191,7 @@ export function TradeScreen({
 
         <View style={styles.liveBadge}>
           <View style={styles.liveDot} />
-          <Text style={styles.liveText}>LIVE</Text>
+          <Text style={styles.liveText}>{socketConnected ? "LIVE" : "CONNECTING"}</Text>
         </View>
       </View>
 
@@ -85,8 +202,8 @@ export function TradeScreen({
           </View>
 
           <View>
-            <Text style={styles.symbol}>{instrument.symbol}</Text>
-            <Text style={styles.instrumentName}>{instrument.name}</Text>
+            <Text style={styles.symbol}>{instrument?.symbol ?? (loading ? 'Loading...' : instrumentId.toUpperCase())}</Text>
+            <Text style={styles.instrumentName}>{instrument?.name ?? 'Market instrument'}</Text>
           </View>
         </View>
 
@@ -98,7 +215,7 @@ export function TradeScreen({
       <View style={styles.quoteCard}>
         <Quote
           label="BID"
-          value={instrument.bid}
+          value={bid}
           secondary="SELL"
           negative
         />
@@ -107,7 +224,7 @@ export function TradeScreen({
 
         <Quote
           label="ASK"
-          value={instrument.ask}
+          value={ask}
           secondary="BUY"
           positive
         />
@@ -227,18 +344,35 @@ export function TradeScreen({
           Market order executes at the current live price.
         </Text>
 
+        {resultMessage && (
+          <Text style={styles.resultMessage}>{resultMessage}</Text>
+        )}
+
+        {errorMessage && (
+          <Text style={styles.errorMessage}>{errorMessage}</Text>
+        )}
+
+
         <View style={styles.executionRow}>
-          <TouchableOpacity style={styles.sellButton}>
+          <TouchableOpacity
+            style={styles.sellButton}
+            onPress={() => void executeOrder("SELL")}
+            disabled={executing || orderType !== "Market"}
+          >
             <Text style={styles.executionLabel}>SELL</Text>
-            <Text style={styles.executionPrice}>{instrument.bid}</Text>
+            <Text style={styles.executionPrice}>{bid}</Text>
             <Text style={styles.executionSubtext}>
               Bid • {quantity.toFixed(2)} Lots
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.buyButton}>
+          <TouchableOpacity
+            style={styles.buyButton}
+            onPress={() => void executeOrder("BUY")}
+            disabled={executing || orderType !== "Market"}
+          >
             <Text style={styles.executionLabel}>BUY</Text>
-            <Text style={styles.executionPrice}>{instrument.ask}</Text>
+            <Text style={styles.executionPrice}>{ask}</Text>
             <Text style={styles.executionSubtext}>
               Ask • {quantity.toFixed(2)} Lots
             </Text>
@@ -780,6 +914,20 @@ const styles = StyleSheet.create({
     borderColor: colors.success,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  resultMessage: {
+    color: colors.success,
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: spacing.sm,
+  },
+
+  errorMessage: {
+    color: colors.danger,
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: spacing.sm,
   },
 
   executionLabel: {
