@@ -104,6 +104,49 @@ export class MarketCandleRepository {
   }
 
   /**
+   * Select the canonical row when multiple non-superseded source rows exist
+   * for the same logical candle timestamp.
+   *
+   * LIVE takes precedence over BACKFILL because a live candle represents
+   * the primary real-time stream for that timestamp. BACKFILL remains
+   * persisted for provenance but must not produce a second logical candle
+   * in the canonical read model.
+   *
+   * MANUAL_CORRECTION remains authoritative when present because it is an
+   * explicit correction row. Other source precedence is intentionally
+   * conservative.
+   */
+  private selectCanonicalCandle(
+    rows: MarketCandle[],
+  ): MarketCandle {
+    const sourcePriority: Record<string, number> = {
+      MANUAL_CORRECTION: 4,
+      LIVE: 3,
+      BACKFILL: 2,
+      HISTORICAL_IMPORT: 1,
+      DELAYED: 0,
+    };
+
+    return rows.reduce((selected, candidate) => {
+      const selectedPriority = sourcePriority[selected.source] ?? -1;
+      const candidatePriority = sourcePriority[candidate.source] ?? -1;
+
+      if (candidatePriority > selectedPriority) {
+        return candidate;
+      }
+
+      if (
+        candidatePriority === selectedPriority &&
+        candidate.updatedAt.getTime() > selected.updatedAt.getTime()
+      ) {
+        return candidate;
+      }
+
+      return selected;
+    });
+  }
+
+  /**
    * The "latest non-superseded value" read path the Phase 2 plan
    * explicitly required as a first-class repository method, not
    * something every caller reconstructs with an ad-hoc filter. A row is
@@ -112,7 +155,10 @@ export class MarketCandleRepository {
    * `supersedesId`," via a `NOT IN` subquery expressed through Prisma's
    * relation filter, not a raw SQL string.
    */
-  async findRangeCurrentValues(query: CandleRangeQuery, client: DbClient = prisma): Promise<MarketCandleModel[]> {
+  async findRangeCurrentValues(
+    query: CandleRangeQuery,
+    client: DbClient = prisma,
+  ): Promise<MarketCandleModel[]> {
     const rows = await client.marketCandle.findMany({
       where: {
         instrumentId: query.instrumentId,
@@ -124,15 +170,36 @@ export class MarketCandleRepository {
         },
         supersededBy: null,
       },
-      // Fetch the newest page first so a large requested range returns
-      // the latest candles. Reverse before returning to preserve the
-      // API contract of chronological ascending order.
       orderBy: { eventTime: "desc" },
-      take: query.limit,
     });
 
-    return rows.reverse().map(toMarketCandleModel);
+    // The database deliberately permits multiple source rows for the same
+    // logical candle timestamp. Canonicalize first so `limit` means the
+    // number of logical candles returned, not the number of physical
+    // source rows fetched from the database.
+    const canonicalByEventTime = new Map<number, MarketCandle>();
+
+    for (const row of rows) {
+      const timestamp = row.eventTime.getTime();
+      const existing = canonicalByEventTime.get(timestamp);
+
+      if (!existing) {
+        canonicalByEventTime.set(timestamp, row);
+        continue;
+      }
+
+      canonicalByEventTime.set(
+        timestamp,
+        this.selectCanonicalCandle([existing, row]),
+      );
+    }
+
+    return [...canonicalByEventTime.values()]
+      .sort((a, b) => a.eventTime.getTime() - b.eventTime.getTime())
+      .slice(-query.limit)
+      .map(toMarketCandleModel);
   }
+
 
   /**
    * Returns the latest non-superseded candle for an instrument/interval.
@@ -144,17 +211,38 @@ export class MarketCandleRepository {
     interval: CandleInterval,
     client: DbClient = prisma,
   ): Promise<MarketCandleModel | null> {
-    const row = await client.marketCandle.findFirst({
+    const latest = await client.marketCandle.findFirst({
       where: {
         instrumentId,
         interval,
         supersededBy: null,
       },
       orderBy: { eventTime: "desc" },
+      select: {
+        eventTime: true,
+      },
     });
 
-    return row ? toMarketCandleModel(row) : null;
+    if (!latest) {
+      return null;
+    }
+
+    const rows = await client.marketCandle.findMany({
+      where: {
+        instrumentId,
+        interval,
+        eventTime: latest.eventTime,
+        supersededBy: null,
+      },
+    });
+
+    if (rows.length === 0) {
+      return null;
+    }
+
+    return toMarketCandleModel(this.selectCanonicalCandle(rows));
   }
+
 
   /** Every row in a correction's history for one logical candle, oldest first — the full audit trail, not just the current value. */
   async findCorrectionChain(candleId: string, client: DbClient = prisma): Promise<MarketCandleModel[]> {
