@@ -3,11 +3,17 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 
-import { marketDataApi, tradingApi } from '../../api';
+import {
+  marketDataApi,
+  organizationsApi,
+  tradingApi,
+} from '../../api';
+import type { TradingAccount } from '../../api/trading';
 import { MarketDataSocket } from '../../realtime/market-data-socket';
 import type { Instrument } from '../../types/market-data';
 import { colors } from '../../theme/colors';
@@ -26,11 +32,15 @@ function getMarketDataWebSocketUrl(): string {
 type OrderType = 'Market' | 'Limit' | 'Stop';
 
 export function TradeScreen({
-  instrumentId = 'xauusd',
+  instrumentId,
   onBack,
+  favorite,
+  onToggleFavorite,
 }: {
-  instrumentId?: string;
+  instrumentId: string;
   onBack?: () => void;
+  favorite: boolean;
+  onToggleFavorite: () => void;
 }) {
   const [orderType, setOrderType] = useState<OrderType>('Market');
   const [instrument, setInstrument] = useState<Instrument | null>(null);
@@ -39,9 +49,13 @@ export function TradeScreen({
   const [socketConnected, setSocketConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [executing, setExecuting] = useState(false);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [accountId, setAccountId] = useState<string | null>(null);
+  const [account, setAccount] = useState<TradingAccount | null>(null);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [triggerPrice, setTriggerPrice] = useState('');
   const [takeProfit, setTakeProfit] = useState(false);
   const [stopLoss, setStopLoss] = useState(false);
 
@@ -126,8 +140,50 @@ export function TradeScreen({
   const bid = liveBid ?? '—';
   const ask = liveAsk ?? '—';
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadTradingAccount = async () => {
+      try {
+        const organizations = await organizationsApi.list();
+        const organization = organizations.items[0];
+
+        if (!organization || cancelled) {
+          return;
+        }
+
+        setOrganizationId(organization.id);
+
+        const accounts = await tradingApi.listAccounts(organization.id);
+        const account =
+          accounts.find((item) => item.type === "DEMO" && item.status === "ACTIVE") ??
+          accounts.find((item) => item.type === "DEMO") ??
+          accounts[0];
+
+        if (!cancelled && account) {
+          setAccountId(account.id);
+          setAccount(account);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "Unable to load trading account.",
+          );
+        }
+      }
+    };
+
+    void loadTradingAccount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const executeOrder = async (side: 'BUY' | 'SELL') => {
-    if (orderType !== 'Market' || executing) {
+    if (executing) {
       return;
     }
 
@@ -136,14 +192,54 @@ export function TradeScreen({
     setErrorMessage(null);
 
     try {
-      const response = await tradingApi.executeMarketOrder({
-        instrumentId,
-        side,
-        quantityUnits: quantity,
-      });
+      if (!organizationId || !accountId) {
+        throw new Error('Trading account is not ready.');
+      }
+
+      const numericTriggerPrice = Number(triggerPrice);
+
+      if (
+        orderType !== 'Market' &&
+        (!triggerPrice ||
+          !Number.isFinite(numericTriggerPrice) ||
+          numericTriggerPrice <= 0)
+      ) {
+        throw new Error('Enter a valid trigger price.');
+      }
+
+      const type =
+        orderType === 'Market'
+          ? 'MARKET'
+          : orderType === 'Limit'
+            ? 'LIMIT'
+            : 'STOP';
+
+      await tradingApi.placeOrder(
+        organizationId,
+        accountId,
+        {
+          instrumentId,
+          side,
+          type,
+          quantity: String(quantity),
+          ...(type === 'LIMIT'
+            ? { limitPrice: String(numericTriggerPrice) }
+            : {}),
+          ...(type === 'STOP'
+            ? { stopPrice: String(numericTriggerPrice) }
+            : {}),
+        },
+      );
+
+      const refreshedAccount = await tradingApi.getAccount(
+        organizationId,
+        accountId,
+      );
+
+      setAccount(refreshedAccount);
 
       setResultMessage(
-        `${response.side} ${response.quantity} ${response.symbolCode} FILLED @ ${response.executionPrice}`,
+        `${side} ${quantity} ${instrument?.symbol ?? instrumentId} ${orderType.toLowerCase()} order submitted.`,
       );
     } catch (error) {
       setErrorMessage(
@@ -207,9 +303,16 @@ export function TradeScreen({
           </View>
         </View>
 
-        <View style={styles.favoriteButton}>
-          <Text style={styles.favoriteText}>☆</Text>
-        </View>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Toggle watchlist"
+          style={styles.favoriteButton}
+          onPress={onToggleFavorite}
+        >
+          <Text style={styles.favoriteText}>
+            {favorite ? '★' : '☆'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.quoteCard}>
@@ -261,10 +364,23 @@ export function TradeScreen({
 
         {orderType !== 'Market' && (
           <View style={styles.triggerPrice}>
-            <Text style={styles.fieldLabel}>Trigger Price</Text>
+            <Text style={styles.fieldLabel}>
+              {orderType === 'Limit' ? 'Limit Price' : 'Stop Price'}
+            </Text>
             <View style={styles.priceInput}>
-              <Text style={styles.priceInputText}>3,648.00</Text>
-              <Text style={styles.priceInputSuffix}>USD</Text>
+              <TextInput
+                value={triggerPrice}
+                onChangeText={(value) =>
+                  setTriggerPrice(value.replace(/[^0-9.]/g, ''))
+                }
+                placeholder="Enter price"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="decimal-pad"
+                style={styles.priceInputText}
+              />
+              <Text style={styles.priceInputSuffix}>
+                {instrument?.currency ?? 'USD'}
+              </Text>
             </View>
           </View>
         )}
@@ -318,14 +434,14 @@ export function TradeScreen({
 
         <ProtectionRow
           label="Take Profit"
-          value="3,700.00"
+          value="Not configured"
           enabled={takeProfit}
           onPress={() => setTakeProfit((value) => !value)}
         />
 
         <ProtectionRow
           label="Stop Loss"
-          value="3,600.00"
+          value="Not configured"
           enabled={stopLoss}
           onPress={() => setStopLoss((value) => !value)}
         />
@@ -334,14 +450,29 @@ export function TradeScreen({
       <View style={styles.accountCard}>
         <Text style={styles.sectionTitle}>Account</Text>
 
-        <AccountRow label="Balance" value="$10,000.00" />
-        <AccountRow label="Available Margin" value="$9,820.00" />
-        <AccountRow label="Required Margin" value="$180.00" />
+        <AccountRow
+          label="Balance"
+          value={
+            account
+              ? `${account.currency} ${Number(account.balance).toLocaleString(
+                  "en-US",
+                  {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  },
+                )}`
+              : "—"
+          }
+        />
+        <AccountRow label="Available Margin" value="—" />
+        <AccountRow label="Required Margin" value="—" />
       </View>
 
       <View style={styles.executionCard}>
         <Text style={styles.executionHint}>
-          Market order executes at the current live price.
+          {orderType === 'Market'
+            ? 'Market order executes at the current live price.'
+            : `${orderType} order will be submitted at the entered trigger price.`}
         </Text>
 
         {resultMessage && (
@@ -357,7 +488,7 @@ export function TradeScreen({
           <TouchableOpacity
             style={styles.sellButton}
             onPress={() => void executeOrder("SELL")}
-            disabled={executing || orderType !== "Market"}
+            disabled={executing}
           >
             <Text style={styles.executionLabel}>SELL</Text>
             <Text style={styles.executionPrice}>{bid}</Text>
@@ -369,7 +500,7 @@ export function TradeScreen({
           <TouchableOpacity
             style={styles.buyButton}
             onPress={() => void executeOrder("BUY")}
-            disabled={executing || orderType !== "Market"}
+            disabled={executing}
           >
             <Text style={styles.executionLabel}>BUY</Text>
             <Text style={styles.executionPrice}>{ask}</Text>

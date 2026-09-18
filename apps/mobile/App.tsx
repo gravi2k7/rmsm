@@ -31,6 +31,28 @@ function AuthenticatedApp() {
     tab: 'Markets',
   });
 
+  const [selectedInstrumentId, setSelectedInstrumentId] = useState<
+    string | null
+  >(null);
+
+  const [favorites, setFavorites] = useState<Set<string>>(
+    () => new Set(),
+  );
+
+  const toggleFavorite = (instrumentId: string) => {
+    setFavorites((current) => {
+      const next = new Set(current);
+
+      if (next.has(instrumentId)) {
+        next.delete(instrumentId);
+      } else {
+        next.add(instrumentId);
+      }
+
+      return next;
+    });
+  };
+
   const openTab = (tab: AppTab) => {
     setScreen({
       type: 'tab',
@@ -39,6 +61,8 @@ function AuthenticatedApp() {
   };
 
   const openChart = (instrumentId: string) => {
+    setSelectedInstrumentId(instrumentId);
+
     setScreen({
       type: 'chart',
       instrumentId,
@@ -46,6 +70,8 @@ function AuthenticatedApp() {
   };
 
   const openTrade = (instrumentId: string) => {
+    setSelectedInstrumentId(instrumentId);
+
     setScreen({
       type: 'trade',
       instrumentId,
@@ -71,18 +97,49 @@ function AuthenticatedApp() {
       case 'tab':
         switch (screen.tab) {
           case 'Markets':
-            return <MarketsScreen onOpenChart={openChart} />;
+            return <MarketsScreen
+              onOpenChart={openChart}
+              onOpenMore={() => openTab('More')}
+              favorites={favorites}
+              onToggleFavorite={toggleFavorite}
+            />;
 
           case 'Chart':
-            return (
+            return selectedInstrumentId ? (
               <ChartScreen
-                instrumentId="xauusd"
+                instrumentId={selectedInstrumentId}
                 onOpenTrade={openTrade}
+                favorite={favorites.has(selectedInstrumentId)}
+                onToggleFavorite={() =>
+                  toggleFavorite(selectedInstrumentId)
+                }
               />
+            ) : (
+              <MarketsScreen
+              onOpenChart={openChart}
+              onOpenMore={() => openTab('More')}
+              favorites={favorites}
+              onToggleFavorite={toggleFavorite}
+            />
             );
 
           case 'Trade':
-            return <TradeScreen instrumentId="xauusd" />;
+            return selectedInstrumentId ? (
+              <TradeScreen
+                instrumentId={selectedInstrumentId}
+                favorite={favorites.has(selectedInstrumentId)}
+                onToggleFavorite={() =>
+                  toggleFavorite(selectedInstrumentId)
+                }
+              />
+            ) : (
+              <MarketsScreen
+              onOpenChart={openChart}
+              onOpenMore={() => openTab('More')}
+              favorites={favorites}
+              onToggleFavorite={toggleFavorite}
+            />
+            );
 
           case 'Orders':
             return <OrdersScreen onOpenChart={openChart} />;
@@ -102,6 +159,8 @@ function AuthenticatedApp() {
             instrumentId={screen.instrumentId}
             onBack={() => openTab('Markets')}
             onOpenTrade={openTrade}
+            favorite={favorites.has(screen.instrumentId)}
+            onToggleFavorite={() => toggleFavorite(screen.instrumentId)}
           />
         );
 
@@ -115,6 +174,8 @@ function AuthenticatedApp() {
                 instrumentId: screen.instrumentId,
               })
             }
+            favorite={favorites.has(screen.instrumentId)}
+            onToggleFavorite={() => toggleFavorite(screen.instrumentId)}
           />
         );
 

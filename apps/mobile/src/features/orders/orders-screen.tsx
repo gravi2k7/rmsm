@@ -1,458 +1,798 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { colors } from '../../theme/colors';
-import { radius, spacing } from '../../theme/spacing';
+import {
+  marketDataApi,
+  organizationsApi,
+  tradingApi,
+} from "../../api";
+import type {
+  TradingAccount,
+  TradingOrder,
+  TradingPosition,
+} from "../../api/trading";
+import { MarketDataSocket } from "../../realtime/market-data-socket";
+import type { Instrument, Quote } from "../../types/market-data";
+import { colors } from "../../theme/colors";
+import { radius, spacing } from "../../theme/spacing";
 
-type OrdersTab = 'Positions' | 'Orders';
+type OrdersTab = "Positions" | "Orders";
 
-const positions = [
-  {
-    id: 'position-1',
-    symbol: 'XAUUSD',
-    name: 'Gold Spot',
-    side: 'BUY',
-    quantity: '1.00',
-    entry: '3,606.24',
-    current: '3,648.42',
-    pnl: '+$42.18',
-    positive: true,
-  },
-  {
-    id: 'position-2',
-    symbol: 'NAS100',
-    name: 'Nasdaq 100',
-    side: 'SELL',
-    quantity: '0.50',
-    entry: '24,860.00',
-    current: '24,812.50',
-    pnl: '+$23.75',
-    positive: true,
-  },
-];
+type OrdersScreenProps = {
+  onOpenChart?: (instrumentId: string) => void;
+};
 
-const pendingOrders = [
-  {
-    id: 'order-1',
-    symbol: 'XAUUSD',
-    name: 'Gold Spot',
-    side: 'BUY',
-    type: 'LIMIT',
-    quantity: '1.00',
-    trigger: '3,620.00',
-    status: 'PENDING',
-  },
-  {
-    id: 'order-2',
-    symbol: 'NAS100',
-    name: 'Nasdaq 100',
-    side: 'SELL',
-    type: 'STOP',
-    quantity: '0.50',
-    trigger: '24,700.00',
-    status: 'PENDING',
-  },
-];
+type EnrichedPosition = TradingPosition & {
+  instrument?: Instrument;
+  currentPrice?: number;
+  unrealizedPnl: number;
+};
+
+type EnrichedOrder = TradingOrder & {
+  instrument?: Instrument;
+};
+
+function getMarketDataWebSocketUrl(): string {
+  const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL;
+
+  if (!apiBaseUrl) {
+    throw new Error("EXPO_PUBLIC_API_URL is not configured.");
+  }
+
+  return `${apiBaseUrl.replace(/^http/, "ws")}/market-data/ws`;
+}
+
+function number(value: string | null | undefined): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatMoney(value: number, digits = 2): string {
+  const sign = value >= 0 ? "" : "-";
+  return `${sign}$${Math.abs(value).toLocaleString("en-US", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })}`;
+}
+
+function formatPrice(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) {
+    return "—";
+  }
+
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 5,
+  });
+}
+
+function formatQuantity(value: string): string {
+  const parsed = number(value);
+
+  return parsed.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
+  });
+}
+
+function isOpenPosition(position: TradingPosition): boolean {
+  return position.status === "OPEN" || position.status === "ACTIVE";
+}
+
+function isPendingOrder(order: TradingOrder): boolean {
+  return (
+    order.status === "PENDING" ||
+    order.status === "NEW" ||
+    order.status === "OPEN"
+  );
+}
+
+function calculateUnrealizedPnl(
+  position: TradingPosition,
+  quote?: Quote,
+): number {
+  if (!quote) {
+    return 0;
+  }
+
+  const quantity = number(position.quantity);
+  const entry = number(position.averageEntryPrice);
+
+  if (position.side === "LONG") {
+    const bid = number(quote.bidPrice);
+
+    if (!bid) {
+      return 0;
+    }
+
+    return (bid - entry) * quantity;
+  }
+
+  const ask = number(quote.askPrice);
+
+  if (!ask) {
+    return 0;
+  }
+
+  return (entry - ask) * quantity;
+}
 
 export function OrdersScreen({
   onOpenChart,
-}: {
-  onOpenChart?: (instrumentId: string) => void;
-}) {
-  const [tab, setTab] = useState<OrdersTab>('Positions');
+}: OrdersScreenProps) {
+  const [tab, setTab] = useState<OrdersTab>("Positions");
 
-  const [openPositions, setOpenPositions] = useState(positions);
-  const [openOrders, setOpenOrders] = useState(pendingOrders);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [account, setAccount] = useState<TradingAccount | null>(null);
+  const [positions, setPositions] = useState<TradingPosition[]>([]);
+  const [orders, setOrders] = useState<TradingOrder[]>([]);
+  const [instruments, setInstruments] = useState<Record<string, Instrument>>(
+    {},
+  );
+  const [quotes, setQuotes] = useState<Record<string, Quote>>({});
 
-  const closePosition = (positionId: string) => {
-    setOpenPositions((items) =>
-      items.filter((item) => item.id !== positionId),
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [actionId, setActionId] = useState<string | null>(null);
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [editTriggerPrice, setEditTriggerPrice] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [socketConnected, setSocketConnected] = useState(false);
+
+  const loadTradingData = useCallback(async () => {
+    const organizations = await organizationsApi.list();
+
+    const organization = organizations.items[0];
+
+    if (!organization) {
+      throw new Error("No active organization is available.");
+    }
+
+    setOrganizationId(organization.id);
+
+    const accounts = await tradingApi.listAccounts(organization.id);
+
+    const selectedAccount =
+      accounts.find(
+        (item) => item.type === "DEMO" && item.status === "ACTIVE",
+      ) ??
+      accounts.find((item) => item.type === "DEMO") ??
+      accounts[0];
+
+    if (!selectedAccount) {
+      throw new Error("No trading account is available.");
+    }
+
+    setAccount(selectedAccount);
+
+    const [accountDetail, positionRows, orderRows] = await Promise.all([
+      tradingApi.getAccount(organization.id, selectedAccount.id),
+      tradingApi.listPositions(organization.id, selectedAccount.id),
+      tradingApi.listOrders(organization.id, selectedAccount.id),
+    ]);
+
+    setAccount(accountDetail);
+    setPositions(positionRows.filter(isOpenPosition));
+    setOrders(orderRows.filter(isPendingOrder));
+
+    const instrumentIds = Array.from(
+      new Set([
+        ...positionRows.map((position) => position.instrumentId),
+        ...orderRows.map((order) => order.instrumentId),
+      ]),
     );
-  };
 
-  const cancelOrder = (orderId: string) => {
-    setOpenOrders((items) =>
-      items.filter((item) => item.id !== orderId),
+    if (instrumentIds.length === 0) {
+      setInstruments({});
+      setQuotes({});
+      return;
+    }
+
+    const instrumentResults = await Promise.all(
+      instrumentIds.map(async (instrumentId) => {
+        try {
+          return await marketDataApi.getInstrument(instrumentId);
+        } catch {
+          return null;
+        }
+      }),
     );
-  };
 
-  const updateOrderTrigger = (orderId: string, trigger: string) => {
-    setOpenOrders((items) =>
-      items.map((item) =>
-        item.id === orderId
-          ? { ...item, trigger }
-          : item,
+    const instrumentMap: Record<string, Instrument> = {};
+
+    instrumentResults.forEach((instrument) => {
+      if (instrument) {
+        instrumentMap[instrument.id] = instrument;
+      }
+    });
+
+    setInstruments(instrumentMap);
+
+    const latestQuotes = await marketDataApi.getLatestQuotes(instrumentIds);
+    const quoteMap: Record<string, Quote> = {};
+
+    latestQuotes.forEach((quote) => {
+      quoteMap[quote.instrumentId] = quote;
+    });
+
+    setQuotes(quoteMap);
+  }, []);
+
+  const refresh = useCallback(async () => {
+    try {
+      setErrorMessage(null);
+      await loadTradingData();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to load trading data.",
+      );
+    }
+  }, [loadTradingData]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const initialLoad = async () => {
+      try {
+        await refresh();
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void initialLoad();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!organizationId || !account || positions.length === 0) {
+      return;
+    }
+
+    const instrumentIds = Array.from(
+      new Set(positions.map((position) => position.instrumentId)),
+    );
+
+    let socket: MarketDataSocket | null = null;
+
+    socket = new MarketDataSocket(
+      getMarketDataWebSocketUrl(),
+      instrumentIds,
+      {
+        onConnected: () => {
+          setSocketConnected(true);
+        },
+        onQuote: (message) => {
+          const quote = message.data;
+
+          const normalizedQuote: Quote = {
+            id: `ws-${quote.instrumentId}`,
+            instrumentId: quote.instrumentId,
+            bidPrice: quote.bidPrice ?? null,
+            askPrice: quote.askPrice ?? null,
+            lastPrice: quote.lastPrice ?? null,
+            bidSize: quote.bidSize ?? null,
+            askSize: quote.askSize ?? null,
+            eventTime: quote.eventTime,
+            providerId: "realtime",
+            source: "websocket",
+          };
+
+          setQuotes((current) => ({
+            ...current,
+            [normalizedQuote.instrumentId]: normalizedQuote,
+          }));
+        },
+        onClosed: () => {
+          setSocketConnected(false);
+        },
+        onError: () => {
+          setSocketConnected(false);
+        },
+      },
+    );
+
+    void socket.connect();
+
+    return () => {
+      socket?.disconnect();
+    };
+  }, [organizationId, account, positions]);
+
+  const enrichedPositions = useMemo<EnrichedPosition[]>(
+    () =>
+      positions.map((position) => {
+        const quote = quotes[position.instrumentId];
+
+        const currentPrice =
+          position.side === "LONG"
+            ? number(quote?.bidPrice)
+            : number(quote?.askPrice);
+
+        return {
+          ...position,
+          instrument: instruments[position.instrumentId],
+          currentPrice: currentPrice || undefined,
+          unrealizedPnl: calculateUnrealizedPnl(position, quote),
+        };
+      }),
+    [positions, instruments, quotes],
+  );
+
+  const enrichedOrders = useMemo<EnrichedOrder[]>(
+    () =>
+      orders.map((order) => ({
+        ...order,
+        instrument: instruments[order.instrumentId],
+      })),
+    [orders, instruments],
+  );
+
+  const unrealizedPnl = useMemo(
+    () =>
+      enrichedPositions.reduce(
+        (total, position) => total + position.unrealizedPnl,
+        0,
       ),
-    );
+    [enrichedPositions],
+  );
+
+  const balance = number(account?.balance);
+  const leverage = Math.max(number(account?.leverage), 1);
+
+  const usedMargin = useMemo(
+    () =>
+      enrichedPositions.reduce(
+        (total, position) =>
+          total +
+          (number(position.quantity) *
+            number(position.averageEntryPrice)) /
+            leverage,
+        0,
+      ),
+    [enrichedPositions, leverage],
+  );
+
+  const equity = balance + unrealizedPnl;
+  const freeMargin = equity - usedMargin;
+
+  const closePosition = async (position: TradingPosition) => {
+    if (!organizationId || !account) {
+      return;
+    }
+
+    try {
+      setActionId(position.id);
+      setErrorMessage(null);
+
+      await tradingApi.closePosition(
+        organizationId,
+        account.id,
+        position.id,
+      );
+
+      await refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to close position.",
+      );
+    } finally {
+      setActionId(null);
+    }
   };
+
+  const cancelOrder = async (order: TradingOrder) => {
+    if (!organizationId || !account) {
+      return;
+    }
+
+    try {
+      setActionId(order.id);
+      setErrorMessage(null);
+
+      await tradingApi.cancelOrder(
+        organizationId,
+        account.id,
+        order.id,
+      );
+
+      await refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to cancel order.",
+      );
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const updatePendingOrder = async (order: TradingOrder) => {
+    if (!organizationId || !account) {
+      return;
+    }
+
+    const numericTrigger = Number(editTriggerPrice);
+
+    if (
+      !editTriggerPrice.trim() ||
+      !Number.isFinite(numericTrigger) ||
+      numericTrigger <= 0
+    ) {
+      setErrorMessage("Enter a valid trigger price.");
+      return;
+    }
+
+    try {
+      setActionId(order.id);
+      setErrorMessage(null);
+
+      await tradingApi.updatePendingOrder(
+        organizationId,
+        account.id,
+        order.id,
+        order.type === "LIMIT"
+          ? { limitPrice: String(numericTrigger) }
+          : { stopPrice: String(numericTrigger) },
+      );
+
+      setEditingOrderId(null);
+      setEditTriggerPrice("");
+      await refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to update pending order.",
+      );
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator />
+        <Text style={styles.loadingText}>Loading trading account...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
-      style={styles.screen}
+      style={styles.container}
       contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={async () => {
+            setRefreshing(true);
+            try {
+              await refresh();
+            } finally {
+              setRefreshing(false);
+            }
+          }}
+        />
+      }
     >
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Orders</Text>
-          <Text style={styles.subtitle}>
-            Manage positions and pending orders
+          <Text style={styles.accountName}>
+            {account?.name ?? "Trading Account"}
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.refreshButton}>
-          <Text style={styles.refreshText}>↻</Text>
+        <View
+          style={[
+            styles.connection,
+            socketConnected
+              ? styles.connectionLive
+              : styles.connectionOffline,
+          ]}
+        >
+          <View
+            style={[
+              styles.connectionDot,
+              socketConnected
+                ? styles.connectionDotLive
+                : styles.connectionDotOffline,
+            ]}
+          />
+          <Text style={styles.connectionText}>
+            {socketConnected ? "LIVE" : "OFFLINE"}
+          </Text>
+        </View>
+      </View>
+
+      {errorMessage ? (
+        <View style={styles.errorCard}>
+          <Text style={styles.errorText}>{errorMessage}</Text>
+          <TouchableOpacity onPress={() => void refresh()}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      <View style={styles.summaryCard}>
+        <View style={styles.summaryRow}>
+          <SummaryItem label="Equity" value={formatMoney(equity)} />
+          <SummaryItem label="Balance" value={formatMoney(balance)} />
+        </View>
+
+        <View style={styles.summaryRow}>
+          <SummaryItem
+            label="Unrealized P&L"
+            value={formatMoney(unrealizedPnl)}
+            valueStyle={unrealizedPnl >= 0 ? styles.profit : styles.loss}
+          />
+          <SummaryItem label="Used Margin" value={formatMoney(usedMargin)} />
+        </View>
+
+        <View style={styles.summaryRow}>
+          <SummaryItem
+            label="Free Margin"
+            value={formatMoney(freeMargin)}
+            valueStyle={freeMargin >= 0 ? styles.profit : styles.loss}
+          />
+          <SummaryItem label="Leverage" value={`${leverage}:1`} />
+        </View>
+      </View>
+
+      <View style={styles.tabs}>
+        <TouchableOpacity
+          style={[styles.tab, tab === "Positions" && styles.tabActive]}
+          onPress={() => setTab("Positions")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              tab === "Positions" && styles.tabTextActive,
+            ]}
+          >
+            Positions ({enrichedPositions.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, tab === "Orders" && styles.tabActive]}
+          onPress={() => setTab("Orders")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              tab === "Orders" && styles.tabTextActive,
+            ]}
+          >
+            Orders ({enrichedOrders.length})
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <AccountSummary />
+      {tab === "Positions" ? (
+        enrichedPositions.length === 0 ? (
+          <EmptyState text="No open positions." />
+        ) : (
+          enrichedPositions.map((position) => (
+            <View key={position.id} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View>
+                  <Text style={styles.symbol}>
+                    {position.instrument?.symbol ??
+                      position.instrumentId}
+                  </Text>
+                  <Text style={styles.instrumentName}>
+                    {position.instrument?.name ?? "Position"}
+                  </Text>
+                </View>
 
-      <View style={styles.tabs}>
-        {(['Positions', 'Orders'] as OrdersTab[]).map((value) => {
-          const active = tab === value;
-
-          return (
-            <TouchableOpacity
-              key={value}
-              style={[styles.tab, active && styles.tabActive]}
-              onPress={() => setTab(value)}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  active && styles.tabTextActive,
-                ]}
-              >
-                {value}
-              </Text>
-
-              <View
-                style={[
-                  styles.count,
-                  active && styles.countActive,
-                ]}
-              >
                 <Text
                   style={[
-                    styles.countText,
-                    active && styles.countTextActive,
-                  ]}
-                >
-                  {value === 'Positions'
-                    ? openPositions.length
-                    : openOrders.length}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {tab === 'Positions' ? (
-        <View style={styles.list}>
-          {positions.map((position) => (
-            <PositionCard
-              key={position.id}
-              position={position}
-              onOpenChart={() => onOpenChart?.(position.id === 'position-1' ? 'xauusd' : 'nas100')}
-              onClose={() => closePosition(position.id)}
-            />
-          ))}
-        </View>
-      ) : (
-        <View style={styles.list}>
-          {pendingOrders.map((order) => (
-            <PendingOrderCard
-              key={order.id}
-              order={order}
-              onCancel={() => cancelOrder(order.id)}
-              onUpdateTrigger={(trigger) =>
-                updateOrderTrigger(order.id, trigger)
-              }
-            />
-          ))}
-        </View>
-      )}
-    </ScrollView>
-  );
-}
-
-function AccountSummary() {
-  return (
-    <View style={styles.accountCard}>
-      <View style={styles.accountHeader}>
-        <Text style={styles.accountTitle}>Demo Account</Text>
-
-        <View style={styles.accountBadge}>
-          <Text style={styles.accountBadgeText}>DEMO</Text>
-        </View>
-      </View>
-
-      <View style={styles.accountMainRow}>
-        <View>
-          <Text style={styles.accountLabel}>Equity</Text>
-          <Text style={styles.equity}>$10,065.93</Text>
-        </View>
-
-        <View style={styles.accountPnl}>
-          <Text style={styles.accountLabel}>Unrealized P&L</Text>
-          <Text style={styles.totalProfit}>+$65.93</Text>
-        </View>
-      </View>
-
-      <View style={styles.accountDetails}>
-        <AccountMetric
-          label="Balance"
-          value="$10,000.00"
-        />
-        <AccountMetric
-          label="Margin"
-          value="$180.00"
-        />
-        <AccountMetric
-          label="Free Margin"
-          value="$9,885.93"
-        />
-      </View>
-    </View>
-  );
-}
-
-function AccountMetric({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <View style={styles.accountMetric}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
-    </View>
-  );
-}
-
-function PositionCard({
-  position,
-  onOpenChart,
-  onClose,
-}: {
-  position: (typeof positions)[number];
-  onOpenChart: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <View style={styles.positionCard}>
-      <View style={styles.cardHeader}>
-        <View style={styles.instrumentRow}>
-          <View style={styles.instrumentBadge}>
-            <Text style={styles.instrumentBadgeText}>
-              {position.symbol === 'XAUUSD' ? 'Au' : 'N'}
-            </Text>
-          </View>
-
-          <View>
-            <View style={styles.symbolRow}>
-              <Text style={styles.symbol}>
-                {position.symbol}
-              </Text>
-
-              <View
-                style={[
-                  styles.sideBadge,
-                  position.side === 'BUY'
-                    ? styles.buyBadge
-                    : styles.sellBadge,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.sideText,
-                    position.side === 'BUY'
-                      ? styles.buyText
-                      : styles.sellText,
+                    styles.side,
+                    position.side === "LONG"
+                      ? styles.buy
+                      : styles.sell,
                   ]}
                 >
                   {position.side}
                 </Text>
               </View>
-            </View>
 
-            <Text style={styles.instrumentName}>
-              {position.name}
-            </Text>
-          </View>
-        </View>
+              <View style={styles.detailsGrid}>
+                <Detail label="Quantity" value={formatQuantity(position.quantity)} />
+                <Detail
+                  label="Entry"
+                  value={formatPrice(number(position.averageEntryPrice))}
+                />
+                <Detail
+                  label="Current"
+                  value={formatPrice(position.currentPrice)}
+                />
+                <Detail
+                  label="P&L"
+                  value={formatMoney(position.unrealizedPnl)}
+                  valueStyle={
+                    position.unrealizedPnl >= 0
+                      ? styles.profit
+                      : styles.loss
+                  }
+                />
+              </View>
 
-        <View style={styles.pnlContainer}>
-          <Text
-            style={[
-              styles.pnl,
-              position.positive
-                ? styles.positive
-                : styles.negative,
-            ]}
-          >
-            {position.pnl}
-          </Text>
-          <Text style={styles.pnlLabel}>Unrealized</Text>
-        </View>
-      </View>
+              {onOpenChart ? (
+                <TouchableOpacity
+                  style={styles.secondaryActionButton}
+                  onPress={() => onOpenChart(position.instrumentId)}
+                >
+                  <Text style={styles.secondaryActionText}>OPEN CHART</Text>
+                </TouchableOpacity>
+              ) : null}
 
-      <View style={styles.detailsGrid}>
-        <Detail label="Quantity" value={position.quantity} />
-        <Detail label="Entry" value={position.entry} />
-        <Detail label="Current" value={position.current} />
-      </View>
-
-      <View style={styles.cardActions}>
-        <TouchableOpacity
-          style={styles.detailsButton}
-          onPress={onOpenChart}
-        >
-          <Text style={styles.detailsButtonText}>
-            Chart
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.closeButton}
-          onPress={onClose}
-        >
-          <Text style={styles.closeButtonText}>Close Position</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-function PendingOrderCard({
-  order,
-  onCancel,
-  onUpdateTrigger,
-}: {
-  order: (typeof pendingOrders)[number];
-  onCancel: () => void;
-  onUpdateTrigger: (trigger: string) => void;
-}) {
-  const buy = order.side === 'BUY';
-  const [editing, setEditing] = useState(false);
-  const [trigger, setTrigger] = useState(order.trigger);
-
-  return (
-    <View style={styles.positionCard}>
-      <View style={styles.cardHeader}>
-        <View style={styles.instrumentRow}>
-          <View style={styles.instrumentBadge}>
-            <Text style={styles.instrumentBadgeText}>
-              {order.symbol === 'XAUUSD' ? 'Au' : 'N'}
-            </Text>
-          </View>
-
-          <View>
-            <View style={styles.symbolRow}>
-              <Text style={styles.symbol}>
-                {order.symbol}
-              </Text>
-
-              <View
-                style={[
-                  styles.sideBadge,
-                  buy ? styles.buyBadge : styles.sellBadge,
-                ]}
+              <TouchableOpacity
+                style={styles.actionButton}
+                disabled={actionId === position.id}
+                onPress={() => void closePosition(position)}
               >
+                {actionId === position.id ? (
+                  <ActivityIndicator />
+                ) : (
+                  <Text style={styles.actionText}>CLOSE POSITION</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ))
+        )
+      ) : enrichedOrders.length === 0 ? (
+        <EmptyState text="No pending orders." />
+      ) : (
+        enrichedOrders.map((order) => {
+          const trigger =
+            order.type === "LIMIT"
+              ? order.limitPrice
+              : order.stopPrice ?? order.limitPrice;
+
+          return (
+            <View key={order.id} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View>
+                  <Text style={styles.symbol}>
+                    {order.instrument?.symbol ?? order.instrumentId}
+                  </Text>
+                  <Text style={styles.instrumentName}>
+                    {order.instrument?.name ?? "Pending Order"}
+                  </Text>
+                </View>
+
                 <Text
                   style={[
-                    styles.sideText,
-                    buy ? styles.buyText : styles.sellText,
+                    styles.side,
+                    order.side === "BUY" ? styles.buy : styles.sell,
                   ]}
                 >
                   {order.side}
                 </Text>
               </View>
+
+              <View style={styles.detailsGrid}>
+                <Detail label="Type" value={order.type} />
+                <Detail
+                  label="Quantity"
+                  value={formatQuantity(order.quantity)}
+                />
+                <Detail
+                  label="Trigger"
+                  value={formatPrice(number(trigger))}
+                />
+                <Detail label="Status" value={order.status} />
+              </View>
+
+              {editingOrderId === order.id ? (
+                <View style={styles.editTriggerRow}>
+                  <TextInput
+                    value={editTriggerPrice}
+                    onChangeText={setEditTriggerPrice}
+                    keyboardType="decimal-pad"
+                    placeholder="Trigger price"
+                    placeholderTextColor={colors.textSecondary}
+                    style={styles.triggerInput}
+                    editable={actionId !== order.id}
+                  />
+
+                  <TouchableOpacity
+                    style={styles.saveButton}
+                    disabled={actionId === order.id}
+                    onPress={() => void updatePendingOrder(order)}
+                  >
+                    {actionId === order.id ? (
+                      <ActivityIndicator />
+                    ) : (
+                      <Text style={styles.saveText}>SAVE</Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.cancelEditButton}
+                    disabled={actionId === order.id}
+                    onPress={() => {
+                      setEditingOrderId(null);
+                      setEditTriggerPrice("");
+                    }}
+                  >
+                    <Text style={styles.cancelEditText}>CANCEL</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.secondaryActionButton}
+                  disabled={actionId === order.id}
+                  onPress={() => {
+                    setEditingOrderId(order.id);
+                    setEditTriggerPrice(
+                      order.type === "LIMIT"
+                        ? order.limitPrice ?? ""
+                        : order.stopPrice ?? order.limitPrice ?? "",
+                    );
+                  }}
+                >
+                  <Text style={styles.secondaryActionText}>
+                    EDIT TRIGGER
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.cancelButton}
+                disabled={actionId === order.id}
+                onPress={() => void cancelOrder(order)}
+              >
+                {actionId === order.id ? (
+                  <ActivityIndicator />
+                ) : (
+                  <Text style={styles.cancelText}>CANCEL ORDER</Text>
+                )}
+              </TouchableOpacity>
             </View>
+          );
+        })
+      )}
+    </ScrollView>
+  );
+}
 
-            <Text style={styles.instrumentName}>
-              {order.name}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.pendingBadge}>
-          <Text style={styles.pendingText}>{order.status}</Text>
-        </View>
-      </View>
-
-      <View style={styles.orderTypeRow}>
-        <View style={styles.orderTypeBadge}>
-          <Text style={styles.orderTypeText}>{order.type}</Text>
-        </View>
-
-        <Text style={styles.orderQuantity}>
-          {order.quantity} Lots
-        </Text>
-      </View>
-
-      <View style={styles.triggerCard}>
-        <Text style={styles.triggerLabel}>Trigger Price</Text>
-
-        {editing ? (
-          <TextInput
-            value={trigger}
-            onChangeText={setTrigger}
-            keyboardType="decimal-pad"
-            selectTextOnFocus
-            style={styles.triggerInput}
-          />
-        ) : (
-          <Text style={styles.triggerValue}>{order.trigger}</Text>
-        )}
-      </View>
-
-      <View style={styles.cardActions}>
-        {editing ? (
-          <TouchableOpacity
-            style={styles.detailsButton}
-            onPress={() => {
-              onUpdateTrigger(trigger);
-              setEditing(false);
-            }}
-          >
-            <Text style={styles.detailsButtonText}>
-              Save
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.detailsButton}
-            onPress={() => {
-              setTrigger(order.trigger);
-              setEditing(true);
-            }}
-          >
-            <Text style={styles.detailsButtonText}>
-              Edit
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={onCancel}
-        >
-          <Text style={styles.cancelButtonText}>
-            Cancel Order
-          </Text>
-        </TouchableOpacity>
-      </View>
+function SummaryItem({
+  label,
+  value,
+  valueStyle,
+}: {
+  label: string;
+  value: string;
+  valueStyle?: object;
+}) {
+  return (
+    <View style={styles.summaryItem}>
+      <Text style={styles.summaryLabel}>{label}</Text>
+      <Text style={[styles.summaryValue, valueStyle]}>{value}</Text>
     </View>
   );
 }
@@ -460,457 +800,298 @@ function PendingOrderCard({
 function Detail({
   label,
   value,
+  valueStyle,
 }: {
   label: string;
   value: string;
+  valueStyle?: object;
 }) {
   return (
     <View style={styles.detail}>
       <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+      <Text style={[styles.detailValue, valueStyle]}>{value}</Text>
+    </View>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <View style={styles.empty}>
+      <Text style={styles.emptyText}>{text}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
+  container: {
     flex: 1,
-  },
-
-  content: {
-    paddingBottom: spacing.xxl,
-  },
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
-  },
-
-  title: {
-    color: colors.text,
-    fontSize: 24,
-    fontWeight: '800',
-  },
-
-  subtitle: {
-    color: colors.textSecondary,
-    fontSize: 10,
-    marginTop: 3,
-  },
-
-  refreshButton: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  refreshText: {
-    color: colors.textSecondary,
-    fontSize: 22,
-  },
-
-  accountCard: {
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-
-  accountHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-
-  accountTitle: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-
-  accountBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.accentSoft,
-  },
-
-  accountBadgeText: {
-    color: colors.accent,
-    fontSize: 8,
-    fontWeight: '800',
-  },
-
-  accountMainRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing.md,
-  },
-
-  accountPnl: {
-    alignItems: 'flex-end',
-  },
-
-  accountLabel: {
-    color: colors.textMuted,
-    fontSize: 8,
-  },
-
-  equity: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: '800',
-    marginTop: 3,
-  },
-
-  totalProfit: {
-    color: colors.success,
-    fontSize: 15,
-    fontWeight: '800',
-    marginTop: 5,
-  },
-
-  accountDetails: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-  },
-
-  accountMetric: {
-    flex: 1,
-  },
-
-  metricLabel: {
-    color: colors.textMuted,
-    fontSize: 8,
-  },
-
-  metricValue: {
-    color: colors.textSecondary,
-    fontSize: 9,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-
-  tabs: {
-    flexDirection: 'row',
-    marginTop: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 3,
-  },
-
-  tab: {
-    flex: 1,
-    height: 38,
-    borderRadius: 9,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-
-  tabActive: {
-    backgroundColor: colors.accentSoft,
-  },
-
-  tabText: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-
-  tabTextActive: {
-    color: colors.accent,
-  },
-
-  count: {
-    minWidth: 19,
-    height: 19,
-    borderRadius: 10,
-    backgroundColor: colors.surfaceElevated,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  countActive: {
-    backgroundColor: colors.accent,
-  },
-
-  countText: {
-    color: colors.textMuted,
-    fontSize: 8,
-    fontWeight: '800',
-  },
-
-  countTextActive: {
-    color: colors.black,
-  },
-
-  list: {
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-
-  positionCard: {
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-
-  instrumentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  instrumentBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 11,
-    backgroundColor: colors.warningSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm,
-  },
-
-  instrumentBadgeText: {
-    color: colors.warning,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-
-  symbolRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-
-  symbol: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-
-  instrumentName: {
-    color: colors.textSecondary,
-    fontSize: 9,
-    marginTop: 3,
-  },
-
-  sideBadge: {
-    borderRadius: radius.pill,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-  },
-
-  buyBadge: {
-    backgroundColor: colors.successSoft,
-  },
-
-  sellBadge: {
-    backgroundColor: colors.dangerSoft,
-  },
-
-  sideText: {
-    fontSize: 7,
-    fontWeight: '900',
-  },
-
-  buyText: {
-    color: colors.success,
-  },
-
-  sellText: {
-    color: colors.danger,
-  },
-
-  pnlContainer: {
-    alignItems: 'flex-end',
-  },
-
-  pnl: {
-    fontSize: 14,
-    fontWeight: '900',
-  },
-
-  positive: {
-    color: colors.success,
-  },
-
-  negative: {
-    color: colors.danger,
-  },
-
-  pnlLabel: {
-    color: colors.textMuted,
-    fontSize: 8,
-    marginTop: 3,
-  },
-
-  detailsGrid: {
-    flexDirection: 'row',
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-
-  detail: {
-    flex: 1,
-  },
-
-  detailLabel: {
-    color: colors.textMuted,
-    fontSize: 8,
-  },
-
-  detailValue: {
-    color: colors.textSecondary,
-    fontSize: 10,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-
-  cardActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-
-  detailsButton: {
-    flex: 1,
-    height: 36,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  detailsButtonText: {
-    color: colors.textSecondary,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-
-  closeButton: {
-    flex: 1.5,
-    height: 36,
-    borderRadius: radius.md,
-    backgroundColor: colors.dangerSoft,
-    borderWidth: 1,
-    borderColor: colors.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  closeButtonText: {
-    color: colors.danger,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-
-  pendingBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.warningSoft,
-  },
-
-  pendingText: {
-    color: colors.warning,
-    fontSize: 7,
-    fontWeight: '900',
-  },
-
-  orderTypeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-
-  orderTypeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: radius.sm,
-    backgroundColor: colors.accentSoft,
-  },
-
-  orderTypeText: {
-    color: colors.accent,
-    fontSize: 8,
-    fontWeight: '800',
-  },
-
-  orderQuantity: {
-    color: colors.textSecondary,
-    fontSize: 9,
-  },
-
-  triggerCard: {
-    marginTop: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: radius.md,
     backgroundColor: colors.background,
   },
-
-  triggerLabel: {
-    color: colors.textMuted,
-    fontSize: 8,
+  content: {
+    padding: spacing.md,
+    paddingBottom: spacing.xl,
   },
-
-  triggerValue: {
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.background,
+  },
+  loadingText: {
+    marginTop: spacing.sm,
+    color: colors.textSecondary,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.md,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
     color: colors.text,
+  },
+  accountName: {
+    marginTop: 2,
     fontSize: 13,
-    fontWeight: '800',
-    marginTop: 3,
+    color: colors.textSecondary,
   },
-
-  triggerInput: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '800',
-    minWidth: 120,
-    paddingVertical: 2,
-    paddingHorizontal: 0,
+  connection: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
   },
-
-  cancelButton: {
-    flex: 1.5,
-    height: 36,
+  connectionLive: {
+    backgroundColor: colors.successSoft,
+  },
+  connectionOffline: {
+    backgroundColor: colors.surface,
+  },
+  connectionDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    marginRight: 5,
+  },
+  connectionDotLive: {
+    backgroundColor: colors.success,
+  },
+  connectionDotOffline: {
+    backgroundColor: colors.textSecondary,
+  },
+  connectionText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.textSecondary,
+  },
+  errorCard: {
+    padding: spacing.md,
+    marginBottom: spacing.md,
     borderRadius: radius.md,
     backgroundColor: colors.dangerSoft,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 13,
+  },
+  retryText: {
+    marginTop: spacing.sm,
+    color: colors.accent,
+    fontWeight: "700",
+  },
+  summaryCard: {
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    marginBottom: spacing.md,
+  },
+  summaryItem: {
+    flex: 1,
+  },
+  summaryLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  profit: {
+    color: colors.success,
+  },
+  loss: {
+    color: colors.danger,
+  },
+  tabs: {
+    flexDirection: "row",
+    marginBottom: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    padding: 3,
+  },
+  tab: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+  },
+  tabActive: {
+    backgroundColor: colors.accent,
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  tabTextActive: {
+    color: colors.background,
+  },
+  card: {
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: spacing.md,
+  },
+  symbol: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  instrumentName: {
+    marginTop: 3,
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  side: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  buy: {
+    color: colors.success,
+  },
+  sell: {
+    color: colors.danger,
+  },
+  detailsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginBottom: spacing.md,
+  },
+  detail: {
+    width: "50%",
+    marginBottom: spacing.sm,
+  },
+  detailLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 3,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  actionButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 42,
+    borderRadius: radius.sm,
+    backgroundColor: colors.accent,
+  },
+  actionText: {
+    color: colors.background,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  secondaryActionButton: {
+    marginTop: spacing.sm,
+    minHeight: 42,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryActionText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  editTriggerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  triggerInput: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.sm,
+    color: colors.text,
+    backgroundColor: colors.surface,
+  },
+  saveButton: {
+    minHeight: 42,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.success,
+  },
+  saveText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.background,
+  },
+  cancelEditButton: {
+    minHeight: 42,
+    paddingHorizontal: spacing.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelEditText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.textSecondary,
+  },
+  cancelButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 42,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-
-  cancelButtonText: {
+  cancelText: {
     color: colors.danger,
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  empty: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.xl,
+  },
+  emptyText: {
+    color: colors.textSecondary,
+    fontSize: 14,
   },
 });

@@ -25,9 +25,6 @@ const categories: MarketCategory[] = [
   'Crypto',
 ];
 
-const sparklineUp = [8, 13, 10, 18, 15, 24, 21, 31, 27, 38];
-const sparklineDown = [34, 29, 33, 24, 27, 18, 22, 14, 17, 8];
-
 function InstrumentBadge({ symbol }: { symbol: string }) {
   const letters =
     symbol === 'XAUUSD'
@@ -51,101 +48,90 @@ function InstrumentBadge({ symbol }: { symbol: string }) {
   );
 }
 
-function Sparkline({ positive }: { positive: boolean }) {
-  const points = positive ? sparklineUp : sparklineDown;
-
-  return (
-    <View style={styles.sparkline}>
-      {points.map((height, index) => (
-        <View
-          key={`${index}-${height}`}
-          style={[
-            styles.sparkBar,
-            {
-              height,
-              transform: [
-                {
-                  rotate:
-                    index % 2 === 0
-                      ? positive
-                        ? '-8deg'
-                        : '8deg'
-                      : positive
-                        ? '8deg'
-                        : '-8deg',
-                },
-              ],
-            },
-            positive
-              ? styles.sparkBarPositive
-              : styles.sparkBarNegative,
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
-
 function MarketCard({
   market,
   quote,
   favorite,
   onPress,
+  onToggleFavorite,
 }: {
   market: Instrument;
   quote?: Quote;
   favorite: boolean;
   onPress: () => void;
+  onToggleFavorite: () => void;
 }) {
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={onPress}
-      style={styles.marketCard}
-    >
-      <View style={styles.marketIdentity}>
-        <InstrumentBadge symbol={market.symbol} />
-
-        <View style={styles.identityText}>
-          <Text style={styles.symbol}>{market.symbol}</Text>
-          <Text style={styles.name}>{market.name}</Text>
-        </View>
-      </View>
-
-      <Sparkline positive />
-
-      <View style={styles.quote}>
-        <Text style={styles.price}>
-          {quote?.lastPrice ?? quote?.bidPrice ?? '—'}
-        </Text>
-        <Text style={styles.change}>
-          {quote?.bidPrice && quote?.askPrice
-            ? `B ${quote.bidPrice} / A ${quote.askPrice}`
-            : '—'}
-        </Text>
-      </View>
-
-      <Text
-        style={[
-          styles.favorite,
-          favorite && styles.favoriteActive,
-        ]}
+    <View style={styles.marketCard}>
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={onPress}
+        style={styles.marketMain}
       >
-        {favorite ? '★' : '☆'}
-      </Text>
-    </TouchableOpacity>
+        <View style={styles.marketIdentity}>
+          <InstrumentBadge symbol={market.symbol} />
+
+          <View style={styles.identityText}>
+            <Text style={styles.symbol}>{market.symbol}</Text>
+            <Text style={styles.name}>{market.name}</Text>
+          </View>
+        </View>
+
+        <View style={styles.quote}>
+          <Text style={styles.price}>
+            {quote?.lastPrice ?? quote?.bidPrice ?? '—'}
+          </Text>
+          <Text style={styles.change}>
+            {quote?.bidPrice && quote?.askPrice
+              ? `B ${quote.bidPrice} / A ${quote.askPrice}`
+              : '—'}
+          </Text>
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={
+          favorite
+            ? `Remove ${market.symbol} from watchlist`
+            : `Add ${market.symbol} to watchlist`
+        }
+        onPress={onToggleFavorite}
+        style={styles.favoriteButton}
+      >
+        <Text
+          style={[
+            styles.favorite,
+            favorite && styles.favoriteActive,
+          ]}
+        >
+          {favorite ? '★' : '☆'}
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 export function MarketsScreen({
   onOpenChart,
+  onOpenMore,
+  favorites,
+  onToggleFavorite,
 }: {
   onOpenChart?: (instrumentId: string) => void;
+  onOpenMore?: () => void;
+  favorites: Set<string>;
+  onToggleFavorite: (instrumentId: string) => void;
 }) {
   const [markets, setMarkets] = React.useState<Instrument[]>([]);
   const [quotes, setQuotes] = React.useState<Record<string, Quote>>({});
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const searchInputRef = React.useRef<TextInput>(null);
+
+  const [selectedCategory, setSelectedCategory] =
+    React.useState<MarketCategory>('Watchlist');
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   React.useEffect(() => {
     let cancelled = false;
@@ -271,11 +257,45 @@ export function MarketsScreen({
     };
   }, [markets]);
 
+  const filteredMarkets = React.useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+
+    return markets.filter((market) => {
+      const matchesCategory =
+        selectedCategory === 'Watchlist'
+          ? favorites.has(market.id)
+          : selectedCategory === 'Forex'
+            ? market.assetClass === 'FOREX'
+            : selectedCategory === 'Indices'
+              ? market.assetClass === 'INDEX'
+              : market.assetClass === 'CRYPTO';
+
+      if (!matchesCategory) {
+        return false;
+      }
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      return (
+        market.symbol.toLowerCase().includes(normalizedSearch) ||
+        market.name.toLowerCase().includes(normalizedSearch)
+      );
+    });
+  }, [favorites, markets, searchQuery, selectedCategory]);
+
+
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity style={styles.menuButton}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Open menu"
+            style={styles.menuButton}
+            onPress={() => onOpenMore?.()}
+          >
             <Text style={styles.menuText}>☰</Text>
           </TouchableOpacity>
 
@@ -283,35 +303,50 @@ export function MarketsScreen({
         </View>
 
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerIcon}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Search markets"
+            style={styles.headerIcon}
+            onPress={() => searchInputRef.current?.focus()}
+          >
             <Text style={styles.headerIconText}>⌕</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.profileButton}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Open account"
+            style={styles.profileButton}
+            onPress={() => onOpenMore?.()}
+          >
             <Text style={styles.profileIcon}>♙</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.categoryBar}>
-        {categories.map((category, index) => (
-          <TouchableOpacity
-            key={category}
-            style={[
-              styles.category,
-              index === 0 && styles.categoryActive,
-            ]}
-          >
-            <Text
+        {categories.map((category) => {
+          const active = selectedCategory === category;
+
+          return (
+            <TouchableOpacity
+              key={category}
+              onPress={() => setSelectedCategory(category)}
               style={[
-                styles.categoryText,
-                index === 0 && styles.categoryTextActive,
+                styles.category,
+                active && styles.categoryActive,
               ]}
             >
-              {category}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.categoryText,
+                  active && styles.categoryTextActive,
+                ]}
+              >
+                {category}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <View style={styles.searchRow}>
@@ -321,11 +356,27 @@ export function MarketsScreen({
           <TextInput
             placeholder="Search markets..."
             placeholderTextColor={colors.textMuted}
+            ref={searchInputRef}
             style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            returnKeyType="search"
           />
         </View>
 
-        <TouchableOpacity style={styles.filterButton}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Filter markets"
+          style={styles.filterButton}
+          onPress={() =>
+            setSelectedCategory((current) => {
+              const index = categories.indexOf(current);
+              return categories[(index + 1) % categories.length];
+            })
+          }
+        >
           <Text style={styles.filterText}>☷</Text>
         </TouchableOpacity>
       </View>
@@ -350,13 +401,14 @@ export function MarketsScreen({
             </Text>
           </View>
         ) : (
-          markets.map((market, index) => (
+          filteredMarkets.map((market) => (
             <MarketCard
               key={market.id}
               market={market}
               quote={quotes[market.id]}
-              favorite={index === 3}
+              favorite={favorites.has(market.id)}
               onPress={() => onOpenChart?.(market.id)}
+              onToggleFavorite={() => onToggleFavorite(market.id)}
             />
           ))
         )}
@@ -550,6 +602,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  marketMain: {
+    flex: 1,
+    minHeight: 74,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
   marketIdentity: {
     flex: 1,
     flexDirection: 'row',
@@ -590,29 +649,6 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
 
-  sparkline: {
-    width: 46,
-    height: 35,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    marginHorizontal: 5,
-  },
-
-  sparkBar: {
-    width: 3,
-    borderRadius: 3,
-  },
-
-  sparkBarPositive: {
-    backgroundColor: colors.success,
-  },
-
-  sparkBarNegative: {
-    backgroundColor: colors.danger,
-  },
-
   quote: {
     width: 76,
     alignItems: 'flex-end',
@@ -638,12 +674,17 @@ const styles = StyleSheet.create({
     color: colors.danger,
   },
 
+  favoriteButton: {
+    width: 36,
+    minHeight: 74,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   favorite: {
-    width: 27,
     color: colors.textSecondary,
     fontSize: 21,
-    textAlign: 'right',
-    marginLeft: 3,
+    textAlign: 'center',
   },
 
   favoriteActive: {

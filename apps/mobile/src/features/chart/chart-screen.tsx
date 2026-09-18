@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -224,10 +225,14 @@ export function ChartScreen({
   instrumentId,
   onBack,
   onOpenTrade,
+  favorite,
+  onToggleFavorite,
 }: {
   instrumentId: string;
   onBack?: () => void;
   onOpenTrade?: (instrumentId: string) => void;
+  favorite: boolean;
+  onToggleFavorite: () => void;
 }) {
   const [selectedTimeframe, setSelectedTimeframe] =
     useState<Timeframe>('15m');
@@ -238,6 +243,10 @@ export function ChartScreen({
   const [liveLast, setLiveLast] = useState<string | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [zoom, setZoom] = useState(1);
+  const [chartMode, setChartMode] = useState<'normal' | 'drawing' | 'crosshair' | 'indicator'>('normal');
+  const [emaEnabled, setEmaEnabled] = useState(false);
+  const [rsiEnabled, setRsiEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -446,6 +455,13 @@ export function ChartScreen({
       ? formatPrice(latestCandle.close)
       : '—';
 
+  const visibleCandleCount = Math.max(
+    12,
+    Math.min(60, Math.floor(60 / zoom)),
+  );
+
+  const visibleCandles = renderCandles.slice(-visibleCandleCount);
+
   const bidPrice = liveBid
     ? formatPrice(liveBid)
     : '—';
@@ -482,8 +498,17 @@ export function ChartScreen({
         </View>
 
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerButton}>
-            <Text style={styles.headerButtonText}>☆</Text>
+          <TouchableOpacity
+            style={styles.headerButton}
+            accessibilityRole="button"
+            accessibilityLabel={
+              favorite ? 'Remove from watchlist' : 'Add to watchlist'
+            }
+            onPress={onToggleFavorite}
+          >
+            <Text style={styles.headerButtonText}>
+              {favorite ? '★' : '☆'}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -493,7 +518,17 @@ export function ChartScreen({
             <Text style={styles.tradeButtonText}>Trade</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.headerButton}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            accessibilityRole="button"
+            accessibilityLabel="Chart options"
+            onPress={() => {
+              setZoom(1);
+              setChartMode('normal');
+              setEmaEnabled(false);
+              setRsiEnabled(false);
+            }}
+          >
             <Text style={styles.headerButtonText}>⋮</Text>
           </TouchableOpacity>
         </View>
@@ -572,17 +607,57 @@ export function ChartScreen({
           </View>
         ) : (
           <ChartCanvas
-            candles={renderCandles}
+            candles={visibleCandles}
             latestPrice={currentPrice}
             axisTimes={axisTimes}
           />
         )}
 
+        {chartMode !== 'normal' && (
+          <View style={styles.chartModeBadge}>
+            <Text style={styles.chartModeText}>
+              {chartMode === 'drawing'
+                ? 'DRAWING MODE'
+                : chartMode === 'crosshair'
+                  ? 'CROSSHAIR MODE'
+                  : 'INDICATOR MODE'}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.chartTools}>
-          {['＋', '╱', '⌕', 'ƒ', '↻'].map((tool) => (
+          {[
+            ['＋', 'Zoom in'],
+            ['╱', 'Drawing mode'],
+            ['⌕', 'Crosshair mode'],
+            ['ƒ', 'Indicator mode'],
+            ['↻', 'Reset chart'],
+          ].map(([tool, label]) => (
             <TouchableOpacity
               key={tool}
+              accessibilityRole="button"
+              accessibilityLabel={label}
               style={styles.toolButton}
+              onPress={() => {
+                if (tool === '＋') {
+                  setZoom((value) => Math.min(4, value + 1));
+                } else if (tool === '╱') {
+                  setChartMode((value) =>
+                    value === 'drawing' ? 'normal' : 'drawing',
+                  );
+                } else if (tool === '⌕') {
+                  setChartMode((value) =>
+                    value === 'crosshair' ? 'normal' : 'crosshair',
+                  );
+                } else if (tool === 'ƒ') {
+                  setChartMode((value) =>
+                    value === 'indicator' ? 'normal' : 'indicator',
+                  );
+                } else {
+                  setZoom(1);
+                  setChartMode('normal');
+                }
+              }}
             >
               <Text style={styles.toolText}>{tool}</Text>
             </TouchableOpacity>
@@ -593,15 +668,45 @@ export function ChartScreen({
       <View style={styles.indicatorBar}>
         <Text style={styles.indicatorTitle}>Indicators</Text>
 
-        <TouchableOpacity style={styles.indicatorChip}>
-          <Text style={styles.indicatorText}>EMA 20</Text>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Toggle EMA 20"
+          style={[
+            styles.indicatorChip,
+            emaEnabled && styles.indicatorChipActive,
+          ]}
+          onPress={() => setEmaEnabled((value) => !value)}
+        >
+          <Text style={styles.indicatorText}>
+            {emaEnabled ? '✓ EMA 20' : 'EMA 20'}
+          </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.indicatorChip}>
-          <Text style={styles.indicatorText}>RSI</Text>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Toggle RSI"
+          style={[
+            styles.indicatorChip,
+            rsiEnabled && styles.indicatorChipActive,
+          ]}
+          onPress={() => setRsiEnabled((value) => !value)}
+        >
+          <Text style={styles.indicatorText}>
+            {rsiEnabled ? '✓ RSI' : 'RSI'}
+          </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.addIndicator}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Add indicator"
+          style={styles.addIndicator}
+          onPress={() =>
+            Alert.alert(
+              'Indicators',
+              'EMA 20 and RSI are available above. Additional indicators are not implemented in the current mobile chart renderer.',
+            )
+          }
+        >
           <Text style={styles.addIndicatorText}>+</Text>
         </TouchableOpacity>
       </View>
@@ -1010,6 +1115,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
+  chartModeBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+
+  chartModeText: {
+    color: colors.accent,
+    fontSize: 9,
+    fontWeight: '800',
+  },
+
   indicatorBar: {
     minHeight: 45,
     flexDirection: 'row',
@@ -1032,6 +1155,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     paddingHorizontal: 9,
     paddingVertical: 5,
+  },
+
+  indicatorChipActive: {
+    borderColor: colors.accent,
   },
 
   indicatorText: {

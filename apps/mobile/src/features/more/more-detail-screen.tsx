@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Switch,
@@ -10,6 +11,14 @@ import {
 
 import { colors } from '../../theme/colors';
 import { radius, spacing } from '../../theme/spacing';
+import { marketDataApi, organizationsApi, tradingApi } from '../../api';
+import { MarketDataSocket } from '../../realtime/market-data-socket';
+import type { Instrument, Quote } from '../../types/market-data';
+import type {
+  TradingAccount,
+  TradingPosition,
+  TradingTrade,
+} from '../../api/trading';
 
 import type { MoreDetailKey } from '../../navigation/navigation';
 
@@ -128,6 +137,267 @@ export function MoreDetailScreen({
   const [confirmOrders, setConfirmOrders] = React.useState(true);
   const [darkTheme, setDarkTheme] = React.useState(true);
 
+  const [account, setAccount] = React.useState<TradingAccount | null>(null);
+  const [positions, setPositions] = React.useState<TradingPosition[]>([]);
+  const [trades, setTrades] = React.useState<TradingTrade[]>([]);
+  const [instruments, setInstruments] = React.useState<
+    Record<string, Instrument>
+  >({});
+  const [quotes, setQuotes] = React.useState<Record<string, Quote>>({});
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadTradingData = async () => {
+      try {
+        const organizations = await organizationsApi.list();
+        const organization = organizations.items[0];
+
+        if (!organization) {
+          return;
+        }
+
+        const accounts = await tradingApi.listAccounts(organization.id);
+        const selectedAccount =
+          accounts.find(
+            (item) => item.type === 'DEMO' && item.status === 'ACTIVE',
+          ) ??
+          accounts.find((item) => item.type === 'DEMO') ??
+          accounts[0];
+
+        if (!selectedAccount || cancelled) {
+          return;
+        }
+
+        const [accountData, positionData, tradeData] = await Promise.all([
+          tradingApi.getAccount(organization.id, selectedAccount.id),
+          tradingApi.listPositions(organization.id, selectedAccount.id),
+          tradingApi.listTrades(organization.id, selectedAccount.id),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setAccount(accountData);
+        setPositions(
+          positionData.filter(
+            (position) =>
+              position.status === 'OPEN' || position.status === 'ACTIVE',
+          ),
+        );
+        setTrades(tradeData);
+
+        const instrumentIds = Array.from(
+          new Set(
+            [...positionData, ...tradeData]
+              .map((item) => item.instrumentId)
+              .filter(Boolean),
+          ),
+        );
+
+        if (instrumentIds.length > 0) {
+          const instrumentResults = await Promise.all(
+            instrumentIds.map(async (instrumentId) => {
+              try {
+                return await marketDataApi.getInstrument(instrumentId);
+              } catch {
+                return null;
+              }
+            }),
+          );
+
+          if (!cancelled) {
+            const nextInstruments: Record<string, Instrument> = {};
+
+            instrumentResults.forEach((instrument) => {
+              if (instrument) {
+                nextInstruments[instrument.id] = instrument;
+              }
+            });
+
+            setInstruments(nextInstruments);
+
+            try {
+              const latestQuotes =
+                await marketDataApi.getLatestQuotes(instrumentIds);
+
+              if (!cancelled) {
+                const nextQuotes: Record<string, Quote> = {};
+
+                latestQuotes.forEach((quote) => {
+                  nextQuotes[quote.instrumentId] = quote;
+                });
+
+                setQuotes(nextQuotes);
+              }
+            } catch {
+              // Live socket below remains the source for realtime quotes.
+            }
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setAccount(null);
+          setPositions([]);
+          setTrades([]);
+        }
+      }
+    };
+
+    void loadTradingData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const instrumentIds = Object.keys(instruments);
+
+    if (instrumentIds.length === 0) {
+      return;
+    }
+
+    const socket = new MarketDataSocket(
+      'wss://cygnex.co/api/v1/market-data/ws',
+      instrumentIds,
+      {
+        onQuote: (message) => {
+          const quote = message.data;
+
+          setQuotes((current) => ({
+            ...current,
+            [quote.instrumentId]: {
+              id: `ws-${quote.instrumentId}`,
+              instrumentId: quote.instrumentId,
+              bidPrice: quote.bidPrice ?? null,
+              askPrice: quote.askPrice ?? null,
+              lastPrice: quote.lastPrice ?? null,
+              bidSize: quote.bidSize ?? null,
+              askSize: quote.askSize ?? null,
+              eventTime: quote.eventTime,
+              providerId: 'realtime',
+              source: 'websocket',
+            },
+          }));
+        },
+      },
+    );
+
+    void socket.connect();
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [instruments]);
+
+  const openPositions = positions;
+
+  const unrealizedPnl = openPositions.reduce((total, position) => {
+    const quote = quotes[position.instrumentId];
+
+    if (!quote) {
+      return total;
+    }
+
+    const quantity = Number(position.quantity);
+    const entry = Number(position.averageEntryPrice);
+
+    if (position.side === 'LONG') {
+      const bid = Number(quote.bidPrice);
+      return Number.isFinite(bid)
+        ? total + (bid - entry) * quantity
+        : total;
+    }
+
+    const ask = Number(quote.askPrice);
+    return Number.isFinite(ask)
+      ? total + (entry - ask) * quantity
+      : total;
+  }, 0);
+
+  const equity = account
+    ? Number(account.balance) + unrealizedPnl
+    : null;
+
+  const exposure = openPositions.reduce(
+    (total, position) =>
+      total +
+      Number(position.quantity) * Number(position.averageEntryPrice),
+    0,
+  );
+
+  const usedMargin = openPositions.reduce((total, position) => {
+    const leverage = Number(account?.leverage ?? 1);
+
+    if (!Number.isFinite(leverage) || leverage <= 0) {
+      return total;
+    }
+
+    return (
+      total +
+      (Number(position.quantity) *
+        Number(position.averageEntryPrice)) /
+        leverage
+    );
+  }, 0);
+
+  const freeMargin =
+    equity !== null ? equity - usedMargin : null;
+
+  const winningTrades = trades.filter(
+    (trade) => Number(trade.realizedPnl ?? 0) > 0,
+  ).length;
+
+  const losingTrades = trades.filter(
+    (trade) => Number(trade.realizedPnl ?? 0) < 0,
+  ).length;
+
+  const realizedProfit = trades.reduce(
+    (total, trade) => total + Number(trade.realizedPnl ?? 0),
+    0,
+  );
+
+  const averageTrade =
+    trades.length > 0 ? realizedProfit / trades.length : 0;
+
+  const grossProfit = trades.reduce(
+    (total, trade) =>
+      total +
+      Math.max(0, Number(trade.realizedPnl ?? 0)),
+    0,
+  );
+
+  const grossLoss = trades.reduce(
+    (total, trade) =>
+      total +
+      Math.abs(Math.min(0, Number(trade.realizedPnl ?? 0))),
+    0,
+  );
+
+  const profitFactor =
+    grossLoss > 0 ? grossProfit / grossLoss : null;
+
+  const formatMoney = (value: number | null, currency = 'USD') =>
+    value === null
+      ? '—'
+      : `${currency} ${value.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`;
+
+  const formatSignedMoney = (value: number) =>
+    `${value >= 0 ? '+' : ''}${value.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  const winRate =
+    trades.length > 0
+      ? (winningTrades / trades.length) * 100
+      : null;
+
   return (
     <ScrollView
       style={styles.container}
@@ -171,11 +441,29 @@ export function MoreDetailScreen({
           </View>
 
           <View style={styles.card}>
-            <InfoRow label="Account" value="Demo Account" />
-            <InfoRow label="Account Type" value="Demo" />
-            <InfoRow label="Currency" value="USD" />
-            <InfoRow label="Balance" value="$100,000.00" />
-            <InfoRow label="Status" value="Active" />
+            <InfoRow
+              label="Account"
+              value={account?.name ?? '—'}
+            />
+            <InfoRow
+              label="Account Type"
+              value={account?.type ?? '—'}
+            />
+            <InfoRow
+              label="Currency"
+              value={account?.currency ?? '—'}
+            />
+            <InfoRow
+              label="Balance"
+              value={formatMoney(
+                account ? Number(account.balance) : null,
+                account?.currency ?? 'USD',
+              )}
+            />
+            <InfoRow
+              label="Status"
+              value={account?.status ?? '—'}
+            />
           </View>
         </>
       ) : null}
@@ -184,15 +472,46 @@ export function MoreDetailScreen({
         <>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>PORTFOLIO VALUE</Text>
-            <Text style={styles.summaryValue}>$100,482.35</Text>
-            <Text style={styles.positive}>+$482.35 · +0.48%</Text>
+            <Text style={styles.summaryValue}>
+              {formatMoney(equity, account?.currency ?? 'USD')}
+            </Text>
+            <Text
+              style={
+                unrealizedPnl >= 0
+                  ? styles.positive
+                  : styles.negative
+              }
+            >
+              {`${formatSignedMoney(unrealizedPnl)} unrealized`}
+            </Text>
           </View>
 
           <View style={styles.card}>
-            <InfoRow label="Open Positions" value="2" />
-            <InfoRow label="Exposure" value="$54,218.40" />
-            <InfoRow label="Used Margin" value="$4,120.00" />
-            <InfoRow label="Free Margin" value="$96,362.35" />
+            <InfoRow
+              label="Open Positions"
+              value={String(openPositions.length)}
+            />
+            <InfoRow
+              label="Exposure"
+              value={formatMoney(
+                exposure,
+                account?.currency ?? 'USD',
+              )}
+            />
+            <InfoRow
+              label="Used Margin"
+              value={formatMoney(
+                usedMargin,
+                account?.currency ?? 'USD',
+              )}
+            />
+            <InfoRow
+              label="Free Margin"
+              value={formatMoney(
+                freeMargin,
+                account?.currency ?? 'USD',
+              )}
+            />
           </View>
         </>
       ) : null}
@@ -202,27 +521,50 @@ export function MoreDetailScreen({
           <View style={styles.metricGrid}>
             <View style={styles.metricCard}>
               <Text style={styles.metricLabel}>TRADES</Text>
-              <Text style={styles.metricValue}>24</Text>
+              <Text style={styles.metricValue}>
+                {String(trades.length)}
+              </Text>
             </View>
             <View style={styles.metricCard}>
               <Text style={styles.metricLabel}>WIN RATE</Text>
-              <Text style={styles.metricValue}>62.5%</Text>
+              <Text style={styles.metricValue}>
+                {winRate === null
+                  ? '—'
+                  : `${winRate.toFixed(1)}%`}
+              </Text>
             </View>
             <View style={styles.metricCard}>
               <Text style={styles.metricLabel}>PROFIT</Text>
-              <Text style={styles.metricValue}>+$1,842</Text>
+              <Text style={styles.metricValue}>
+                {formatSignedMoney(realizedProfit)}
+              </Text>
             </View>
             <View style={styles.metricCard}>
               <Text style={styles.metricLabel}>AVG TRADE</Text>
-              <Text style={styles.metricValue}>+$76.75</Text>
+              <Text style={styles.metricValue}>
+                {formatSignedMoney(averageTrade)}
+              </Text>
             </View>
           </View>
 
           <View style={styles.card}>
-            <InfoRow label="Winning Trades" value="15" />
-            <InfoRow label="Losing Trades" value="9" />
-            <InfoRow label="Profit Factor" value="1.74" />
-            <InfoRow label="Max Drawdown" value="2.1%" />
+            <InfoRow
+              label="Winning Trades"
+              value={String(winningTrades)}
+            />
+            <InfoRow
+              label="Losing Trades"
+              value={String(losingTrades)}
+            />
+            <InfoRow
+              label="Profit Factor"
+              value={
+                profitFactor === null
+                  ? '—'
+                  : profitFactor.toFixed(2)
+              }
+            />
+            <InfoRow label="Max Drawdown" value="—" />
           </View>
         </>
       ) : null}
@@ -289,6 +631,12 @@ export function MoreDetailScreen({
           <TouchableOpacity
             activeOpacity={0.75}
             style={styles.actionRow}
+            onPress={() =>
+              Alert.alert(
+                'Change Password',
+                'Password management is not yet available in the mobile client.',
+              )
+            }
           >
             <Text style={styles.actionTitle}>Change Password</Text>
             <Text style={styles.chevron}>›</Text>
@@ -297,6 +645,12 @@ export function MoreDetailScreen({
           <TouchableOpacity
             activeOpacity={0.75}
             style={styles.actionRow}
+            onPress={() =>
+              Alert.alert(
+                'Manage Sessions',
+                'Session management is not yet available in the mobile client.',
+              )
+            }
           >
             <Text style={styles.actionTitle}>Manage Sessions</Text>
             <Text style={styles.chevron}>›</Text>
@@ -306,7 +660,16 @@ export function MoreDetailScreen({
 
       {detail === 'support' ? (
         <View style={styles.card}>
-          <TouchableOpacity activeOpacity={0.75} style={styles.actionRow}>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            style={styles.actionRow}
+            onPress={() =>
+              Alert.alert(
+                'Help Center',
+                'Help Center integration is not yet configured.',
+              )
+            }
+          >
             <View>
               <Text style={styles.actionTitle}>Help Center</Text>
               <Text style={styles.actionSubtitle}>
@@ -316,7 +679,16 @@ export function MoreDetailScreen({
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity activeOpacity={0.75} style={styles.actionRow}>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            style={styles.actionRow}
+            onPress={() =>
+              Alert.alert(
+                'Contact Support',
+                'Support contact integration is not yet configured.',
+              )
+            }
+          >
             <View>
               <Text style={styles.actionTitle}>Contact Support</Text>
               <Text style={styles.actionSubtitle}>
@@ -326,7 +698,16 @@ export function MoreDetailScreen({
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity activeOpacity={0.75} style={styles.actionRow}>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            style={styles.actionRow}
+            onPress={() =>
+              Alert.alert(
+                'Report a Problem',
+                'Problem reporting is not yet configured in the mobile client.',
+              )
+            }
+          >
             <View>
               <Text style={styles.actionTitle}>Report a Problem</Text>
               <Text style={styles.actionSubtitle}>
@@ -504,6 +885,12 @@ const styles = StyleSheet.create({
   },
   positive: {
     color: colors.success,
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 5,
+  },
+  negative: {
+    color: colors.danger,
     fontSize: 13,
     fontWeight: '700',
     marginTop: 5,

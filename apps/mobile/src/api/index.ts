@@ -1,6 +1,7 @@
 import { ApiClient } from "./client";
 import { AuthApi } from "./auth";
 import { MarketDataApi } from "./market-data";
+import { OrganizationsApi } from "./organizations";
 import { TradingApi } from "./trading";
 import { getAccessToken } from "../auth/auth-storage";
 
@@ -17,4 +18,5 @@ export const apiClient = new ApiClient({
 
 export const authApi = new AuthApi(apiClient);
 export const marketDataApi = new MarketDataApi(apiClient);
+export const organizationsApi = new OrganizationsApi(apiClient);
 export const tradingApi = new TradingApi(apiClient);

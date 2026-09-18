@@ -9,6 +9,8 @@ import {
 
 import { colors } from '../../theme/colors';
 import { radius, spacing } from '../../theme/spacing';
+import { organizationsApi, tradingApi } from '../../api';
+import type { TradingAccount } from '../../api/trading';
 import type { MoreDetailKey } from '../../navigation/navigation';
 
 type MoreItemProps = {
@@ -63,6 +65,45 @@ export function MoreScreen({
   onOpenDetail?: (detail: MoreDetailKey) => void;
   onSignOut?: () => Promise<void> | void;
 }) {
+  const [account, setAccount] = React.useState<TradingAccount | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadAccount = async () => {
+      try {
+        const organizations = await organizationsApi.list();
+        const organization = organizations.items[0];
+
+        if (!organization) {
+          return;
+        }
+
+        const accounts = await tradingApi.listAccounts(organization.id);
+        const selectedAccount =
+          accounts.find(
+            (item) => item.type === 'DEMO' && item.status === 'ACTIVE',
+          ) ??
+          accounts.find((item) => item.type === 'DEMO') ??
+          accounts[0];
+
+        if (!cancelled && selectedAccount) {
+          setAccount(selectedAccount);
+        }
+      } catch {
+        if (!cancelled) {
+          setAccount(null);
+        }
+      }
+    };
+
+    void loadAccount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <ScrollView
       style={styles.container}
@@ -88,11 +129,23 @@ export function MoreScreen({
       <View style={styles.accountCard}>
         <View>
           <Text style={styles.accountLabel}>CURRENT ACCOUNT</Text>
-          <Text style={styles.accountName}>Demo Account</Text>
+          <Text style={styles.accountName}>
+            {account?.name ?? 'Trading Account'}
+          </Text>
         </View>
 
         <View style={styles.accountRight}>
-          <Text style={styles.accountBalance}>$100,000.00</Text>
+          <Text style={styles.accountBalance}>
+            {account
+              ? `${account.currency} ${Number(account.balance).toLocaleString(
+                  'en-US',
+                  {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  },
+                )}`
+              : '—'}
+          </Text>
           <Text style={styles.accountBalanceLabel}>Balance</Text>
         </View>
       </View>
