@@ -187,6 +187,7 @@ imports: [
     QuoteSynchronizationService,
     ReferenceDataSynchronizationService,
     ProviderDiagnosticsService,
+    MarketDataStreamPublisher,
     
   ],
 })
