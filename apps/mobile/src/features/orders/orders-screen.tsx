@@ -12,20 +12,21 @@ import {
 
 import {
   marketDataApi,
-  organizationsApi,
   tradingApi,
 } from "../../api";
 import type {
-  TradingAccount,
   TradingOrder,
   TradingPosition,
+  TradingTrade,
 } from "../../api/trading";
 import { MarketDataSocket } from "../../realtime/market-data-socket";
 import type { Instrument, Quote } from "../../types/market-data";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
+import { InstrumentLogo } from "../trade/trade-screen";
+import { useTradingAccount } from "../../account/trading-account-context";
 
-type OrdersTab = "Positions" | "Orders";
+type OrdersTab = "Positions" | "Orders" | "Trades";
 
 type OrdersScreenProps = {
   onOpenChart?: (instrumentId: string) => void;
@@ -131,10 +132,15 @@ export function OrdersScreen({
 }: OrdersScreenProps) {
   const [tab, setTab] = useState<OrdersTab>("Positions");
 
-  const [organizationId, setOrganizationId] = useState<string | null>(null);
-  const [account, setAccount] = useState<TradingAccount | null>(null);
+  const {
+    organizationId,
+    currentAccount: account,
+    loading: accountLoading,
+  } = useTradingAccount();
+
   const [positions, setPositions] = useState<TradingPosition[]>([]);
   const [orders, setOrders] = useState<TradingOrder[]>([]);
+  const [trades, setTrades] = useState<TradingTrade[]>([]);
   const [instruments, setInstruments] = useState<Record<string, Instrument>>(
     {},
   );
@@ -145,49 +151,46 @@ export function OrdersScreen({
   const [actionId, setActionId] = useState<string | null>(null);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [editTriggerPrice, setEditTriggerPrice] = useState("");
+  const [positionTpValues, setPositionTpValues] = useState<
+    Record<string, string>
+  >({});
+  const [positionSlValues, setPositionSlValues] = useState<
+    Record<string, string>
+  >({});
+  const [riskSavingId, setRiskSavingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
 
   const loadTradingData = useCallback(async () => {
-    const organizations = await organizationsApi.list();
-
-    const organization = organizations.items[0];
-
-    if (!organization) {
-      throw new Error("No active organization is available.");
+    if (accountLoading) {
+      return;
     }
 
-    setOrganizationId(organization.id);
-
-    const accounts = await tradingApi.listAccounts(organization.id);
-
-    const selectedAccount =
-      accounts.find(
-        (item) => item.type === "DEMO" && item.status === "ACTIVE",
-      ) ??
-      accounts.find((item) => item.type === "DEMO") ??
-      accounts[0];
-
-    if (!selectedAccount) {
+    if (!organizationId || !account) {
       throw new Error("No trading account is available.");
     }
 
-    setAccount(selectedAccount);
+    const [accountDetail, positionRows, orderRows, tradeRows] =
+      await Promise.all([
+        tradingApi.getAccount(organizationId, account.id),
+        tradingApi.listPositions(organizationId, account.id),
+        tradingApi.listOrders(organizationId, account.id),
+        tradingApi.listTrades(organizationId, account.id),
+      ]);
 
-    const [accountDetail, positionRows, orderRows] = await Promise.all([
-      tradingApi.getAccount(organization.id, selectedAccount.id),
-      tradingApi.listPositions(organization.id, selectedAccount.id),
-      tradingApi.listOrders(organization.id, selectedAccount.id),
-    ]);
+    // Account selection is owned by TradingAccountProvider.
+    // The account detail response is intentionally not replacing the selected account.
+    void accountDetail;
 
-    setAccount(accountDetail);
     setPositions(positionRows.filter(isOpenPosition));
     setOrders(orderRows.filter(isPendingOrder));
+    setTrades(tradeRows);
 
     const instrumentIds = Array.from(
       new Set([
         ...positionRows.map((position) => position.instrumentId),
         ...orderRows.map((order) => order.instrumentId),
+        ...tradeRows.map((trade) => trade.instrumentId),
       ]),
     );
 
@@ -225,7 +228,7 @@ export function OrdersScreen({
     });
 
     setQuotes(quoteMap);
-  }, []);
+  }, [accountLoading, organizationId, account]);
 
   const refresh = useCallback(async () => {
     try {
@@ -344,6 +347,15 @@ export function OrdersScreen({
     [orders, instruments],
   );
 
+  const enrichedTrades = useMemo(
+    () =>
+      trades.map((trade) => ({
+        ...trade,
+        instrument: instruments[trade.instrumentId],
+      })),
+    [trades, instruments],
+  );
+
   const unrealizedPnl = useMemo(
     () =>
       enrichedPositions.reduce(
@@ -371,6 +383,100 @@ export function OrdersScreen({
 
   const equity = balance + unrealizedPnl;
   const freeMargin = equity - usedMargin;
+
+  const updatePositionRisk = async (
+    position: TradingPosition,
+    overrides?: {
+      takeProfitPrice?: string | null;
+      stopLossPrice?: string | null;
+    },
+  ) => {
+    if (
+      !organizationId ||
+      !account ||
+      riskSavingId === position.id
+    ) {
+      return;
+    }
+
+    const tpValue =
+      overrides && Object.prototype.hasOwnProperty.call(
+        overrides,
+        "takeProfitPrice",
+      )
+        ? overrides.takeProfitPrice
+        : positionTpValues[position.id] ??
+          position.takeProfitPrice ??
+          "";
+
+    const slValue =
+      overrides && Object.prototype.hasOwnProperty.call(
+        overrides,
+        "stopLossPrice",
+      )
+        ? overrides.stopLossPrice
+        : positionSlValues[position.id] ??
+          position.stopLossPrice ??
+          "";
+
+    const tp = (tpValue ?? "").trim();
+    const sl = (slValue ?? "").trim();
+
+    if (
+      tp &&
+      (!Number.isFinite(Number(tp)) || Number(tp) <= 0)
+    ) {
+      setErrorMessage("Enter a valid Take Profit price.");
+      return;
+    }
+
+    if (
+      sl &&
+      (!Number.isFinite(Number(sl)) || Number(sl) <= 0)
+    ) {
+      setErrorMessage("Enter a valid Stop Loss price.");
+      return;
+    }
+
+    setRiskSavingId(position.id);
+    setErrorMessage(null);
+
+    try {
+      const updated = await tradingApi.updatePositionRisk(
+        organizationId,
+        account.id,
+        position.id,
+        {
+          takeProfitPrice: tp || null,
+          stopLossPrice: sl || null,
+        },
+      );
+
+      setPositionTpValues((current) => ({
+        ...current,
+        [position.id]: updated.takeProfitPrice ?? "",
+      }));
+
+      setPositionSlValues((current) => ({
+        ...current,
+        [position.id]: updated.stopLossPrice ?? "",
+      }));
+
+      setPositions((current) =>
+        current.map((item) =>
+          item.id === updated.id ? updated : item,
+        ),
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to update position risk.",
+      );
+    } finally {
+      setRiskSavingId(null);
+    }
+  };
 
   const closePosition = async (position: TradingPosition) => {
     if (!organizationId || !account) {
@@ -571,7 +677,15 @@ export function OrdersScreen({
               tab === "Positions" && styles.tabTextActive,
             ]}
           >
-            Positions ({enrichedPositions.length})
+            Positions
+          </Text>
+          <Text
+            style={[
+              styles.tabCount,
+              tab === "Positions" && styles.tabCountActive,
+            ]}
+          >
+            {enrichedPositions.length}
           </Text>
         </TouchableOpacity>
 
@@ -585,7 +699,37 @@ export function OrdersScreen({
               tab === "Orders" && styles.tabTextActive,
             ]}
           >
-            Orders ({enrichedOrders.length})
+            Orders
+          </Text>
+          <Text
+            style={[
+              styles.tabCount,
+              tab === "Orders" && styles.tabCountActive,
+            ]}
+          >
+            {enrichedOrders.length}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, tab === "Trades" && styles.tabActive]}
+          onPress={() => setTab("Trades")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              tab === "Trades" && styles.tabTextActive,
+            ]}
+          >
+            Trades
+          </Text>
+          <Text
+            style={[
+              styles.tabCount,
+              tab === "Trades" && styles.tabCountActive,
+            ]}
+          >
+            {enrichedTrades.length}
           </Text>
         </TouchableOpacity>
       </View>
@@ -594,78 +738,223 @@ export function OrdersScreen({
         enrichedPositions.length === 0 ? (
           <EmptyState text="No open positions." />
         ) : (
-          enrichedPositions.map((position) => (
-            <View key={position.id} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text style={styles.symbol}>
-                    {position.instrument?.symbol ??
-                      position.instrumentId}
-                  </Text>
-                  <Text style={styles.instrumentName}>
-                    {position.instrument?.name ?? "Position"}
+          enrichedPositions.map((position) => {
+            const tpValue =
+              positionTpValues[position.id] ??
+              position.takeProfitPrice ??
+              "";
+            const slValue =
+              positionSlValues[position.id] ??
+              position.stopLossPrice ??
+              "";
+
+            return (
+              <View key={position.id} style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.instrumentHeader}>
+                    <InstrumentLogo
+                      symbol={
+                        position.instrument?.symbol ??
+                        position.instrumentId
+                      }
+                      size={44}
+                    />
+
+                    <View style={styles.instrumentHeaderText}>
+                      <Text style={styles.symbol}>
+                        {position.instrument?.symbol ??
+                          position.instrumentId}
+                      </Text>
+                      <Text style={styles.instrumentName}>
+                        {position.instrument?.name ?? "Position"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.side,
+                      position.side === "LONG"
+                        ? styles.buy
+                        : styles.sell,
+                    ]}
+                  >
+                    {position.side}
                   </Text>
                 </View>
 
-                <Text
-                  style={[
-                    styles.side,
-                    position.side === "LONG"
-                      ? styles.buy
-                      : styles.sell,
-                  ]}
-                >
-                  {position.side}
-                </Text>
+                <View style={styles.detailsGrid}>
+                  <Detail
+                    label="Quantity"
+                    value={formatQuantity(position.quantity)}
+                  />
+                  <Detail
+                    label="Entry Price"
+                    value={formatPrice(
+                      number(position.averageEntryPrice),
+                    )}
+                  />
+                  <Detail
+                    label="Current Price"
+                    value={formatPrice(position.currentPrice)}
+                  />
+                  <Detail
+                    label="Unrealized P&L"
+                    value={formatMoney(position.unrealizedPnl)}
+                    valueStyle={
+                      position.unrealizedPnl >= 0
+                        ? styles.profit
+                        : styles.loss
+                    }
+                  />
+                </View>
+
+                <View style={styles.protectionGrid}>
+                  <View style={styles.protectionField}>
+                    <Text style={styles.protectionLabel}>
+                      Take Profit (TP)
+                    </Text>
+                    <View style={styles.protectionInputWrap}>
+                      <TextInput
+                        value={tpValue}
+                        onChangeText={(value) =>
+                          setPositionTpValues((current) => ({
+                            ...current,
+                            [position.id]: value.replace(
+                              /[^0-9.]/g,
+                              "",
+                            ),
+                          }))
+                        }
+                        keyboardType="decimal-pad"
+                        placeholder="Not set"
+                        placeholderTextColor={colors.textMuted}
+                        style={styles.protectionInput}
+                        onBlur={() =>
+                          void updatePositionRisk(position)
+                        }
+                      />
+                      {tpValue ? (
+                        <TouchableOpacity
+                          style={styles.clearProtectionButton}
+                          onPress={() => {
+                            setPositionTpValues((current) => ({
+                              ...current,
+                              [position.id]: "",
+                            }));
+                            void updatePositionRisk(position, {
+                              takeProfitPrice: null,
+                            });
+                          }}
+                        >
+                          <Text style={styles.clearProtectionText}>
+                            ×
+                          </Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </View>
+
+                  <View style={styles.protectionField}>
+                    <Text style={styles.protectionLabel}>
+                      Stop Loss (SL)
+                    </Text>
+                    <View style={styles.protectionInputWrap}>
+                      <TextInput
+                        value={slValue}
+                        onChangeText={(value) =>
+                          setPositionSlValues((current) => ({
+                            ...current,
+                            [position.id]: value.replace(
+                              /[^0-9.]/g,
+                              "",
+                            ),
+                          }))
+                        }
+                        keyboardType="decimal-pad"
+                        placeholder="Not set"
+                        placeholderTextColor={colors.textMuted}
+                        style={styles.protectionInput}
+                        onBlur={() =>
+                          void updatePositionRisk(position)
+                        }
+                      />
+                      {slValue ? (
+                        <TouchableOpacity
+                          style={styles.clearProtectionButton}
+                          onPress={() => {
+                            setPositionSlValues((current) => ({
+                              ...current,
+                              [position.id]: "",
+                            }));
+                            void updatePositionRisk(position, {
+                              stopLossPrice: null,
+                            });
+                          }}
+                        >
+                          <Text style={styles.clearProtectionText}>
+                            ×
+                          </Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.positionActions}>
+                  {onOpenChart ? (
+                    <TouchableOpacity
+                      style={[
+                        styles.positionActionButton,
+                        styles.chartActionButton,
+                      ]}
+                      onPress={() =>
+                        onOpenChart(position.instrumentId)
+                      }
+                    >
+                      <Text style={styles.chartActionText}>
+                        OPEN CHART
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+
+                  <TouchableOpacity
+                    style={[
+                      styles.positionActionButton,
+                      styles.reverseActionButton,
+                    ]}
+                    disabled
+                  >
+                    <Text style={styles.reverseActionText}>
+                      REVERSE
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.positionActionButton,
+                      styles.closeActionButton,
+                    ]}
+                    disabled={actionId === position.id}
+                    onPress={() => void closePosition(position)}
+                  >
+                    {actionId === position.id ? (
+                      <ActivityIndicator color={colors.white} />
+                    ) : (
+                      <Text style={styles.closeActionText}>
+                        CLOSE
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
-
-              <View style={styles.detailsGrid}>
-                <Detail label="Quantity" value={formatQuantity(position.quantity)} />
-                <Detail
-                  label="Entry"
-                  value={formatPrice(number(position.averageEntryPrice))}
-                />
-                <Detail
-                  label="Current"
-                  value={formatPrice(position.currentPrice)}
-                />
-                <Detail
-                  label="P&L"
-                  value={formatMoney(position.unrealizedPnl)}
-                  valueStyle={
-                    position.unrealizedPnl >= 0
-                      ? styles.profit
-                      : styles.loss
-                  }
-                />
-              </View>
-
-              {onOpenChart ? (
-                <TouchableOpacity
-                  style={styles.secondaryActionButton}
-                  onPress={() => onOpenChart(position.instrumentId)}
-                >
-                  <Text style={styles.secondaryActionText}>OPEN CHART</Text>
-                </TouchableOpacity>
-              ) : null}
-
-              <TouchableOpacity
-                style={styles.actionButton}
-                disabled={actionId === position.id}
-                onPress={() => void closePosition(position)}
-              >
-                {actionId === position.id ? (
-                  <ActivityIndicator />
-                ) : (
-                  <Text style={styles.actionText}>CLOSE POSITION</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          ))
+            );
+          })
         )
-      ) : enrichedOrders.length === 0 ? (
-        <EmptyState text="No pending orders." />
-      ) : (
+      ) : tab === "Orders" ? (
+        enrichedOrders.length === 0 ? (
+          <EmptyState text="No pending orders." />
+        ) : (
         enrichedOrders.map((order) => {
           const trigger =
             order.type === "LIMIT"
@@ -705,6 +994,28 @@ export function OrdersScreen({
                   value={formatPrice(number(trigger))}
                 />
                 <Detail label="Status" value={order.status} />
+                <Detail
+                  label="TP"
+                  value={
+                    order.takeProfitPrice
+                      ? formatPrice(number(order.takeProfitPrice))
+                      : "—"
+                  }
+                  valueStyle={
+                    order.takeProfitPrice ? styles.profit : undefined
+                  }
+                />
+                <Detail
+                  label="SL"
+                  value={
+                    order.stopLossPrice
+                      ? formatPrice(number(order.stopLossPrice))
+                      : "—"
+                  }
+                  valueStyle={
+                    order.stopLossPrice ? styles.loss : undefined
+                  }
+                />
               </View>
 
               {editingOrderId === order.id ? (
@@ -775,6 +1086,77 @@ export function OrdersScreen({
             </View>
           );
         })
+      )
+      ) : enrichedTrades.length === 0 ? (
+        <EmptyState text="No completed trades." />
+      ) : (
+        enrichedTrades.map((trade) => (
+          <View key={trade.id} style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View>
+                <Text style={styles.symbol}>
+                  {trade.instrument?.symbol ?? trade.instrumentId}
+                </Text>
+                <Text style={styles.instrumentName}>
+                  {trade.instrument?.name ?? "Trade"}
+                </Text>
+              </View>
+
+              <Text
+                style={[
+                  styles.side,
+                  trade.side === "BUY" ? styles.buy : styles.sell,
+                ]}
+              >
+                {trade.side}
+              </Text>
+            </View>
+
+            <View style={styles.detailsGrid}>
+              <Detail
+                label="Quantity"
+                value={formatQuantity(trade.quantity)}
+              />
+              <Detail
+                label="Entry"
+                value={formatPrice(number(trade.entryPrice))}
+              />
+              <Detail
+                label="Exit"
+                value={formatPrice(number(trade.exitPrice))}
+              />
+              <Detail
+                label="P&L"
+                value={formatMoney(number(trade.realizedPnl))}
+                valueStyle={
+                  number(trade.realizedPnl) >= 0
+                    ? styles.profit
+                    : styles.loss
+                }
+              />
+            </View>
+
+            <View style={styles.tradeMeta}>
+              <Text style={styles.tradeMetaText}>
+                Opened {new Date(trade.openedAt).toLocaleString()}
+              </Text>
+              {trade.closedAt ? (
+                <Text style={styles.tradeMetaText}>
+                  Closed {new Date(trade.closedAt).toLocaleString()}
+                </Text>
+              ) : null}
+            </View>
+
+            {onOpenChart ? (
+              <TouchableOpacity
+                style={styles.secondaryActionButton}
+                onPress={() => onOpenChart(trade.instrumentId)}
+              >
+                <Text style={styles.secondaryActionText}>OPEN CHART</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ))
       )}
     </ScrollView>
   );
@@ -943,17 +1325,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: spacing.sm,
     borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   tabActive: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+    borderColor: colors.accent,
   },
   tabText: {
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 12,
+    fontWeight: "700",
     color: colors.textSecondary,
   },
   tabTextActive: {
-    color: colors.background,
+    color: colors.accent,
+  },
+  tabCount: {
+    marginTop: 2,
+    fontSize: 9,
+    fontWeight: "800",
+    color: colors.textMuted,
+  },
+  tabCountActive: {
+    color: colors.accent,
   },
   card: {
     marginBottom: spacing.md,
@@ -967,6 +1361,15 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: spacing.md,
   },
+  instrumentHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  instrumentHeaderText: {
+    marginLeft: spacing.sm,
+    flex: 1,
+  },
   symbol: {
     fontSize: 17,
     fontWeight: "700",
@@ -976,6 +1379,14 @@ const styles = StyleSheet.create({
     marginTop: 3,
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  tradeMeta: {
+    marginTop: spacing.sm,
+    gap: 2,
+  },
+  tradeMetaText: {
+    fontSize: 10,
+    color: colors.textMuted,
   },
   side: {
     fontSize: 12,
@@ -1000,6 +1411,92 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     marginBottom: 3,
+  },
+  protectionGrid: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  protectionField: {
+    flex: 1,
+  },
+  protectionLabel: {
+    marginBottom: 5,
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.textSecondary,
+  },
+  protectionInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 46,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    backgroundColor: colors.background,
+  },
+  protectionInput: {
+    flex: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 0,
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  clearProtectionButton: {
+    width: 30,
+    height: 30,
+    marginRight: 5,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceElevated,
+  },
+  clearProtectionText: {
+    color: colors.textSecondary,
+    fontSize: 20,
+    lineHeight: 20,
+  },
+  positionActions: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  positionActionButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  chartActionButton: {
+    borderColor: colors.border,
+    backgroundColor: "transparent",
+  },
+  chartActionText: {
+    color: colors.text,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  reverseActionButton: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accent,
+  },
+  reverseActionText: {
+    color: colors.background,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  closeActionButton: {
+    borderColor: colors.danger,
+    backgroundColor: colors.danger,
+  },
+  closeActionText: {
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: "800",
   },
   detailValue: {
     fontSize: 14,

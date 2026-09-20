@@ -1,18 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   ActivityIndicator,
-  Alert,
-  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 
-import { marketDataApi } from '../../api';
+import { marketDataApi, tradingApi } from '../../api';
+import { WebView } from 'react-native-webview';
 import { MarketDataSocket } from '../../realtime/market-data-socket';
+import { useTradingAccount } from '../../account/trading-account-context';
 import { colors } from '../../theme/colors';
+
 import { radius, spacing } from '../../theme/spacing';
 import type {
   Candle,
@@ -20,34 +22,98 @@ import type {
   Instrument,
 } from '../../types/market-data';
 
-type Timeframe = '1m' | '5m' | '15m' | '1H' | '4H' | '1D';
+type ChartPosition = {
+  positionId: string;
+  side: 'LONG' | 'SHORT';
+  quantity: string;
+  averageEntryPrice: string;
+  stopLossPrice: string | null;
+  takeProfitPrice: string | null;
+};
 
-const timeframes: Timeframe[] = [
-  '1m',
-  '5m',
-  '15m',
-  '1H',
-  '4H',
-  '1D',
+type ChartPendingOrder = {
+  orderId: string;
+  side: 'BUY' | 'SELL';
+  type: 'LIMIT' | 'STOP';
+  quantity: string;
+  limitPrice: string | null;
+  stopPrice: string | null;
+  stopLossPrice: string | null;
+  takeProfitPrice: string | null;
+};
+
+type Timeframe =
+  | '1m'
+  | '5m'
+  | '15m'
+  | '30m'
+  | '1H'
+  | '4H'
+  | '1D'
+  | '1W'
+  | '1M';
+
+const timeframeOptions: Array<{
+  label: Timeframe;
+  interval: CandleInterval;
+  historyMs: number;
+}> = [
+  {
+    label: '1m',
+    interval: 'ONE_MINUTE',
+    historyMs: 30 * 24 * 60 * 60 * 1000,
+  },
+  {
+    label: '5m',
+    interval: 'FIVE_MINUTES',
+    historyMs: 60 * 24 * 60 * 60 * 1000,
+  },
+  {
+    label: '15m',
+    interval: 'FIFTEEN_MINUTES',
+    historyMs: 6 * 30 * 24 * 60 * 60 * 1000,
+  },
+  {
+    label: '30m',
+    interval: 'THIRTY_MINUTES',
+    historyMs: 365 * 24 * 60 * 60 * 1000,
+  },
+  {
+    label: '1H',
+    interval: 'ONE_HOUR',
+    historyMs: 2 * 365 * 24 * 60 * 60 * 1000,
+  },
+  {
+    label: '4H',
+    interval: 'FOUR_HOURS',
+    historyMs: 4 * 365 * 24 * 60 * 60 * 1000,
+  },
+  {
+    label: '1D',
+    interval: 'ONE_DAY',
+    historyMs: 5 * 365 * 24 * 60 * 60 * 1000,
+  },
+  {
+    label: '1W',
+    interval: 'ONE_WEEK',
+    historyMs: 10 * 365 * 24 * 60 * 60 * 1000,
+  },
+  {
+    label: '1M',
+    interval: 'ONE_MONTH',
+    historyMs: 10 * 365 * 24 * 60 * 60 * 1000,
+  },
 ];
 
-const timeframeIntervals: Record<Timeframe, CandleInterval> = {
-  '1m': 'ONE_MINUTE',
-  '5m': 'FIVE_MINUTES',
-  '15m': 'FIFTEEN_MINUTES',
-  '1H': 'ONE_HOUR',
-  '4H': 'FOUR_HOURS',
-  '1D': 'ONE_DAY',
-};
+const timeframeIntervals: Record<Timeframe, CandleInterval> =
+  Object.fromEntries(
+    timeframeOptions.map((option) => [option.label, option.interval]),
+  ) as Record<Timeframe, CandleInterval>;
 
-const timeframeHistoryMs: Record<Timeframe, number> = {
-  '1m': 2 * 60 * 60 * 1000,
-  '5m': 8 * 60 * 60 * 1000,
-  '15m': 24 * 60 * 60 * 1000,
-  '1H': 4 * 24 * 60 * 60 * 1000,
-  '4H': 14 * 24 * 60 * 60 * 1000,
-  '1D': 100 * 24 * 60 * 60 * 1000,
-};
+const timeframeHistoryMs: Record<Timeframe, number> =
+  Object.fromEntries(
+    timeframeOptions.map((option) => [option.label, option.historyMs]),
+  ) as Record<Timeframe, number>;
 
 function getMarketDataWebSocketUrl() {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -61,12 +127,7 @@ function getMarketDataWebSocketUrl() {
   return `${websocketUrl}/market-data/ws`;
 }
 
-type RenderCandle = {
-  open: number;
-  close: number;
-  high: number;
-  low: number;
-};
+
 
 function formatPrice(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === '') {
@@ -85,141 +146,228 @@ function formatPrice(value: string | number | null | undefined) {
   });
 }
 
-function formatAxisTime(eventTime: string) {
-  const date = new Date(eventTime);
+function getChartEmbedUrl() {
+  const chartEmbedUrl = process.env.EXPO_PUBLIC_CHART_EMBED_URL;
 
-  if (Number.isNaN(date.getTime())) {
-    return '—';
+  if (chartEmbedUrl) {
+    return chartEmbedUrl.replace(/\/$/, '');
   }
 
-  return date.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-}
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
-function normalizeCandles(candles: Candle[]): RenderCandle[] {
-  const parsed = candles
-    .map((candle) => ({
-      source: candle,
-      open: Number(candle.open),
-      high: Number(candle.high),
-      low: Number(candle.low),
-      close: Number(candle.close),
-    }))
-    .filter(
-      (candle) =>
-        Number.isFinite(candle.open) &&
-        Number.isFinite(candle.high) &&
-        Number.isFinite(candle.low) &&
-        Number.isFinite(candle.close),
-    )
-    .sort(
-      (a, b) =>
-        new Date(a.source.eventTime).getTime() -
-        new Date(b.source.eventTime).getTime(),
-    )
-    .slice(-60);
-
-  if (parsed.length === 0) {
-    return [];
+  if (!apiUrl) {
+    throw new Error('EXPO_PUBLIC_API_URL is not configured');
   }
 
-  const minPrice = Math.min(...parsed.map((candle) => candle.low));
-  const maxPrice = Math.max(...parsed.map((candle) => candle.high));
-  const range = Math.max(maxPrice - minPrice, Number.EPSILON);
-
-  const toChartY = (price: number) =>
-    4 + ((maxPrice - price) / range) * 88;
-
-  return parsed.map((candle) => ({
-    open: toChartY(candle.open),
-    close: toChartY(candle.close),
-    high: toChartY(candle.high),
-    low: toChartY(candle.low),
-  }));
+  return apiUrl.replace(/\/api\/v1\/?$/, '');
 }
 
-function Candle({
-  open,
-  close,
-  high,
-  low,
-}: RenderCandle) {
-  const bullish = close <= open;
-  const bodyTop = Math.min(open, close);
-  const bodyHeight = Math.max(Math.abs(close - open), 1.5);
-
-  return (
-    <View style={styles.candleColumn}>
-      <View
-        style={[
-          styles.wick,
-          {
-            top: `${high}%`,
-            height: `${Math.max(low - high, 1)}%`,
-          },
-        ]}
-      />
-
-      <View
-        style={[
-          styles.candleBody,
-          bullish
-            ? styles.bullishCandle
-            : styles.bearishCandle,
-          {
-            top: `${bodyTop}%`,
-            height: `${bodyHeight}%`,
-          },
-        ]}
-      />
-    </View>
-  );
-}
-
-function ChartCanvas({
+function ChartWebView({
+  instrumentId,
   candles,
-  latestPrice,
-  axisTimes,
+  interval,
+  liveBid,
+  liveAsk,
+  liveLast,
+  positions,
+  pendingOrders,
+  onReady,
+  onTimeframeChange,
+  onDrawingState,
+  webViewRef,
 }: {
-  candles: RenderCandle[];
-  latestPrice: string;
-  axisTimes: string[];
+  instrumentId: string;
+  candles: Candle[];
+  interval: CandleInterval;
+  liveBid: string | null;
+  liveAsk: string | null;
+  liveLast: string | null;
+  positions: ChartPosition[];
+  pendingOrders: ChartPendingOrder[];
+  onReady: () => void;
+  onTimeframeChange: (interval: CandleInterval) => void;
+  onDrawingState: (state: unknown) => void;
+  webViewRef: React.RefObject<any>;
 }) {
+  const [webViewReady, setWebViewReady] = useState(false);
+  const [webViewError, setWebViewError] = useState<string | null>(null);
+
+  const chartUrl = useMemo(
+    () =>
+      `${getChartEmbedUrl()}/chart-embed/${encodeURIComponent(
+        instrumentId,
+      )}`,
+    [instrumentId],
+  );
+
+  const send = (message: Record<string, unknown>) => {
+    webViewRef.current?.postMessage(JSON.stringify(message));
+  };
+
+  const sendCurrentData = () => {
+    console.log('[RMSM Chart] Sending trading state to WebView:', {
+      instrumentId,
+      webViewReady,
+      positionCount: positions.length,
+      pendingOrderCount: pendingOrders.length,
+      positions,
+      pendingOrders,
+    });
+
+
+    send({
+      type: 'rmsm:init',
+      candles,
+      interval,
+      quote: {
+        bid: liveBid,
+        ask: liveAsk,
+        last: liveLast,
+      },
+      positions,
+      pendingOrders,
+    });
+  };
+
+  useEffect(() => {
+    if (!webViewReady) {
+      return;
+    }
+
+    sendCurrentData();
+  }, [
+    webViewReady,
+    candles,
+    interval,
+    liveBid,
+    liveAsk,
+    liveLast,
+    positions,
+    pendingOrders,
+  ]);
+
+  const ChartWebViewComponent = WebView as any;
+
   return (
-    <View style={styles.chartCanvas}>
-      <View style={styles.gridHorizontalTop} />
-      <View style={styles.gridHorizontalMiddle} />
-      <View style={styles.gridHorizontalBottom} />
+    <View style={styles.chartWebViewContainer}>
+      <ChartWebViewComponent
+        ref={webViewRef}
+        source={{ uri: chartUrl }}
+        originWhitelist={['*']}
+        javaScriptEnabled
+        domStorageEnabled
+        scrollEnabled={false}
+        bounces={false}
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+        style={styles.chartWebView}
+        onMessage={(event: any) => {
+          console.log(
+            '[RMSM Chart] WebView -> Native:',
+            event.nativeEvent?.data,
+          );
 
-      {latestPrice !== '—' && (
-        <View style={styles.priceLine}>
-          <View style={styles.priceLineStroke} />
-          <View style={styles.priceLabel}>
-            <Text style={styles.priceLabelText}>{latestPrice}</Text>
-          </View>
-        </View>
-      )}
+          try {
+            const rawData = event.nativeEvent.data;
 
-      <View style={styles.candles}>
-        {candles.map((candle, index) => (
-          <Candle key={index} {...candle} />
-        ))}
-      </View>
+            if (!rawData || !rawData.trim()) {
+              console.warn('[RMSM Chart] Ignoring empty WebView message');
+              return;
+            }
 
-      <View style={styles.chartAxis}>
-        {axisTimes.map((time, index) => (
-          <Text key={`${time}-${index}`} style={styles.axisText}>
-            {time}
+            let message: {
+              type?: string;
+              [key: string]: unknown;
+            };
+
+            try {
+              message = JSON.parse(rawData);
+            } catch (error) {
+              console.warn('[RMSM Chart] Ignoring invalid WebView message:', {
+                rawData,
+                error,
+              });
+              return;
+            }
+
+            if (message.type === 'rmsm:ready') {
+              setWebViewReady(true);
+              setWebViewError(null);
+              onReady();
+              return;
+            }
+
+            if (message.type === 'rmsm:drawing-state') {
+              onDrawingState(message.state);
+              return;
+            }
+
+            if (message.type === 'rmsm:drawing-tool') {
+              return;
+            }
+
+            if (message.type === 'rmsm:timeframe-change') {
+              const interval = message.interval as CandleInterval;
+
+              if (
+                timeframeOptions.some(
+                  (option) => option.interval === interval,
+                )
+              ) {
+                onTimeframeChange(interval);
+              }
+
+              return;
+            }
+
+            if (message.type === 'rmsm:chart-state') {
+              return;
+            }
+          } catch {
+            // Ignore malformed bridge messages.
+          }
+        }}
+        onError={(event: any) => {
+          const error =
+            event?.nativeEvent?.description ||
+            'RMSM chart WebView failed to load';
+
+          console.warn('[RMSM Chart WebView]', error);
+          setWebViewError(error);
+        }}
+        onHttpError={(event: any) => {
+          const status = event?.nativeEvent?.statusCode;
+
+          const description =
+            event?.nativeEvent?.description ||
+            'RMSM chart WebView HTTP error';
+
+          const error =
+            `HTTP ${status ?? 'unknown'}: ${description}`;
+
+          console.warn('[RMSM Chart WebView]', error);
+          setWebViewError(error);
+        }}
+      />
+
+      {!webViewReady && !webViewError ? (
+        <View pointerEvents="none" style={styles.chartDiagnosticOverlay}>
+          <Text style={styles.chartDiagnosticText}>
+            Loading RMSM chart…
           </Text>
-        ))}
-      </View>
+        </View>
+      ) : null}
+
+      {webViewError ? (
+        <View pointerEvents="none" style={styles.chartDiagnosticOverlay}>
+          <Text style={styles.chartDiagnosticText}>
+            Chart error: {webViewError}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
-
 
 export function ChartScreen({
   instrumentId,
@@ -243,11 +391,137 @@ export function ChartScreen({
   const [liveLast, setLiveLast] = useState<string | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [zoom, setZoom] = useState(1);
-  const [chartMode, setChartMode] = useState<'normal' | 'drawing' | 'crosshair' | 'indicator'>('normal');
-  const [emaEnabled, setEmaEnabled] = useState(false);
-  const [rsiEnabled, setRsiEnabled] = useState(false);
+  const [quickQuantity, setQuickQuantity] = useState(1);
+  const [positions, setPositions] =
+    useState<ChartPosition[]>([]);
+  const [pendingOrders, setPendingOrders] =
+    useState<ChartPendingOrder[]>([]);
+
+  const {
+    organizationId,
+    currentAccount: account,
+  } = useTradingAccount();
+
   const [error, setError] = useState<string | null>(null);
+  const webViewRef = useRef<any>(null);
+
+  const sendChartCommand = (
+    message: Record<string, unknown>,
+  ) => {
+    webViewRef.current?.postMessage(
+      JSON.stringify(message),
+    );
+  };
+
+
+  const [webViewReady, setWebViewReady] = useState(false);
+
+  const [drawings, setDrawings] = useState<unknown[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadChartTradingState = async () => {
+    console.log('[RMSM Chart] Trading state loader:', {
+      organizationId,
+      accountId: account?.id,
+      instrumentId,
+    });
+
+
+      if (!organizationId || !account?.id) {
+        setPositions([]);
+        setPendingOrders([]);
+        return;
+      }
+
+      try {
+        const [positionResponse, orderResponse] = await Promise.all([
+          tradingApi.listPositions(
+            organizationId,
+            account.id,
+          ),
+          tradingApi.listOrders(
+            organizationId,
+            account.id,
+          ),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        console.log('[RMSM Chart] Position matching:', {
+          accountId: account.id,
+          chartInstrumentId: instrumentId,
+          totalPositions: positionResponse.length,
+          positions: positionResponse.map((position) => ({
+            id: position.id,
+            instrumentId: position.instrumentId,
+            status: position.status,
+            side: position.side,
+            quantity: position.quantity,
+            averageEntryPrice: position.averageEntryPrice,
+            stopLossPrice: position.stopLossPrice,
+            takeProfitPrice: position.takeProfitPrice,
+          })),
+        });
+
+        const currentPositions = positionResponse
+          .filter(
+            (position) =>
+              position.instrumentId === instrumentId &&
+              position.status === 'OPEN',
+          )
+          .map((position) => ({
+            positionId: position.id,
+            side: position.side,
+            quantity: position.quantity,
+            averageEntryPrice: position.averageEntryPrice,
+            stopLossPrice: position.stopLossPrice ?? null,
+            takeProfitPrice: position.takeProfitPrice ?? null,
+          }));
+
+        const currentPendingOrders = orderResponse
+          .filter(
+            (order): order is typeof order & {
+              type: 'LIMIT' | 'STOP';
+            } =>
+              order.instrumentId === instrumentId &&
+              order.status === 'PENDING' &&
+              (order.type === 'LIMIT' || order.type === 'STOP'),
+          )
+          .map((order) => ({
+            orderId: order.id,
+            side: order.side,
+            type: order.type,
+            quantity: order.quantity,
+            limitPrice: order.limitPrice ?? null,
+            stopPrice: order.stopPrice ?? null,
+            stopLossPrice: order.stopLossPrice ?? null,
+            takeProfitPrice: order.takeProfitPrice ?? null,
+          }));
+
+        setPositions(currentPositions);
+        setPendingOrders(currentPendingOrders);
+      } catch (err) {
+        if (!cancelled) {
+          console.warn(
+            '[RMSM Chart] Failed to load trading overlays:',
+            err,
+          );
+          setPositions([]);
+          setPendingOrders([]);
+        }
+      }
+    };
+
+    void loadChartTradingState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, account?.id, instrumentId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -270,7 +544,7 @@ export function ChartScreen({
               interval: timeframeIntervals[selectedTimeframe],
               from: from.toISOString(),
               to: to.toISOString(),
-              limit: 100,
+              limit: 5000,
             }),
           ]);
 
@@ -377,7 +651,7 @@ export function ChartScreen({
                 new Date(a.eventTime).getTime() -
                 new Date(b.eventTime).getTime(),
             )
-            .slice(-100);
+            .slice(-5000);
         });
       },
 
@@ -406,11 +680,6 @@ export function ChartScreen({
     };
   }, [instrumentId, selectedTimeframe]);
 
-  const renderCandles = useMemo(
-    () => normalizeCandles(candles),
-    [candles],
-  );
-
   const latestCandle = useMemo(() => {
     if (candles.length === 0) {
       return null;
@@ -423,44 +692,17 @@ export function ChartScreen({
     )[candles.length - 1];
   }, [candles]);
 
-  const axisTimes = useMemo(() => {
-    if (candles.length === 0) {
-      return [];
-    }
+  const symbol =
+    instrument?.symbol ?? instrumentId.toUpperCase();
 
-    const sorted = [...candles].sort(
-      (a, b) =>
-        new Date(a.eventTime).getTime() -
-        new Date(b.eventTime).getTime(),
-    );
-
-    const indexes = [
-      0,
-      Math.floor((sorted.length - 1) / 3),
-      Math.floor(((sorted.length - 1) * 2) / 3),
-      sorted.length - 1,
-    ];
-
-    return indexes.map((index) =>
-      formatAxisTime(sorted[index].eventTime),
-    );
-  }, [candles]);
-
-  const symbol = instrument?.symbol ?? instrumentId.toUpperCase();
-  const name = instrument?.name ?? 'Loading instrument...';
+  const name =
+    instrument?.name ?? 'Loading instrument...';
 
   const currentPrice = liveLast
     ? formatPrice(liveLast)
     : latestCandle
       ? formatPrice(latestCandle.close)
       : '—';
-
-  const visibleCandleCount = Math.max(
-    12,
-    Math.min(60, Math.floor(60 / zoom)),
-  );
-
-  const visibleCandles = renderCandles.slice(-visibleCandleCount);
 
   const bidPrice = liveBid
     ? formatPrice(liveBid)
@@ -518,19 +760,6 @@ export function ChartScreen({
             <Text style={styles.tradeButtonText}>Trade</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.headerButton}
-            accessibilityRole="button"
-            accessibilityLabel="Chart options"
-            onPress={() => {
-              setZoom(1);
-              setChartMode('normal');
-              setEmaEnabled(false);
-              setRsiEnabled(false);
-            }}
-          >
-            <Text style={styles.headerButtonText}>⋮</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -540,11 +769,11 @@ export function ChartScreen({
             {currentPrice}
           </Text>
 
-          <Text style={styles.positiveChange}>
-            {error
-              ? 'Chart data unavailable'
-              : `${candles.length} candles`}
-          </Text>
+          {error ? (
+            <Text style={styles.positiveChange}>
+              Chart data unavailable
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.quoteSide}>
@@ -553,38 +782,6 @@ export function ChartScreen({
             {bidPrice} / {askPrice}
           </Text>
         </View>
-      </View>
-
-      <View style={styles.timeframeBar}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.timeframeContent}
-        >
-          {timeframes.map((timeframe) => {
-            const active = timeframe === selectedTimeframe;
-
-            return (
-              <TouchableOpacity
-                key={timeframe}
-                style={[
-                  styles.timeframe,
-                  active && styles.timeframeActive,
-                ]}
-                onPress={() => setSelectedTimeframe(timeframe)}
-              >
-                <Text
-                  style={[
-                    styles.timeframeText,
-                    active && styles.timeframeTextActive,
-                  ]}
-                >
-                  {timeframe}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
       </View>
 
       <View style={styles.chartWrapper}>
@@ -599,162 +796,122 @@ export function ChartScreen({
           <View style={styles.chartState}>
             <Text style={styles.chartStateText}>{error}</Text>
           </View>
-        ) : renderCandles.length === 0 ? (
+        ) : candles.length === 0 ? (
           <View style={styles.chartState}>
             <Text style={styles.chartStateText}>
               No candle data available.
             </Text>
           </View>
         ) : (
-          <ChartCanvas
-            candles={visibleCandles}
-            latestPrice={currentPrice}
-            axisTimes={axisTimes}
-          />
-        )}
+          <View style={styles.chartWebViewContainer}>
+            <ChartWebView
+              instrumentId={instrumentId}
+              candles={candles}
+              interval={timeframeIntervals[selectedTimeframe]}
+              liveBid={liveBid}
+              liveAsk={liveAsk}
+              liveLast={liveLast}
+              positions={positions}
+              pendingOrders={pendingOrders}
+              onReady={() => setWebViewReady(true)}
+              onTimeframeChange={(interval) => {
+                const nextTimeframe = timeframeOptions.find(
+                  (option) => option.interval === interval,
+                );
 
-        {chartMode !== 'normal' && (
-          <View style={styles.chartModeBadge}>
-            <Text style={styles.chartModeText}>
-              {chartMode === 'drawing'
-                ? 'DRAWING MODE'
-                : chartMode === 'crosshair'
-                  ? 'CROSSHAIR MODE'
-                  : 'INDICATOR MODE'}
-            </Text>
+                if (nextTimeframe) {
+                  setSelectedTimeframe(nextTimeframe.label);
+                }
+              }}
+              onDrawingState={(state) => {
+                setDrawings(
+                  Array.isArray((state as any)?.drawings)
+                    ? (state as any).drawings
+                    : [],
+                );
+              }}
+              webViewRef={webViewRef}
+            />
           </View>
         )}
 
-        <View style={styles.chartTools}>
-          {[
-            ['＋', 'Zoom in'],
-            ['╱', 'Drawing mode'],
-            ['⌕', 'Crosshair mode'],
-            ['ƒ', 'Indicator mode'],
-            ['↻', 'Reset chart'],
-          ].map(([tool, label]) => (
-            <TouchableOpacity
-              key={tool}
-              accessibilityRole="button"
-              accessibilityLabel={label}
-              style={styles.toolButton}
-              onPress={() => {
-                if (tool === '＋') {
-                  setZoom((value) => Math.min(4, value + 1));
-                } else if (tool === '╱') {
-                  setChartMode((value) =>
-                    value === 'drawing' ? 'normal' : 'drawing',
-                  );
-                } else if (tool === '⌕') {
-                  setChartMode((value) =>
-                    value === 'crosshair' ? 'normal' : 'crosshair',
-                  );
-                } else if (tool === 'ƒ') {
-                  setChartMode((value) =>
-                    value === 'indicator' ? 'normal' : 'indicator',
-                  );
-                } else {
-                  setZoom(1);
-                  setChartMode('normal');
-                }
-              }}
-            >
-              <Text style={styles.toolText}>{tool}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+
+
       </View>
 
-      <View style={styles.indicatorBar}>
-        <Text style={styles.indicatorTitle}>Indicators</Text>
-
+      <View style={styles.quickTradeBar}>
         <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="Toggle EMA 20"
+          activeOpacity={0.82}
           style={[
-            styles.indicatorChip,
-            emaEnabled && styles.indicatorChipActive,
+            styles.quickTradeButton,
+            styles.quickBuyButton,
           ]}
-          onPress={() => setEmaEnabled((value) => !value)}
+          onPress={() => onOpenTrade?.(instrumentId)}
         >
-          <Text style={styles.indicatorText}>
-            {emaEnabled ? '✓ EMA 20' : 'EMA 20'}
-          </Text>
+          <Text style={styles.quickTradeButtonText}>BUY</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="Toggle RSI"
-          style={[
-            styles.indicatorChip,
-            rsiEnabled && styles.indicatorChipActive,
-          ]}
-          onPress={() => setRsiEnabled((value) => !value)}
-        >
-          <Text style={styles.indicatorText}>
-            {rsiEnabled ? '✓ RSI' : 'RSI'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.quickQuantityControl}>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Decrease quantity"
+            style={styles.quickQuantityButton}
+            onPress={() =>
+              setQuickQuantity((value) =>
+                Number(Math.max(0.01, value - 0.01).toFixed(2)),
+              )
+            }
+          >
+            <Text style={styles.quickQuantityButtonText}>−</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="Add indicator"
-          style={styles.addIndicator}
-          onPress={() =>
-            Alert.alert(
-              'Indicators',
-              'EMA 20 and RSI are available above. Additional indicators are not implemented in the current mobile chart renderer.',
-            )
-          }
-        >
-          <Text style={styles.addIndicatorText}>+</Text>
-        </TouchableOpacity>
-      </View>
+          <TextInput
+            value={quickQuantity.toFixed(2).replace(/\.00$/, '')}
+            onChangeText={(value) => {
+              const cleaned = value.replace(/[^0-9.]/g, '');
+              const numeric = Number(cleaned);
 
-      <View style={styles.statsCard}>
-        <Text style={styles.statsTitle}>Market Stats</Text>
+              if (cleaned === '') {
+                return;
+              }
 
-        <View style={styles.statsRow}>
-          <Stat
-            label="Open"
-            value={
-              latestCandle
-                ? formatPrice(latestCandle.open)
-                : '—'
-            }
+              if (Number.isFinite(numeric) && numeric > 0) {
+                setQuickQuantity(numeric);
+              }
+            }}
+            keyboardType="decimal-pad"
+            selectTextOnFocus
+            style={styles.quickQuantityInput}
           />
-          <Stat
-            label="High"
-            value={
-              latestCandle
-                ? formatPrice(latestCandle.high)
-                : '—'
+
+          <TouchableOpacity
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Increase quantity"
+            style={styles.quickQuantityButton}
+            onPress={() =>
+              setQuickQuantity((value) =>
+                Number((value + 0.01).toFixed(2)),
+              )
             }
-          />
-          <Stat
-            label="Low"
-            value={
-              latestCandle
-                ? formatPrice(latestCandle.low)
-                : '—'
-            }
-          />
-          <Stat
-            label="Prev."
-            value={
-              candles.length > 1
-                ? formatPrice(
-                    [...candles].sort(
-                      (a, b) =>
-                        new Date(a.eventTime).getTime() -
-                        new Date(b.eventTime).getTime(),
-                    )[candles.length - 2].close,
-                  )
-                : '—'
-            }
-          />
+          >
+            <Text style={styles.quickQuantityButtonText}>+</Text>
+          </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          activeOpacity={0.82}
+          style={[
+            styles.quickTradeButton,
+            styles.quickSellButton,
+          ]}
+          onPress={() => onOpenTrade?.(instrumentId)}
+        >
+          <Text style={styles.quickTradeButtonText}>SELL</Text>
+        </TouchableOpacity>
       </View>
+
     </View>
   );
 }
@@ -769,6 +926,78 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  quickTradeBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+  },
+
+  quickTradeButton: {
+    flex: 1,
+    height: 46,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  quickBuyButton: {
+    backgroundColor: colors.accent,
+  },
+
+  quickSellButton: {
+    backgroundColor: colors.danger,
+  },
+
+  quickTradeButtonText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+
+  quickQuantityControl: {
+    height: 46,
+    minWidth: 104,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    overflow: 'hidden',
+  },
+
+  quickQuantityButton: {
+    width: 30,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  quickQuantityButtonText: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '600',
+  },
+
+  quickQuantityInput: {
+    flex: 1,
+    minWidth: 42,
+    paddingHorizontal: 2,
+    paddingVertical: 0,
+    textAlign: 'center',
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+
   screen: {
     flex: 1,
   },
@@ -952,7 +1181,7 @@ const styles = StyleSheet.create({
 
   chartWrapper: {
     flex: 1,
-    minHeight: 300,
+    minHeight: 420,
     marginTop: 8,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -973,147 +1202,86 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
-  chartCanvas: {
-    flex: 1,
+  chartWebViewContainer: {
     position: 'relative',
-    marginRight: 7,
-  },
-
-  gridHorizontalTop: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: '20%',
-    height: 1,
-    backgroundColor: colors.border,
-  },
-
-  gridHorizontalMiddle: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: '50%',
-    height: 1,
-    backgroundColor: colors.border,
-  },
-
-  gridHorizontalBottom: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: '80%',
-    height: 1,
-    backgroundColor: colors.border,
-  },
-
-  priceLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: '34%',
-    height: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 3,
-  },
-
-  priceLineStroke: {
     flex: 1,
-    borderTopWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.accent,
+    overflow: 'hidden',
   },
 
-  priceLabel: {
+  chartDiagnosticOverlay: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: colors.background,
+  },
+
+  chartDiagnosticText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+
+  rmsmDrawingToolbox: {
+    position: 'absolute',
+    left: 6,
+    top: 52,
+    zIndex: 50,
+    width: 42,
+    maxHeight: 360,
+    paddingVertical: 4,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: 'rgba(10, 18, 32, 0.96)',
+    alignItems: 'center',
+  },
+
+  rmsmDrawingButton: {
+    width: 34,
+    height: 32,
+    marginVertical: 2,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+
+  rmsmDrawingButtonActive: {
     backgroundColor: colors.accent,
-    paddingHorizontal: 5,
-    paddingVertical: 3,
-    borderRadius: 3,
   },
 
-  priceLabelText: {
-    color: colors.black,
-    fontSize: 8,
+  rmsmDrawingIcon: {
+    color: colors.textSecondary,
+    fontSize: 14,
     fontWeight: '800',
   },
 
-  candles: {
-    position: 'absolute',
-    left: 10,
-    right: 15,
-    top: 10,
-    bottom: 35,
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    justifyContent: 'space-around',
+  chartWebView: {
+    flex: 1,
+    backgroundColor: colors.background,
   },
 
-  candleColumn: {
-    width: 12,
-    height: '100%',
-    position: 'relative',
-  },
 
-  wick: {
-    position: 'absolute',
-    left: 5,
-    width: 1,
-    backgroundColor: colors.textSecondary,
-  },
 
-  candleBody: {
-    position: 'absolute',
-    left: 2,
-    width: 7,
-    minHeight: 4,
-    borderRadius: 1,
-  },
 
-  bullishCandle: {
-    backgroundColor: colors.success,
-  },
 
-  bearishCandle: {
-    backgroundColor: colors.danger,
-  },
 
-  chartAxis: {
-    position: 'absolute',
-    left: 8,
-    right: 8,
-    bottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
 
-  axisText: {
-    color: colors.textMuted,
-    fontSize: 8,
-  },
 
-  chartTools: {
-    position: 'absolute',
-    left: 7,
-    top: 8,
-    bottom: 42,
-    justifyContent: 'space-between',
-  },
 
-  toolButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceElevated,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
-  toolText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-  },
+
+
+
+
+
+
+
+
+
 
   chartModeBadge: {
     position: 'absolute',

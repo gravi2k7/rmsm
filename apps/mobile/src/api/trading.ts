@@ -86,6 +86,11 @@ export type UpdatePendingOrderRequest = {
   takeProfitPrice?: string;
 };
 
+export type UpdatePositionRiskRequest = {
+  stopLossPrice?: string | null;
+  takeProfitPrice?: string | null;
+};
+
 export class TradingApi {
   constructor(private readonly client: ApiClient) {}
 
@@ -171,6 +176,25 @@ export class TradingApi {
       {
         method: "POST",
         body: JSON.stringify({}),
+      },
+    );
+  }
+
+  updatePositionRisk(
+    organizationId: string,
+    accountId: string,
+    positionId: string,
+    request: UpdatePositionRiskRequest,
+  ): Promise<TradingPosition> {
+    return this.client.request<TradingPosition>(
+      `organizations/${encodeURIComponent(
+        organizationId,
+      )}/trading-accounts/${encodeURIComponent(
+        accountId,
+      )}/positions/${encodeURIComponent(positionId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(request),
       },
     );
   }

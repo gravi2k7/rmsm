@@ -3,15 +3,20 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
-    "expo": "~57.0.23",
+    "@rmsm/chart-drawing": "workspace:^",
+    "expo": "~57.0.24",
     "expo-secure-store": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
+    "react-dom": "19.2.3",
     "react-native": "0.86.3",
-    "react-native-web": "^0.21.2"
+    "react-native-svg": "15.15.4",
+    "react-native-web": "^0.21.2",
+    "react-native-webview": "^14.0.1"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "simple-icons": "16.31.0",
     "typescript": "~6.0.3"
   },
   "scripts": {

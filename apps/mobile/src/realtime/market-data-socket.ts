@@ -62,19 +62,28 @@ export class MarketDataSocket {
     this.socket = socket;
 
     socket.onopen = () => {
+      console.log("[MarketDataSocket] OPEN", {
+        url: this.url,
+        instrumentIds: this.instrumentIds,
+      });
+
       socket.send(
         JSON.stringify({
           type: "market-data.subscribe",
           instrumentIds: this.instrumentIds,
         }),
       );
+
+      console.log("[MarketDataSocket] SUBSCRIBE SENT", this.instrumentIds);
     };
 
     socket.onmessage = (event) => {
       try {
-        const message = JSON.parse(
-          String(event.data),
-        ) as MarketDataStreamMessage;
+        const raw = String(event.data);
+
+        console.log("[MarketDataSocket] MESSAGE", raw);
+
+        const message = JSON.parse(raw) as MarketDataStreamMessage;
 
         switch (message.type) {
           case "market-data.connected":
@@ -82,6 +91,14 @@ export class MarketDataSocket {
             break;
 
           case "market-data.quote":
+            console.log("[MarketDataSocket] QUOTE", {
+              instrumentId: message.data.instrumentId,
+              providerSymbol: message.data.providerSymbol,
+              bidPrice: message.data.bidPrice,
+              askPrice: message.data.askPrice,
+              lastPrice: message.data.lastPrice,
+              eventTime: message.data.eventTime,
+            });
             this.handlers.onQuote?.(message);
             break;
 
@@ -106,12 +123,14 @@ export class MarketDataSocket {
     };
 
     socket.onerror = () => {
+      console.log("[MarketDataSocket] ERROR");
       this.handlers.onError?.(
         new Error("Market-data WebSocket connection error"),
       );
     };
 
     socket.onclose = () => {
+      console.log("[MarketDataSocket] CLOSED");
       if (this.socket === socket) {
         this.socket = null;
       }

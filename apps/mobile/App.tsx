@@ -9,6 +9,7 @@ import {
 import { useState } from 'react';
 
 import { colors } from './src/theme/colors';
+import Svg, { Line, Path, Polyline, Rect } from 'react-native-svg';
 import { MarketsScreen } from './src/features/markets/markets-screen';
 import { ChartScreen } from './src/features/chart/chart-screen';
 import { TradeScreen } from './src/features/trade/trade-screen';
@@ -19,6 +20,9 @@ import {
 } from './src/features/more/more-detail-screen';
 import { LoginScreen } from './src/features/auth/login-screen';
 import { AuthProvider, useAuth } from './src/auth/auth-context';
+import {
+  TradingAccountProvider,
+} from './src/account/trading-account-context';
 import type { AppTab, AppScreen, MoreDetailKey } from './src/navigation/navigation';
 
 const tabs: AppTab[] = ['Markets', 'Chart', 'Trade', 'Orders', 'More'];
@@ -90,7 +94,9 @@ function AuthenticatedApp() {
       ? screen.tab
       : screen.type === 'chart'
         ? 'Chart'
-        : 'Trade';
+        : screen.type === 'trade'
+          ? 'Trade'
+          : 'More';
 
   const renderScreen = () => {
     switch (screen.type) {
@@ -206,10 +212,11 @@ function AuthenticatedApp() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
+    <TradingAccountProvider>
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="light" />
 
-      <View style={styles.content}>{renderScreen()}</View>
+        <View style={styles.content}>{renderScreen()}</View>
 
       <View style={styles.bottomNav}>
         {tabs.map((tab) => {
@@ -221,13 +228,17 @@ function AuthenticatedApp() {
               activeOpacity={0.75}
               onPress={() => openTab(tab)}
               style={styles.navItem}
+              accessibilityRole="button"
+              accessibilityLabel={tab}
             >
               <View
                 style={[
-                  styles.navIndicator,
-                  active && styles.navIndicatorActive,
+                  styles.navIconWrap,
+                  active && styles.navIconWrapActive,
                 ]}
-              />
+              >
+                <NavigationIcon tab={tab} active={active} />
+              </View>
 
               <Text
                 style={[
@@ -241,7 +252,9 @@ function AuthenticatedApp() {
           );
         })}
       </View>
-    </SafeAreaView>
+
+      </SafeAreaView>
+    </TradingAccountProvider>
   );
 }
 
@@ -253,17 +266,18 @@ const styles = StyleSheet.create({
 
   content: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
   },
 
   bottomNav: {
-    height: 64,
+    height: 68,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    paddingTop: 4,
   },
 
   navItem: {
@@ -273,27 +287,48 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  navIndicator: {
-    width: 24,
-    height: 3,
-    borderRadius: 2,
+  navIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 3,
     backgroundColor: 'transparent',
-    marginBottom: 7,
+    borderWidth: 0,
+    elevation: 0,
   },
 
-  navIndicatorActive: {
-    backgroundColor: colors.accent,
+  navIconWrapActive: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+
+  navIcon: {
+    color: colors.textMuted,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+
+  navIconActive: {
+    color: colors.accent,
   },
 
   navText: {
     color: colors.textMuted,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
   },
 
   navTextActive: {
     color: colors.accent,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 
   loadingContainer: {
@@ -316,6 +351,172 @@ const styles = StyleSheet.create({
   },
 });
 
+
+
+function NavigationIcon({
+  tab,
+  active,
+}: {
+  tab: string;
+  active: boolean;
+}) {
+  const stroke = active ? colors.accent : colors.textMuted;
+  const strokeWidth = active ? 2.4 : 2.1;
+
+  if (tab === 'Markets') {
+    return (
+      <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+        <Rect x="4" y="12" width="3.5" height="8" rx="1" fill={stroke} />
+        <Rect x="10.25" y="8" width="3.5" height="12" rx="1" fill={stroke} />
+        <Rect x="16.5" y="4" width="3.5" height="16" rx="1" fill={stroke} />
+        <Line
+          x1="3"
+          y1="21"
+          x2="21"
+          y2="21"
+          stroke={stroke}
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      </Svg>
+    );
+  }
+
+  if (tab === 'Chart') {
+    return (
+      <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+        <Polyline
+          points="3,17 8,12 11,14 16,7 21,9"
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <Path
+          d="M16 7h4v4"
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    );
+  }
+
+  if (tab === 'Trade') {
+    return (
+      <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+        <Line
+          x1="8"
+          y1="4"
+          x2="8"
+          y2="20"
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+        <Path
+          d="M4.5 7.5L8 4l3.5 3.5"
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <Line
+          x1="16"
+          y1="20"
+          x2="16"
+          y2="4"
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+        <Path
+          d="M12.5 16.5L16 20l3.5-3.5"
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    );
+  }
+
+  if (tab === 'Orders') {
+    return (
+      <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+        <Rect
+          x="5"
+          y="3"
+          width="14"
+          height="18"
+          rx="2"
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+        />
+        <Line
+          x1="8"
+          y1="8"
+          x2="16"
+          y2="8"
+          stroke={stroke}
+          strokeWidth="1.7"
+          strokeLinecap="round"
+        />
+        <Line
+          x1="8"
+          y1="12"
+          x2="16"
+          y2="12"
+          stroke={stroke}
+          strokeWidth="1.7"
+          strokeLinecap="round"
+        />
+        <Line
+          x1="8"
+          y1="16"
+          x2="13"
+          y2="16"
+          stroke={stroke}
+          strokeWidth="1.7"
+          strokeLinecap="round"
+        />
+      </Svg>
+    );
+  }
+
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Line
+        x1="4"
+        y1="7"
+        x2="20"
+        y2="7"
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+      <Line
+        x1="4"
+        y1="12"
+        x2="20"
+        y2="12"
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+      <Line
+        x1="4"
+        y1="17"
+        x2="20"
+        y2="17"
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
 
 function AppWithAuth() {
   return (

@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,13 +9,13 @@ import {
 } from 'react-native';
 
 import { colors } from '../../theme/colors';
+import { RmsmIcon, type RmsmIconName } from '../../components/rmsm-icon';
 import { radius, spacing } from '../../theme/spacing';
-import { organizationsApi, tradingApi } from '../../api';
-import type { TradingAccount } from '../../api/trading';
+import { useTradingAccount } from '../../account/trading-account-context';
 import type { MoreDetailKey } from '../../navigation/navigation';
 
 type MoreItemProps = {
-  icon: string;
+  icon: RmsmIconName;
   title: string;
   subtitle?: string;
   onPress?: () => void;
@@ -35,7 +36,11 @@ function MoreItem({
       style={styles.item}
     >
       <View style={styles.itemIcon}>
-        <Text style={styles.itemIconText}>{icon}</Text>
+        <RmsmIcon
+          name={icon}
+          size={19}
+          color={danger ? colors.danger : colors.accent}
+        />
       </View>
 
       <View style={styles.itemContent}>
@@ -65,44 +70,15 @@ export function MoreScreen({
   onOpenDetail?: (detail: MoreDetailKey) => void;
   onSignOut?: () => Promise<void> | void;
 }) {
-  const [account, setAccount] = React.useState<TradingAccount | null>(null);
+  const {
+    accounts,
+    currentAccount: account,
+    loading: accountLoading,
+    selectAccount,
+  } = useTradingAccount();
 
-  React.useEffect(() => {
-    let cancelled = false;
-
-    const loadAccount = async () => {
-      try {
-        const organizations = await organizationsApi.list();
-        const organization = organizations.items[0];
-
-        if (!organization) {
-          return;
-        }
-
-        const accounts = await tradingApi.listAccounts(organization.id);
-        const selectedAccount =
-          accounts.find(
-            (item) => item.type === 'DEMO' && item.status === 'ACTIVE',
-          ) ??
-          accounts.find((item) => item.type === 'DEMO') ??
-          accounts[0];
-
-        if (!cancelled && selectedAccount) {
-          setAccount(selectedAccount);
-        }
-      } catch {
-        if (!cancelled) {
-          setAccount(null);
-        }
-      }
-    };
-
-    void loadAccount();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const [accountPickerVisible, setAccountPickerVisible] =
+    React.useState(false);
 
   return (
     <ScrollView
@@ -126,11 +102,24 @@ export function MoreScreen({
         </View>
       </View>
 
-      <View style={styles.accountCard}>
-        <View>
+      <TouchableOpacity
+        activeOpacity={0.8}
+        style={styles.accountCard}
+        onPress={() => setAccountPickerVisible(true)}
+      >
+        <View style={styles.accountCardIcon}>
+          <RmsmIcon name="wallet" size={20} color={colors.accent} />
+        </View>
+
+        <View style={styles.accountCardMain}>
           <Text style={styles.accountLabel}>CURRENT ACCOUNT</Text>
           <Text style={styles.accountName}>
-            {account?.name ?? 'Trading Account'}
+            {account?.name ?? (accountLoading ? 'Loading...' : 'Trading Account')}
+          </Text>
+          <Text style={styles.accountSwitcherHint}>
+            {accounts.length > 1
+              ? `${accounts.length} trading accounts • Tap to switch`
+              : 'Tap to view account'}
           </Text>
         </View>
 
@@ -148,27 +137,29 @@ export function MoreScreen({
           </Text>
           <Text style={styles.accountBalanceLabel}>Balance</Text>
         </View>
-      </View>
+
+        <Text style={styles.accountChevron}>›</Text>
+      </TouchableOpacity>
 
       <Text style={styles.sectionTitle}>ACCOUNT</Text>
 
       <View style={styles.section}>
         <MoreItem
-          icon="◎"
+          icon="user"
           title="Account & Profile"
           subtitle="Personal details and account information"
           onPress={() => onOpenDetail?.('account')}
         />
 
         <MoreItem
-          icon="▣"
+          icon="briefcase"
           title="Portfolio"
           subtitle="Positions, exposure and performance"
           onPress={() => onOpenDetail?.('portfolio')}
         />
 
         <MoreItem
-          icon="◒"
+          icon="chart"
           title="Analytics"
           subtitle="Trading performance and statistics"
           onPress={() => onOpenDetail?.('analytics')}
@@ -179,21 +170,21 @@ export function MoreScreen({
 
       <View style={styles.section}>
         <MoreItem
-          icon="⚙"
+          icon="sliders"
           title="Trading Settings"
           subtitle="Execution and trading preferences"
           onPress={() => onOpenDetail?.('trading-settings')}
         />
 
         <MoreItem
-          icon="◉"
+          icon="bell"
           title="Notifications"
           subtitle="Alerts and notification preferences"
           onPress={() => onOpenDetail?.('notifications')}
         />
 
         <MoreItem
-          icon="☾"
+          icon="moon"
           title="Appearance"
           subtitle="Dark theme and display preferences"
           onPress={() => onOpenDetail?.('appearance')}
@@ -204,7 +195,7 @@ export function MoreScreen({
 
       <View style={styles.section}>
         <MoreItem
-          icon="◆"
+          icon="shield"
           title="Security"
           subtitle="Password, sessions and security controls"
           onPress={() => onOpenDetail?.('security')}
@@ -215,14 +206,14 @@ export function MoreScreen({
 
       <View style={styles.section}>
         <MoreItem
-          icon="?"
+          icon="help"
           title="Help & Support"
           subtitle="Get help with RMSM"
           onPress={() => onOpenDetail?.('support')}
         />
 
         <MoreItem
-          icon="ⓘ"
+          icon="info"
           title="About RMSM"
           subtitle="Version 1.0.0"
           onPress={() => onOpenDetail?.('about')}
@@ -234,11 +225,93 @@ export function MoreScreen({
         style={styles.signOutButton}
         onPress={() => void onSignOut?.()}
       >
-        <Text style={styles.signOutIcon}>↪</Text>
+        <RmsmIcon name="logout" size={19} color={colors.danger} />
         <Text style={styles.signOutText}>Sign Out</Text>
       </TouchableOpacity>
 
       <Text style={styles.footer}>RMSM • Trading Terminal</Text>
+
+      <Modal
+        visible={accountPickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAccountPickerVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.accountPicker}>
+            <View style={styles.pickerHeader}>
+              <View>
+                <Text style={styles.pickerTitle}>Trading Accounts</Text>
+                <Text style={styles.pickerSubtitle}>
+                  Select the account used for trading
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setAccountPickerVisible(false)}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeButtonText}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.accountList}
+            >
+              {accounts.map((item) => {
+                const selected = item.id === account?.id;
+
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.accountOption,
+                      selected && styles.accountOptionSelected,
+                    ]}
+                    onPress={() => {
+                      void selectAccount(item.id).then(() => {
+                        setAccountPickerVisible(false);
+                      });
+                    }}
+                  >
+                    <View style={styles.accountOptionMain}>
+                      <Text style={styles.accountOptionName}>
+                        {item.name}
+                      </Text>
+
+                      <Text style={styles.accountOptionMeta}>
+                        {item.type} • {item.status}
+                      </Text>
+                    </View>
+
+                    <View style={styles.accountOptionRight}>
+                      <Text style={styles.accountOptionBalance}>
+                        {item.currency}{' '}
+                        {Number(item.balance).toLocaleString('en-US', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </Text>
+
+                      {selected ? (
+                        <Text style={styles.selectedMark}>✓</Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+
+              {accounts.length === 0 && (
+                <Text style={styles.noAccountsText}>
+                  No trading accounts available.
+                </Text>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -251,20 +324,20 @@ const styles = StyleSheet.create({
 
   content: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: 36,
+    paddingTop: spacing.md,
+    paddingBottom: 32,
   },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
 
   profileCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.accentSoft,
     borderWidth: 1,
     borderColor: colors.accent,
@@ -285,8 +358,9 @@ const styles = StyleSheet.create({
 
   title: {
     color: colors.text,
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: '800',
+    letterSpacing: 0.1,
   },
 
   subtitle: {
@@ -298,38 +372,39 @@ const styles = StyleSheet.create({
   accountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     borderRadius: radius.pill,
-    backgroundColor: colors.successSoft,
+    backgroundColor: colors.accentSoft,
     borderWidth: 1,
-    borderColor: colors.success,
+    borderColor: colors.accent,
   },
 
   accountDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: colors.success,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.accent,
     marginRight: 6,
   },
 
   accountBadgeText: {
-    color: colors.success,
-    fontSize: 11,
+    color: colors.accent,
+    fontSize: 10,
     fontWeight: '800',
+    letterSpacing: 0.5,
   },
 
   accountCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.lg,
   },
 
   accountLabel: {
@@ -342,7 +417,7 @@ const styles = StyleSheet.create({
 
   accountName: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
 
@@ -351,8 +426,8 @@ const styles = StyleSheet.create({
   },
 
   accountBalance: {
-    color: colors.text,
-    fontSize: 16,
+    color: colors.accent,
+    fontSize: 15,
     fontWeight: '800',
   },
 
@@ -366,9 +441,9 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 1.1,
-    marginBottom: spacing.sm,
-    marginLeft: 4,
+    letterSpacing: 1.2,
+    marginBottom: 7,
+    marginLeft: 3,
   },
 
   section: {
@@ -377,11 +452,11 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.lg,
     overflow: 'hidden',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
 
   item: {
-    minHeight: 68,
+    minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
@@ -390,19 +465,15 @@ const styles = StyleSheet.create({
   },
 
   itemIcon: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
-  },
-
-  itemIconText: {
-    color: colors.accent,
-    fontSize: 17,
-    fontWeight: '700',
   },
 
   itemContent: {
@@ -418,12 +489,14 @@ const styles = StyleSheet.create({
   itemSubtitle: {
     color: colors.textMuted,
     fontSize: 11,
-    marginTop: 4,
+    lineHeight: 15,
+    marginTop: 3,
   },
 
   chevron: {
     color: colors.textMuted,
-    fontSize: 25,
+    fontSize: 22,
+    fontWeight: '400',
     marginLeft: spacing.sm,
   },
 
@@ -432,7 +505,7 @@ const styles = StyleSheet.create({
   },
 
   signOutButton: {
-    height: 52,
+    height: 50,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.danger,
@@ -442,16 +515,150 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  signOutIcon: {
-    color: colors.danger,
-    fontSize: 18,
-    marginRight: spacing.sm,
-  },
-
   signOutText: {
     color: colors.danger,
     fontSize: 14,
     fontWeight: '800',
+  },
+
+  accountCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+
+  accountCardMain: {
+    flex: 1,
+  },
+
+  accountSwitcherHint: {
+    marginTop: 5,
+    color: colors.textMuted,
+    fontSize: 10,
+  },
+
+  accountChevron: {
+    marginLeft: spacing.sm,
+    color: colors.textSecondary,
+    fontSize: 26,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+  },
+
+  accountPicker: {
+    maxHeight: '78%',
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: spacing.lg,
+    borderTopWidth: 1,
+    borderColor: colors.border,
+  },
+
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+
+  pickerTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+
+  pickerSubtitle: {
+    marginTop: 4,
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
+
+  closeButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+
+  closeButtonText: {
+    color: colors.textSecondary,
+    fontSize: 24,
+  },
+
+  accountList: {
+    gap: spacing.sm,
+    paddingBottom: spacing.md,
+  },
+
+  accountOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+
+  accountOptionSelected: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+
+  accountOptionMain: {
+    flex: 1,
+  },
+
+  accountOptionName: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  accountOptionMeta: {
+    marginTop: 5,
+    color: colors.textSecondary,
+    fontSize: 11,
+  },
+
+  accountOptionRight: {
+    alignItems: 'flex-end',
+    marginLeft: spacing.md,
+  },
+
+  accountOptionBalance: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  selectedMark: {
+    marginTop: 5,
+    color: colors.accent,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+
+  noAccountsText: {
+    paddingVertical: spacing.xl,
+    textAlign: 'center',
+    color: colors.textSecondary,
   },
 
   footer: {
