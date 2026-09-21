@@ -16,6 +16,18 @@ interface LiveQuote {
   sourceTimestamp?: Date;
 }
 
+interface LiveDepthLevel {
+  price: string;
+  size?: string;
+}
+
+interface LiveDepth {
+  providerSymbol: string;
+  bids: LiveDepthLevel[];
+  asks: LiveDepthLevel[];
+  eventTime: Date;
+}
+
 @Injectable()
 export class CTraderLiveQuoteIngestionService implements OnModuleInit {
   private readonly logger = new Logger(
@@ -51,6 +63,10 @@ export class CTraderLiveQuoteIngestionService implements OnModuleInit {
   onModuleInit(): void {
     this.client.on("quote", (quote: LiveQuote) => {
       this.handleQuote(quote);
+    });
+
+    this.client.on("depth", (depth: LiveDepth) => {
+      this.handleDepth(depth);
     });
 
     this.client.on("loggedOn", () => {
@@ -130,6 +146,22 @@ export class CTraderLiveQuoteIngestionService implements OnModuleInit {
       askSize: quote.askSize,
       eventTime: quote.eventTime,
       sourceTimestamp: quote.sourceTimestamp,
+    });
+  }
+
+  private handleDepth(depth: LiveDepth): void {
+    const alias = this.aliasesBySymbol.get(depth.providerSymbol);
+
+    if (!this.providerId || !alias) {
+      return;
+    }
+
+    this.streamPublisher.publishDepth({
+      instrumentId: alias.instrumentId,
+      providerSymbol: depth.providerSymbol,
+      bids: depth.bids,
+      asks: depth.asks,
+      eventTime: depth.eventTime,
     });
   }
 

@@ -24,6 +24,7 @@ describe("CTraderLiveQuoteIngestionService", () => {
 
   const streamPublisher = {
     publishQuote: jest.fn(),
+    publishDepth: jest.fn(),
   };
 
   let service: CTraderLiveQuoteIngestionService;
@@ -108,6 +109,51 @@ describe("CTraderLiveQuoteIngestionService", () => {
         key.toLowerCase().includes("quote"),
       ),
     ).toBe(false);
+  });
+
+  it("publishes live depth using the resolved instrument alias", async () => {
+    const loggedOn = listeners.get("loggedOn");
+
+    expect(loggedOn).toBeDefined();
+
+    loggedOn!();
+
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    const depthListener = listeners.get("depth");
+
+    expect(depthListener).toBeDefined();
+
+    const eventTime = new Date("2026-09-18T05:00:10.000Z");
+
+    depthListener!({
+      providerSymbol: "XAUUSD",
+      bids: [
+        { price: "3650.10", size: "10" },
+        { price: "3650.00", size: "20" },
+      ],
+      asks: [
+        { price: "3650.30", size: "12" },
+        { price: "3650.40", size: "18" },
+      ],
+      eventTime,
+    });
+
+    expect(streamPublisher.publishDepth).toHaveBeenCalledTimes(1);
+
+    expect(streamPublisher.publishDepth).toHaveBeenCalledWith({
+      instrumentId: "instrument-1",
+      providerSymbol: "XAUUSD",
+      bids: [
+        { price: "3650.10", size: "10" },
+        { price: "3650.00", size: "20" },
+      ],
+      asks: [
+        { price: "3650.30", size: "12" },
+        { price: "3650.40", size: "18" },
+      ],
+      eventTime,
+    });
   });
 
   it("loads provider and aliases once on FIX logon", async () => {

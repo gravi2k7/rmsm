@@ -633,6 +633,45 @@ describe("CTraderFixClient", () => {
     expect(quote.askPrice).toBe("1.16946");
   });
 
+  it("emits live depth with all BID and ASK levels from a market-data snapshot", () => {
+    const client = new CTraderFixClient(
+      buildOptions(),
+      new CTraderFixMapper(),
+    );
+
+    const depthListener = jest.fn();
+
+    client.on("depth", depthListener);
+
+    const handleMessage = (
+      client as unknown as {
+        handleMessage: (raw: string) => void;
+      }
+    ).handleMessage;
+
+    handleMessage.call(client, buildMarketDataSnapshot());
+
+    expect(depthListener).toHaveBeenCalledTimes(1);
+
+    const depth = depthListener.mock.calls[0]?.[0];
+
+    expect(depth).toBeDefined();
+    expect(depth.providerSymbol).toBe("1");
+    expect(depth.bids).toEqual([
+      {
+        price: "1.16936",
+        size: undefined,
+      },
+    ]);
+    expect(depth.asks).toEqual([
+      {
+        price: "1.16946",
+        size: undefined,
+      },
+    ]);
+    expect(depth.eventTime).toBeInstanceOf(Date);
+  });
+
   it("preserves both repeated 269/270 market-data entries", () => {
     const client = new CTraderFixClient(
       buildOptions(),
