@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { BarChart3, Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@rmsm/ui";
 import type { IndicatorConfig } from "../indicators/config";
+import {
+  MARKET_CHART_TOOLBAR_BUTTON_CLASS,
+} from "./market-chart-toolbar-styles";
 
 interface MarketIndicatorControlsProps {
   indicators: IndicatorConfig[];
@@ -22,6 +26,24 @@ function indicatorLabel(indicator: IndicatorConfig): string {
 
     case "VWAP":
       return "VWAP";
+
+    case "VWMA":
+      return `VWMA ${indicator.period ?? 20}`;
+
+    case "CCI":
+      return `CCI ${indicator.period ?? 20}`;
+
+    case "ROC":
+      return `ROC ${indicator.period ?? 12}`;
+
+    case "WILLIAMS_R":
+      return `Williams %R ${indicator.period ?? 14}`;
+
+    case "OBV":
+      return "OBV";
+
+    case "VOLUME":
+      return "Volume";
 
     case "BOLLINGER":
       return `Bollinger ${indicator.period ?? 20}, ${
@@ -100,10 +122,17 @@ function IndicatorParameters({
     case "RSI":
     case "ATR":
     case "ADX":
+    case "VWMA":
+    case "CCI":
+    case "ROC":
+    case "WILLIAMS_R":
       return (
         <NumberField
           label="Period"
-          value={indicator.period ?? 14}
+          value={
+            indicator.period ??
+            (indicator.type === "ROC" ? 12 : 14)
+          }
           min={1}
           max={500}
           onChange={(period) => onUpdate({ period })}
@@ -193,6 +222,8 @@ function IndicatorParameters({
       );
 
     case "VWAP":
+    case "OBV":
+    case "VOLUME":
       return (
         <div className="px-2 py-1 text-xs text-muted-foreground">
           No parameters
@@ -282,6 +313,55 @@ export function MarketIndicatorControls({
 }: MarketIndicatorControlsProps) {
   const [open, setOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+
+      if (
+        target instanceof Node &&
+        containerRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      setOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener(
+      "pointerdown",
+      handlePointerDown,
+      true,
+    );
+    document.addEventListener(
+      "keydown",
+      handleKeyDown,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        handlePointerDown,
+        true,
+      );
+      document.removeEventListener(
+        "keydown",
+        handleKeyDown,
+      );
+    };
+  }, [open]);
 
   const overlays = indicators.filter(
     (indicator) => indicator.placement === "overlay",
@@ -291,32 +371,58 @@ export function MarketIndicatorControls({
     (indicator) => indicator.placement === "pane",
   );
 
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  const filteredOverlays = overlays.filter((indicator) =>
+    indicatorLabel(indicator)
+      .toLowerCase()
+      .includes(normalizedSearchQuery),
+  );
+
+  const filteredPanes = panes.filter((indicator) =>
+    indicatorLabel(indicator)
+      .toLowerCase()
+      .includes(normalizedSearchQuery),
+  );
+
   const activeCount = indicators.filter(
     (indicator) => indicator.visible,
   ).length;
 
   return (
-    <div className="relative">
+    <div
+      ref={containerRef}
+      className="relative"
+    >
       <Button
         type="button"
-        variant="outline"
+        variant="ghost"
         size="sm"
-        onClick={() => setOpen((value) => !value)}
+        className={MARKET_CHART_TOOLBAR_BUTTON_CLASS}
+        data-active={activeCount > 0}
+        onClick={() =>
+          setOpen((value) => !value)
+        }
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label="Indicators"
+        title="Indicators"
         data-testid="market-indicator-controls"
       >
-        Indicators
+        <BarChart3
+          className="h-4 w-4"
+          aria-hidden="true"
+        />
+        <span className="sr-only">Indicators</span>
         {activeCount > 0 ? (
           <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
             {activeCount}
           </span>
         ) : null}
       </Button>
-
       {open ? (
         <div
-          className="absolute right-0 top-full z-50 mt-2 w-80 rounded-lg border bg-background p-2 shadow-xl"
+          className="absolute right-0 top-full z-50 mt-2 w-[min(20rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] rounded-lg border bg-background p-2 shadow-xl"
           data-testid="market-indicator-menu"
         >
           <div className="mb-2 flex items-center justify-between px-2">
@@ -341,12 +447,31 @@ export function MarketIndicatorControls({
             </Button>
           </div>
 
-          <div className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Overlays
+          <div className="mb-2 px-2">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search indicators..."
+                aria-label="Search indicators"
+                data-testid="indicator-search"
+                className="h-8 w-full rounded-md border bg-background pl-8 pr-2 text-xs outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-primary"
+              />
+            </div>
           </div>
 
-          <div className="space-y-0.5">
-            {overlays.map((indicator) => (
+          <div className="max-h-[min(24rem,60vh)] overflow-y-auto pr-1">
+            <div className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Overlays
+            </div>
+
+            <div className="space-y-0.5">
+              {filteredOverlays.map((indicator) => (
               <IndicatorRow
                 key={indicator.id}
                 indicator={indicator}
@@ -362,14 +487,14 @@ export function MarketIndicatorControls({
             ))}
           </div>
 
-          <div className="my-2 border-t" />
+            <div className="my-2 border-t" />
 
-          <div className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Oscillators
-          </div>
+            <div className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Oscillators
+            </div>
 
-          <div className="space-y-0.5">
-            {panes.map((indicator) => (
+            <div className="space-y-0.5">
+              {filteredPanes.map((indicator) => (
               <IndicatorRow
                 key={indicator.id}
                 indicator={indicator}
@@ -382,7 +507,15 @@ export function MarketIndicatorControls({
                 }
                 onUpdate={onUpdate}
               />
-            ))}
+              ))}
+            </div>
+
+            {filteredOverlays.length === 0 &&
+            filteredPanes.length === 0 ? (
+              <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                No indicators found.
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

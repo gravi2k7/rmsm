@@ -4,6 +4,7 @@ import { renderWithQueryClient } from "@/test/render-with-query";
 import TeamPage from "../page";
 import { useAuthStore } from "@/lib/auth-store";
 import { useSessionStore } from "@/lib/session-store";
+import { useOrganizationStore } from "@/lib/organization-store";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -19,11 +20,17 @@ describe("TeamPage (WM-020E)", () => {
     vi.unstubAllGlobals();
     useAuthStore.setState({ accessToken: null, refreshToken: null, user: null });
     useSessionStore.getState().clear();
+    useOrganizationStore.getState().setActiveOrganization(null);
   });
 
   it("shows the Invite Member button for a user with the invite permission", async () => {
     useAuthStore.setState({ accessToken: "t", refreshToken: "r", user: { sub: "u1", email: "owner@example.com", roles: ["OWNER"], permissions: ["organization.member.invite"], sessionId: "s1" } });
     useSessionStore.setState({ organizationId: "org-1", accessToken: "session-t" });
+    useOrganizationStore.getState().setActiveOrganization({
+      id: "org-1",
+      name: "Test Organization",
+      slug: "test-organization",
+    });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse([])));
 
     renderPage();
@@ -34,6 +41,11 @@ describe("TeamPage (WM-020E)", () => {
   it("hides the Invite Member button for a user without the invite permission", async () => {
     useAuthStore.setState({ accessToken: "t", refreshToken: "r", user: { sub: "u2", email: "viewer@example.com", roles: ["VIEWER"], permissions: [], sessionId: "s2" } });
     useSessionStore.setState({ organizationId: "org-1", accessToken: "session-t" });
+    useOrganizationStore.getState().setActiveOrganization({
+      id: "org-1",
+      name: "Test Organization",
+      slug: "test-organization",
+    });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse([])));
 
     renderPage();

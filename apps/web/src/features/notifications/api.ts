@@ -47,6 +47,12 @@ export const notificationApi = {
   markRead(ctx: RequestContext, id: string): Promise<Notification> {
     return notificationRequest(ctx, `/${id}/read`, { method: "PATCH" });
   },
+  markAllRead(ctx: RequestContext): Promise<{ count: number }> {
+    return notificationRequest(ctx, "/read-all", { method: "PATCH" });
+  },
+  deleteAll(ctx: RequestContext): Promise<{ count: number }> {
+    return notificationRequest(ctx, "/all", { method: "DELETE" });
+  },
   archive(ctx: RequestContext, id: string): Promise<Notification> {
     return notificationRequest(ctx, `/${id}/archive`, { method: "PATCH" });
   },

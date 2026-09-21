@@ -4,6 +4,7 @@ import { renderWithQueryClient } from "@/test/render-with-query";
 import userEvent from "@testing-library/user-event";
 import { CommandPalette } from "../command-palette";
 import { useAuthStore } from "@/lib/auth-store";
+import { useCommandPaletteStore } from "@/lib/command-palette-store";
 
 const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -23,6 +24,7 @@ describe("CommandPalette", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     pushMock.mockClear();
+    useCommandPaletteStore.setState({ open: false });
   });
 
   it("is closed by default", () => {

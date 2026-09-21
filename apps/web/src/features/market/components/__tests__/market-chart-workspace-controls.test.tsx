@@ -1,76 +1,82 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
-import {
-  MarketChartWorkspaceControls,
-  type MarketChartLayout,
-} from "../market-chart-workspace-controls";
-
-function renderControls(
-  layout: MarketChartLayout = "CHART_WITH_PANES",
-) {
-  const onLayoutChange = vi.fn();
-  const onResetWorkspace = vi.fn();
-
-  render(
-    <MarketChartWorkspaceControls
-      layout={layout}
-      onLayoutChange={onLayoutChange}
-      onResetWorkspace={onResetWorkspace}
-    />,
-  );
-
-  return {
-    onLayoutChange,
-    onResetWorkspace,
-  };
-}
+import { MarketChartWorkspaceControls } from "../market-chart-workspace-controls";
 
 describe("MarketChartWorkspaceControls", () => {
-  it("marks the active workspace layout", () => {
-    renderControls("CHART_WITH_PANES");
+  it("renders the Split workspace control and Reset", () => {
+    const onLayoutChange = vi.fn();
+    const onResetWorkspace = vi.fn();
+
+    render(
+      <MarketChartWorkspaceControls
+        layout="SPLIT"
+        onLayoutChange={onLayoutChange}
+        onResetWorkspace={onResetWorkspace}
+      />,
+    );
+
+    const splitButton = screen.getByRole("button", {
+      name: "Chart workspace",
+    });
+
+    expect(splitButton).toBeInTheDocument();
+    expect(splitButton).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     expect(
       screen.getByRole("button", {
-        name: "Chart with indicator panes",
+        name: "Reset chart workspace",
       }),
-    ).toHaveAttribute("aria-pressed", "true");
-
-    expect(
-      screen.getByRole("button", {
-        name: "Chart only",
-      }),
-    ).toHaveAttribute("aria-pressed", "false");
+    ).toBeInTheDocument();
   });
 
-  it("changes the selected workspace layout", () => {
-    const { onLayoutChange } =
-      renderControls("CHART_WITH_PANES");
+  it("keeps Split active", () => {
+    const onLayoutChange = vi.fn();
+    const onResetWorkspace = vi.fn();
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Chart only",
-      }),
+    render(
+      <MarketChartWorkspaceControls
+        layout="SPLIT"
+        onLayoutChange={onLayoutChange}
+        onResetWorkspace={onResetWorkspace}
+      />,
     );
 
-    expect(onLayoutChange).toHaveBeenCalledWith(
-      "CHART_ONLY",
+    const splitButton = screen.getByRole("button", {
+      name: "Chart workspace",
+    });
+
+    expect(splitButton).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Split chart workspace",
-      }),
+    expect(splitButton).toHaveAttribute(
+      "data-active",
+      "true",
     );
+
+    fireEvent.click(splitButton);
 
     expect(onLayoutChange).toHaveBeenCalledWith(
       "SPLIT",
     );
   });
 
-  it("resets the workspace", () => {
-    const { onResetWorkspace } =
-      renderControls();
+  it("calls reset when Reset is clicked", () => {
+    const onLayoutChange = vi.fn();
+    const onResetWorkspace = vi.fn();
+
+    render(
+      <MarketChartWorkspaceControls
+        layout="SPLIT"
+        onLayoutChange={onLayoutChange}
+        onResetWorkspace={onResetWorkspace}
+      />,
+    );
 
     fireEvent.click(
       screen.getByRole("button", {

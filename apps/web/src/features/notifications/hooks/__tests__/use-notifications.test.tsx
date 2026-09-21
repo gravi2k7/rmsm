@@ -2,7 +2,8 @@ import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { createQueryClientWrapper } from "@/test/render-with-query";
 import { useNotifications, useMarkNotificationRead, useMarkAllRead } from "../use-notifications";
-import { useSessionStore } from "@/lib/session-store";
+import { useAuthStore } from "@/lib/auth-store";
+import { useOrganizationStore } from "@/lib/organization-store";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -10,7 +11,15 @@ function jsonResponse(body: unknown, status = 200) {
 
 describe("notification hooks", () => {
   beforeEach(() => {
-    useSessionStore.setState({ organizationId: "org-1", accessToken: "token-1" });
+    useAuthStore.setState({
+      accessToken: "token-1",
+      refreshToken: "refresh-1",
+      user: null,
+    });
+    useOrganizationStore.setState({
+      activeOrganization: { id: "org-1" } as never,
+    });
+    useOrganizationStore.setState({ activeOrganization: { id: "org-1" } as never });
   });
 
   afterEach(() => {
@@ -31,7 +40,14 @@ describe("notification hooks", () => {
   });
 
   it("useNotifications does not fire when no org session is connected", () => {
-    useSessionStore.setState({ organizationId: null, accessToken: null });
+    useAuthStore.setState({
+      accessToken: null,
+      refreshToken: null,
+      user: null,
+    });
+    useOrganizationStore.setState({
+      activeOrganization: null,
+    });
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -54,14 +70,18 @@ describe("notification hooks", () => {
     expect(init.method).toBe("PATCH");
   });
 
-  it("useMarkAllRead issues one real request per notification (no fake bulk endpoint)", async () => {
-    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({}));
+  it("useMarkAllRead calls the real bulk read-all endpoint once", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({ count: 3 }));
     vi.stubGlobal("fetch", fetchMock);
 
     const { wrapper } = createQueryClientWrapper();
     const { result } = renderHook(() => useMarkAllRead(), { wrapper });
-    await result.current.mutateAsync(["n1", "n2", "n3"]);
+    await result.current.mutateAsync();
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/notifications/organizations/org-1/read-all");
+    expect(init.method).toBe("PATCH");
   });
 });

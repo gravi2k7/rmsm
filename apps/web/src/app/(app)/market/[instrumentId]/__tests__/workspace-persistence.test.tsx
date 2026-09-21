@@ -18,14 +18,12 @@ describe("Market workspace persistence", () => {
     store.setWorkspace("instrument-a", {
       interval: "FIVE_MINUTES",
       activeDrawingTool: "TREND_LINE",
-      volumeVisible: false,
-      chartLayout: "CHART_ONLY",
+      chartLayout: "SPLIT",
     });
 
     store.setWorkspace("instrument-b", {
       interval: "ONE_HOUR",
       activeDrawingTool: "SELECT",
-      volumeVisible: true,
       chartLayout: "SPLIT",
     });
 
@@ -42,14 +40,12 @@ describe("Market workspace persistence", () => {
     expect(instrumentA).toMatchObject({
       interval: "FIVE_MINUTES",
       activeDrawingTool: "TREND_LINE",
-      volumeVisible: false,
-      chartLayout: "CHART_ONLY",
+      chartLayout: "SPLIT",
     });
 
     expect(instrumentB).toMatchObject({
       interval: "ONE_HOUR",
       activeDrawingTool: "SELECT",
-      volumeVisible: true,
       chartLayout: "SPLIT",
     });
   });
@@ -65,7 +61,6 @@ describe("Market workspace persistence", () => {
     expect(DEFAULT_MARKET_WORKSPACE).toMatchObject({
       interval: "ONE_MINUTE",
       activeDrawingTool: "SELECT",
-      volumeVisible: true,
       chartLayout: "SPLIT",
       indicators: [],
     });

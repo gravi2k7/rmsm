@@ -12,27 +12,39 @@ function DashboardContent() {
   const archived = useStrategies({ status: "ARCHIVED", pageSize: 1, page: 1 });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="rmsm-mobile-glass-page w-full min-w-0 space-y-4 overflow-x-hidden pb-8 sm:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-semibold">Strategy Dashboard</h1>
-        <Button asChild>
+        <Button asChild className="w-full sm:w-auto">
           <Link href="/strategies/new">
             <Plus /> New Strategy
           </Link>
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <SummaryCard label="Active strategies" value={active.data?.pagination.totalCount} loading={active.isLoading} />
-        <SummaryCard label="Archived strategies" value={archived.data?.pagination.totalCount} loading={archived.isLoading} />
-        <SummaryCard label="Shown on this page" value={active.data?.data.length} loading={active.isLoading} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+        <SummaryCard
+          label="Active strategies"
+          value={active.data?.pagination.totalCount}
+          loading={active.isLoading}
+        />
+        <SummaryCard
+          label="Archived strategies"
+          value={archived.data?.pagination.totalCount}
+          loading={archived.isLoading}
+        />
+        <SummaryCard
+          label="Shown on this page"
+          value={active.data?.data.length}
+          loading={active.isLoading}
+        />
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Recently created (active)</CardTitle>
+        <CardHeader className="px-3 py-3 sm:px-6 sm:py-4">
+          <CardTitle className="text-sm sm:text-base">Recently created (active)</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 pb-3 sm:px-6 sm:pb-6">
           {active.isLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -42,19 +54,27 @@ function DashboardContent() {
           ) : active.data && active.data.data.length > 0 ? (
             <ul className="divide-y">
               {active.data.data.map((s) => (
-                <li key={s.id} className="flex items-center justify-between py-2">
-                  <Link href={`/strategies/${s.id}`} className="text-sm font-medium hover:underline">
+                <li
+                  key={s.id}
+                  className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <Link
+                    href={`/strategies/${s.id}`}
+                    className="min-w-0 truncate text-sm font-medium hover:underline"
+                  >
                     {s.name}
                   </Link>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">{s.category.replace(/_/g, " ")}</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-muted-foreground text-xs">
+                      {s.category.replace(/_/g, " ")}
+                    </span>
                     <StrategyStatusBadge status={s.status} />
                   </div>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">No active strategies yet.</p>
+            <p className="text-muted-foreground text-sm">No active strategies yet.</p>
           )}
         </CardContent>
       </Card>
@@ -62,13 +82,29 @@ function DashboardContent() {
   );
 }
 
-function SummaryCard({ label, value, loading }: { label: string; value: number | undefined; loading: boolean }) {
+function SummaryCard({
+  label,
+  value,
+  loading,
+}: {
+  label: string;
+  value: number | undefined;
+  loading: boolean;
+}) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
+      <CardHeader className="px-3 py-3 sm:px-6 sm:py-4">
+        <CardTitle className="text-muted-foreground text-xs font-medium sm:text-sm">
+          {label}
+        </CardTitle>
       </CardHeader>
-      <CardContent>{loading ? <Skeleton className="h-8 w-16" /> : <p className="text-3xl font-semibold">{value ?? 0}</p>}</CardContent>
+      <CardContent className="px-3 pb-3 sm:px-6 sm:pb-6">
+        {loading ? (
+          <Skeleton className="h-8 w-16" />
+        ) : (
+          <p className="text-2xl font-semibold sm:text-3xl">{value ?? 0}</p>
+        )}
+      </CardContent>
     </Card>
   );
 }

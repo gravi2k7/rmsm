@@ -13,7 +13,36 @@ export interface IndicatorConfig {
   smoothK?: number;
   smoothD?: number;
   standardDeviations?: number;
+  source?: "close" | "open" | "high" | "low" | "hl2" | "hlc3";
   visible: boolean;
+}
+
+export function mergeIndicatorConfigs(
+  persisted: IndicatorConfig[],
+): IndicatorConfig[] {
+  const defaultsById = new Map(
+    DEFAULT_INDICATORS.map((indicator) => [
+      indicator.id,
+      indicator,
+    ]),
+  );
+
+  const merged = persisted.map((indicator) => ({
+    ...(defaultsById.get(indicator.id) ?? {}),
+    ...indicator,
+  }));
+
+  const persistedIds = new Set(
+    persisted.map((indicator) => indicator.id),
+  );
+
+  for (const indicator of DEFAULT_INDICATORS) {
+    if (!persistedIds.has(indicator.id)) {
+      merged.push({ ...indicator });
+    }
+  }
+
+  return merged;
 }
 
 export const DEFAULT_INDICATORS: IndicatorConfig[] = [
@@ -89,6 +118,46 @@ export const DEFAULT_INDICATORS: IndicatorConfig[] = [
     type: "ADX",
     placement: "pane",
     period: 14,
+    visible: false,
+  },
+  {
+    id: "vwma-20",
+    type: "VWMA",
+    placement: "overlay",
+    period: 20,
+    visible: false,
+  },
+  {
+    id: "cci-20",
+    type: "CCI",
+    placement: "pane",
+    period: 20,
+    visible: false,
+  },
+  {
+    id: "roc-12",
+    type: "ROC",
+    placement: "pane",
+    period: 12,
+    visible: false,
+  },
+  {
+    id: "williams-r-14",
+    type: "WILLIAMS_R",
+    placement: "pane",
+    period: 14,
+    visible: false,
+  },
+  {
+    id: "obv",
+    type: "OBV",
+    placement: "pane",
+    visible: false,
+  },
+  {
+    id: "volume",
+    type: "VOLUME",
+    placement: "pane",
     visible: false,
   },
 ];

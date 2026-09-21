@@ -77,7 +77,7 @@ function ChangePasswordCard() {
           </Alert>
         )}
         <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} noValidate>
-          <div className="space-y-2">
+          <div className="rmsm-mobile-glass-page space-y-2">
             <Label htmlFor="currentPassword">Current password</Label>
             <Input
               id="currentPassword"
@@ -87,7 +87,7 @@ function ChangePasswordCard() {
               aria-invalid={!!form.formState.errors.currentPassword}
             />
             {form.formState.errors.currentPassword && (
-              <p className="text-sm text-destructive" role="alert">
+              <p className="text-destructive text-sm" role="alert">
                 {form.formState.errors.currentPassword.message}
               </p>
             )}
@@ -102,7 +102,7 @@ function ChangePasswordCard() {
               aria-invalid={!!form.formState.errors.newPassword}
             />
             {form.formState.errors.newPassword && (
-              <p className="text-sm text-destructive" role="alert">
+              <p className="text-destructive text-sm" role="alert">
                 {form.formState.errors.newPassword.message}
               </p>
             )}
@@ -117,7 +117,7 @@ function ChangePasswordCard() {
               aria-invalid={!!form.formState.errors.confirmPassword}
             />
             {form.formState.errors.confirmPassword && (
-              <p className="text-sm text-destructive" role="alert">
+              <p className="text-destructive text-sm" role="alert">
                 {form.formState.errors.confirmPassword.message}
               </p>
             )}
@@ -155,7 +155,9 @@ function SessionsCard() {
             <Laptop className="h-4 w-4" aria-hidden="true" />
             Active sessions
           </CardTitle>
-          <CardDescription>Devices and browsers currently signed in to your account.</CardDescription>
+          <CardDescription>
+            Devices and browsers currently signed in to your account.
+          </CardDescription>
         </div>
         <Button
           variant="outline"
@@ -177,12 +179,14 @@ function SessionsCard() {
         {sessionsQuery.isError && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" aria-hidden="true" />
-            <AlertDescription>Couldn&apos;t load your active sessions. Please try again.</AlertDescription>
+            <AlertDescription>
+              Couldn&apos;t load your active sessions. Please try again.
+            </AlertDescription>
           </Alert>
         )}
 
         {sessionsQuery.data && sessionsQuery.data.length === 0 && (
-          <p className="text-sm text-muted-foreground">No active sessions found.</p>
+          <p className="text-muted-foreground text-sm">No active sessions found.</p>
         )}
 
         {sessionsQuery.data && sessionsQuery.data.length > 0 && (
@@ -196,14 +200,24 @@ function SessionsCard() {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">
                         {session.deviceLabel ?? session.userAgent ?? "Unknown device"}
-                        {isCurrent && <span className="ml-2 text-xs font-normal text-muted-foreground">(this device)</span>}
+                        {isCurrent && (
+                          <span className="text-muted-foreground ml-2 text-xs font-normal">
+                            (this device)
+                          </span>
+                        )}
                       </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {session.ipAddress ?? "Unknown IP"} — last active {formatDistanceToNow(new Date(session.lastSeenAt), { addSuffix: true })}
+                      <p className="text-muted-foreground truncate text-xs">
+                        {session.ipAddress ?? "Unknown IP"} — last active{" "}
+                        {formatDistanceToNow(new Date(session.lastSeenAt), { addSuffix: true })}
                       </p>
                     </div>
                     {!isCurrent && (
-                      <Button variant="ghost" size="sm" onClick={() => handleRevoke(session.id)} disabled={revokingId === session.id}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRevoke(session.id)}
+                        disabled={revokingId === session.id}
+                      >
                         {revokingId === session.id ? "Signing out…" : "Sign out"}
                       </Button>
                     )}
@@ -223,7 +237,9 @@ export default function SecuritySettingsPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-xl font-semibold">Security</h1>
-        <p className="text-sm text-muted-foreground">Manage your password, two-factor authentication, and active sessions.</p>
+        <p className="text-muted-foreground text-sm">
+          Manage your password, two-factor authentication, and active sessions.
+        </p>
       </div>
       <ChangePasswordCard />
       <TwoFactorManagement />

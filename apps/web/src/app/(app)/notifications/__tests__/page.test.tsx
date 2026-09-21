@@ -2,7 +2,8 @@ import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { renderWithQueryClient } from "@/test/render-with-query";
 import NotificationCenterPage from "../page";
-import { useSessionStore } from "@/lib/session-store";
+import { useAuthStore } from "@/lib/auth-store";
+import { useOrganizationStore } from "@/lib/organization-store";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -14,7 +15,14 @@ function renderPage() {
 
 describe("NotificationCenterPage", () => {
   beforeEach(() => {
-    useSessionStore.setState({ organizationId: null, accessToken: null });
+    useAuthStore.setState({
+      accessToken: null,
+      refreshToken: null,
+      user: null,
+    });
+    useOrganizationStore.setState({
+      activeOrganization: null,
+    });
   });
 
   afterEach(() => {
@@ -28,7 +36,15 @@ describe("NotificationCenterPage", () => {
   });
 
   it("renders unread notifications once a session is connected", async () => {
-    useSessionStore.setState({ organizationId: "org-1", accessToken: "token-1" });
+    useAuthStore.setState({
+      accessToken: "token-1",
+      refreshToken: "refresh-1",
+      user: null,
+    });
+    useOrganizationStore.setState({
+      activeOrganization: { id: "org-1" } as never,
+    });
+    useOrganizationStore.setState({ activeOrganization: { id: "org-1" } as never });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(

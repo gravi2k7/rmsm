@@ -40,13 +40,13 @@ export default function LoginPage() {
       setStage("2fa");
       return;
     }
-    router.push("/dashboard");
+    router.push("/trading");
   }
 
   async function onSubmitTwoFactor(values: z.infer<typeof twoFactorSchema>) {
     if (!credentials) return;
     await login.mutateAsync({ ...credentials, twoFactorCode: values.twoFactorCode });
-    router.push("/dashboard");
+    router.push("/trading");
   }
 
   const errorMessage = login.isError ? (login.error instanceof ApiError ? login.error.message : "Something went wrong. Please try again.") : null;

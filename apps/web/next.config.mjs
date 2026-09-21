@@ -6,6 +6,16 @@ const nextConfig = {
 
   transpilePackages: ["@rmsm/ui"],
 
+  async redirects() {
+    return [
+      {
+        source: "/market/:instrumentId",
+        destination: "/trading?instrument=:instrumentId",
+        permanent: false,
+      },
+    ];
+  },
+
   eslint: {
     dirs: ["src"],
   },

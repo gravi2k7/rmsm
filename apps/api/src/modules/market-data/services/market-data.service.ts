@@ -85,6 +85,10 @@ export class MarketDataService {
     return instrument;
   }
 
+  getInstrumentsByIds(ids: readonly string[]): Promise<InstrumentModel[]> {
+    return this.instrumentRepository.findByIds(ids);
+  }
+
   async getInstrumentByExchangeAndSymbol(exchangeId: string, symbol: string): Promise<InstrumentModel> {
     const instrument = await this.instrumentRepository.findByExchangeAndSymbol(exchangeId, symbol);
     if (!instrument) throw new NotFoundError("Instrument", `${exchangeId}/${symbol}`);

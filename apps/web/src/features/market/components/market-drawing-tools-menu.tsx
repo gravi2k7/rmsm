@@ -1,11 +1,10 @@
 "use client";
 
-import { type ComponentType } from "react";
+import { useEffect, useState, type ComponentType, type CSSProperties } from "react";
 
 import {
   ArrowUpRight,
   ChartNoAxesCombined,
-  ChevronDown,
   CircleDot,
   Crosshair,
   DraftingCompass,
@@ -13,6 +12,11 @@ import {
   Minus,
   MoveUpRight,
   MoveVertical,
+  Circle,
+  MessageSquare,
+  Star,
+  Tag,
+  CandlestickChart,
   MousePointer2,
   PenTool,
   Ruler,
@@ -20,14 +24,32 @@ import {
   Triangle,
   Type,
   TrendingUp,
+  ChevronRight,
 } from "lucide-react";
-import { Button } from "@rmsm/ui";
-import { cn } from "@rmsm/ui";
+
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+  cn,
+} from "@rmsm/ui";
 
 import {
   DRAWING_TOOL_DEFINITIONS,
 } from "@/features/market/drawings/registry";
 import type { DrawingType } from "@/features/market/drawings/types";
+import {
+  getFavoriteDrawingTools,
+  setFavoriteDrawingTools,
+} from "@/features/market/drawings/favorites";
+import { drawingToolPalette } from "@/features/market/drawings/palette";
 
 interface MarketDrawingToolsMenuProps {
   activeDrawingTool: DrawingType;
@@ -38,16 +60,26 @@ interface MarketDrawingToolsMenuProps {
 
 const DRAWING_TOOL_ICONS: Record<
   DrawingType,
-  ComponentType<{ className?: string }>
+  ComponentType<{
+    className?: string;
+    style?: CSSProperties;
+  }>
 > = {
   SELECT: MousePointer2,
   TREND_LINE: TrendingUp,
   HORIZONTAL_LINE: Minus,
   VERTICAL_LINE: MoveVertical,
   RAY: MoveUpRight,
+  EXTENDED_LINE: MoveUpRight,
+  CROSS_LINE: Crosshair,
   RECTANGLE: Square,
+  CIRCLE: Circle,
+  POLYLINE: PenTool,
   ARROW: ArrowUpRight,
   TEXT: Type,
+  NOTE: MessageSquare,
+  CALLOUT: MessageSquare,
+  PRICE_LABEL: Tag,
 
   PARALLEL_CHANNEL: GitBranch,
   PRICE_CHANNEL: DraftingCompass,
@@ -57,6 +89,7 @@ const DRAWING_TOOL_ICONS: Record<
   FIB_EXTENSION: Crosshair,
   FIB_PROJECTION: MoveUpRight,
   FIB_TIME: CircleDot,
+  FIB_CHANNEL: GitBranch,
 
   ABCD: GitBranch,
   XABCD: Crosshair,
@@ -71,27 +104,47 @@ const DRAWING_TOOL_ICONS: Record<
   MEASURE_TIME: MoveVertical,
   MEASURE_PRICE_TIME: MoveUpRight,
   MEASURE_RANGE: Ruler,
+  LONG_POSITION: CandlestickChart,
+  SHORT_POSITION: CandlestickChart,
 };
 
-const GROUPS: Array<{
+interface DrawingToolGroup {
+  id:
+    | "lines"
+    | "channels"
+    | "fibonacci"
+    | "shapes"
+    | "patterns"
+    | "forecast"
+    | "measurement"
+    | "text";
   label: string;
+  icon: ComponentType<{
+    className?: string;
+    style?: CSSProperties;
+  }>;
   types: DrawingType[];
-}> = [
+}
+
+const GROUPS: readonly DrawingToolGroup[] = [
   {
-    label: "Basic",
+    id: "lines",
+    label: "Lines",
+    icon: TrendingUp,
     types: [
-      "SELECT",
       "TREND_LINE",
       "HORIZONTAL_LINE",
       "VERTICAL_LINE",
       "RAY",
-      "RECTANGLE",
+      "EXTENDED_LINE",
+      "CROSS_LINE",
       "ARROW",
-      "TEXT",
     ],
   },
   {
+    id: "channels",
     label: "Channels",
+    icon: GitBranch,
     types: [
       "PARALLEL_CHANNEL",
       "PRICE_CHANNEL",
@@ -99,38 +152,70 @@ const GROUPS: Array<{
     ],
   },
   {
+    id: "fibonacci",
     label: "Fibonacci",
+    icon: Crosshair,
     types: [
       "FIB_RETRACEMENT",
       "FIB_EXTENSION",
       "FIB_PROJECTION",
       "FIB_TIME",
+      "FIB_CHANNEL",
     ],
   },
   {
+    id: "shapes",
+    label: "Shapes",
+    icon: Square,
+    types: [
+      "RECTANGLE",
+      "CIRCLE",
+      "TRIANGLE",
+      "WEDGE",
+      "POLYLINE",
+    ],
+  },
+  {
+    id: "patterns",
     label: "Patterns",
+    icon: Triangle,
     types: [
       "ABCD",
       "XABCD",
       "HEAD_SHOULDERS",
-      "TRIANGLE",
-      "WEDGE",
     ],
   },
   {
-    label: "Projection",
+    id: "forecast",
+    label: "Forecast / Projection",
+    icon: ChartNoAxesCombined,
     types: [
       "FORECAST",
       "PROJECTION",
     ],
   },
   {
-    label: "Measure",
+    id: "measurement",
+    label: "Measurement",
+    icon: Ruler,
     types: [
       "MEASURE_PRICE",
       "MEASURE_TIME",
       "MEASURE_PRICE_TIME",
       "MEASURE_RANGE",
+      "LONG_POSITION",
+      "SHORT_POSITION",
+    ],
+  },
+  {
+    id: "text",
+    label: "Text",
+    icon: Type,
+    types: [
+      "TEXT",
+      "NOTE",
+      "CALLOUT",
+      "PRICE_LABEL",
     ],
   },
 ];
@@ -141,78 +226,188 @@ function getDefinition(type: DrawingType) {
   );
 }
 
+export function ToolIcon({
+  type,
+  className,
+}: {
+  type: DrawingType;
+  className?: string;
+}) {
+  const Icon = DRAWING_TOOL_ICONS[type] ?? PenTool;
+  const palette = drawingToolPalette(type);
+
+  return (
+    <Icon
+      className={className}
+      style={{ color: palette.color }}
+      aria-hidden="true"
+    />
+  );
+}
+
 export function MarketDrawingToolsMenu({
   activeDrawingTool,
   open,
   onOpenChange,
   onSelectTool,
 }: MarketDrawingToolsMenuProps) {
+  const [favoriteTools, setFavoriteTools] = useState<DrawingType[]>([]);
+
+  useEffect(() => {
+    setFavoriteTools(getFavoriteDrawingTools());
+  }, []);
+
   const activeDefinition = getDefinition(activeDrawingTool);
   const ActiveIcon =
     DRAWING_TOOL_ICONS[activeDrawingTool] ?? PenTool;
 
+  const selectTool = (tool: DrawingType) => {
+    onSelectTool(tool);
+    onOpenChange(false);
+  };
+
+  const toggleFavorite = (
+    event: React.MouseEvent,
+    tool: DrawingType,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setFavoriteTools((current) => {
+      const next = current.includes(tool)
+        ? current.filter((item) => item !== tool)
+        : [...current, tool];
+
+      setFavoriteDrawingTools(next);
+
+      return next;
+    });
+  };
+
+  const favoriteDefinitions = favoriteTools
+    .map(getDefinition)
+    .filter(
+      (
+        definition,
+      ): definition is NonNullable<
+        ReturnType<typeof getDefinition>
+      > => Boolean(definition),
+    );
+
   return (
-    <div className="relative" role="group" aria-label="Drawing tools">
-      <Button
-        type="button"
-        size="sm"
-        variant={activeDrawingTool !== "SELECT" ? "default" : "ghost"}
-        aria-label="Drawing tools"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        title="Drawing tools"
-        className={cn(
-          "gap-1.5",
-          open && "bg-accent text-accent-foreground",
-        )}
-        onClick={() => onOpenChange(!open)}
-      >
-        <ActiveIcon className="h-4 w-4" />
-        <span className="hidden sm:inline">
-          {activeDrawingTool === "SELECT"
-            ? "Draw"
-            : activeDefinition?.label ?? "Draw"}
-        </span>
-        <ChevronDown
-          className={cn(
-            "h-3.5 w-3.5 opacity-70 transition-transform",
-            open && "rotate-180",
-          )}
-          aria-hidden="true"
-        />
-      </Button>
+    <div className="flex items-center">
+      <DropdownMenu open={open} onOpenChange={onOpenChange}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant={
+              activeDrawingTool !== "SELECT" ? "default" : "ghost"
+            }
+            aria-label={
+              activeDrawingTool === "SELECT"
+                ? "Drawing tools"
+                : activeDefinition?.label ?? "Drawing tools"
+            }
+            title={
+              activeDrawingTool === "SELECT"
+                ? "Drawing tools"
+                : activeDefinition?.label ?? "Drawing tools"
+            }
+            className={cn(
+              "h-8 w-8 shrink-0 rounded-md",
+              open && "bg-accent text-accent-foreground",
+            )}
+          >
+            <ActiveIcon
+              className="h-4 w-4"
+              style={{
+                color: drawingToolPalette(activeDrawingTool).color,
+              }}
+            />
+          </Button>
+        </DropdownMenuTrigger>
 
-      {open && (
-        <div
-          role="menu"
-          aria-label="Drawing tools"
-          className={cn(
-            "absolute left-0 top-full z-50 mt-2",
-            "w-[320px] max-w-[min(320px,calc(100vw-2rem))]",
-            "rounded-lg border bg-popover p-2 shadow-xl",
-            "origin-top-left",
-          )}
+        <DropdownMenuContent
+          align="start"
+          sideOffset={6}
+          className="w-72 p-1"
         >
-          <div className="mb-2 flex items-center justify-between gap-2 border-b px-2 pb-2">
-            <div className="flex min-w-0 items-center gap-2">
-              <PenTool className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <div className="min-w-0">
-                <div className="text-sm font-semibold">
-                  Drawing Tools
-                </div>
-                <div className="text-[11px] text-muted-foreground">
-                  Select a tool to draw on the chart
-                </div>
-              </div>
-            </div>
+          <DropdownMenuLabel className="px-2 py-1.5 text-xs">
+            Drawing Tools
+          </DropdownMenuLabel>
 
-            <span className="shrink-0 text-[10px] text-muted-foreground">
-              {activeDefinition?.label ?? "Select"}
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem
+            onSelect={() => selectTool("SELECT")}
+            className={cn(
+              "min-h-8",
+              activeDrawingTool === "SELECT" &&
+                "bg-accent text-accent-foreground",
+            )}
+          >
+            <MousePointer2
+              className="mr-2 h-4 w-4"
+              style={{
+                color: drawingToolPalette("SELECT").color,
+              }}
+              aria-hidden="true"
+            />
+            <span>Select</span>
+            <span className="ml-auto text-[10px] text-muted-foreground">
+              Esc
             </span>
-          </div>
+          </DropdownMenuItem>
 
-          <div className="max-h-[min(70vh,520px)] overflow-y-auto pr-1">
+          <DropdownMenuSeparator />
+
+          <DropdownMenuLabel className="px-2 py-1.5 text-xs">
+            ⭐ Favourite Tools
+          </DropdownMenuLabel>
+
+          {favoriteDefinitions.length === 0 ? (
+            <div className="px-2 py-2 text-xs text-muted-foreground">
+              Star tools below to add them here.
+            </div>
+          ) : (
+            favoriteDefinitions.map((tool) => (
+              <DropdownMenuItem
+                key={`favorite-${tool.type}`}
+                onSelect={() => selectTool(tool.type)}
+                className={cn(
+                  "min-h-8",
+                  activeDrawingTool === tool.type &&
+                    "bg-accent text-accent-foreground",
+                )}
+              >
+                <ToolIcon
+                  type={tool.type}
+                  className="mr-2 h-4 w-4"
+                />
+                <span className="truncate">{tool.label}</span>
+
+                <button
+                  type="button"
+                  aria-label={`Remove ${tool.label} from favourites`}
+                  title="Remove from favourites"
+                  className="ml-auto rounded p-1 text-foreground/70 hover:bg-accent hover:text-foreground"
+                  onClick={(event) =>
+                    toggleFavorite(event, tool.type)
+                  }
+                >
+                  <Star className="h-3.5 w-3.5 fill-current" />
+                </button>
+              </DropdownMenuItem>
+            ))
+          )}
+
+          <DropdownMenuSeparator />
+
+          <div className="grid grid-cols-2 gap-1">
             {GROUPS.map((group) => {
+              const GroupIcon = group.icon;
+
               const tools = group.types
                 .map(getDefinition)
                 .filter(
@@ -227,56 +422,127 @@ export function MarketDrawingToolsMenu({
                 return null;
               }
 
-              return (
-                <section
-                  key={group.label}
-                  aria-label={group.label}
-                  className="mb-3 last:mb-0"
-                >
-                  <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {group.label}
-                  </div>
+              const groupHasActiveTool =
+                group.types.includes(activeDrawingTool);
 
-                  <div className="grid grid-cols-2 gap-1">
+              return (
+                <DropdownMenuSub key={group.id}>
+                  <DropdownMenuSubTrigger
+                    className={cn(
+                      "min-h-10 rounded-md px-2",
+                      groupHasActiveTool &&
+                        "bg-accent text-accent-foreground",
+                    )}
+                  >
+                    <GroupIcon
+                      className="mr-2 h-4 w-4 shrink-0"
+                      style={{
+                        color: drawingToolPalette(
+                          group.types[0] ?? "SELECT",
+                        ).color,
+                      }}
+                      aria-hidden="true"
+                    />
+                    <span className="truncate">
+                      {group.label}
+                    </span>
+                    <ChevronRight
+                      className="ml-auto h-3.5 w-3.5 shrink-0 opacity-50"
+                      aria-hidden="true"
+                    />
+                  </DropdownMenuSubTrigger>
+
+                  <DropdownMenuSubContent
+                    sideOffset={6}
+                    className="w-64"
+                  >
+                    <DropdownMenuLabel className="text-xs">
+                      {group.label}
+                    </DropdownMenuLabel>
+
+                    <DropdownMenuSeparator />
+
                     {tools.map((tool) => {
-                      const Icon =
-                        DRAWING_TOOL_ICONS[tool.type] ?? PenTool;
                       const active =
                         tool.type === activeDrawingTool;
+                      const favorite =
+                        favoriteTools.includes(tool.type);
 
                       return (
-                        <button
+                        <div
                           key={tool.type}
-                          type="button"
-                          role="menuitem"
-                          aria-current={active ? "true" : undefined}
-                          title={tool.label}
                           className={cn(
-                            "flex min-h-9 items-center gap-2 rounded-md",
-                            "px-2 text-left text-xs transition-colors",
-                            "hover:bg-accent hover:text-accent-foreground",
+                            "flex min-h-8 items-center rounded-md",
                             active &&
                               "bg-accent text-accent-foreground",
                           )}
-                          onClick={() => {
-                            onSelectTool(tool.type);
-                            onOpenChange(false);
-                          }}
                         >
-                          <Icon className="h-4 w-4 shrink-0" />
-                          <span className="truncate">
-                            {tool.label}
-                          </span>
-                        </button>
+                          <DropdownMenuItem
+                            onSelect={() => selectTool(tool.type)}
+                            className="min-h-8 flex-1 rounded-r-none"
+                          >
+                            <ToolIcon
+                              type={tool.type}
+                              className="mr-2 h-4 w-4"
+                            />
+
+                            <span className="truncate">
+                              {tool.label}
+                            </span>
+
+                            {active && (
+                              <span className="ml-auto mr-1 text-xs">
+                                ✓
+                              </span>
+                            )}
+                          </DropdownMenuItem>
+
+                          <button
+                            type="button"
+                            aria-label={
+                              favorite
+                                ? `Remove ${tool.label} from favourites`
+                                : `Add ${tool.label} to favourites`
+                            }
+                            title={
+                              favorite
+                                ? "Remove from favourites"
+                                : "Add to favourites"
+                            }
+                            className={cn(
+                              "mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded",
+                              "text-foreground/60",
+                              "hover:bg-accent hover:text-foreground",
+                              favorite &&
+                                "text-foreground",
+                            )}
+                            onPointerDown={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                            }}
+                            onClick={(event) =>
+                              toggleFavorite(event, tool.type)
+                            }
+                          >
+                            <Star
+                              className="h-3.5 w-3.5"
+                              fill={
+                                favorite
+                                  ? "currentColor"
+                                  : "none"
+                              }
+                            />
+                          </button>
+                        </div>
                       );
                     })}
-                  </div>
-                </section>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
               );
             })}
           </div>
-        </div>
-      )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

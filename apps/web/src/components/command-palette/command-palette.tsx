@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, Input } from "@rmsm/ui";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useCommandPaletteStore } from "@/lib/command-palette-store";
 import { useInstruments } from "@/features/market/hooks/use-market-data";
 
 interface StaticCommand {
@@ -54,7 +55,9 @@ const STATIC_COMMANDS: StaticCommand[] = [
  */
 export function CommandPalette() {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const open = useCommandPaletteStore((s) => s.open);
+  const setOpen = useCommandPaletteStore((s) => s.setOpen);
+  const toggle = useCommandPaletteStore((s) => s.toggle);
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query, 250);
 
@@ -62,7 +65,7 @@ export function CommandPalette() {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setOpen((o) => !o);
+        toggle();
       }
       if (e.key === "Escape") setOpen(false);
     }
@@ -128,7 +131,7 @@ export function CommandPalette() {
                 <button
                   key={i.id}
                   type="button"
-                  onClick={() => go(`/market/${i.id}`)}
+                  onClick={() => go(`/trading?instrument=${i.id}`)}
                   className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
                 >
                   <span className="font-medium">{i.symbol}</span>

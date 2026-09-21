@@ -59,7 +59,7 @@ describe("MarketWatchPage", () => {
     renderMarketWatch();
 
     await waitFor(() => {
-      expect(screen.getByText("EURUSD")).toBeInTheDocument();
+      expect(screen.getAllByText("EURUSD").length).toBeGreaterThan(0);
     });
   });
 

@@ -78,6 +78,61 @@ export class MarketCandleRepository {
     return toMarketCandleModel(row);
   }
 
+  /**
+   * Persists an automatic BACKFILL candle without replacing a higher-priority
+   * source row. BACKFILL is intentionally a separate physical source row:
+   * canonical reads decide which row represents the logical candle.
+   *
+   * The final existence check happens immediately before the upsert. A LIVE
+   * candle arriving concurrently can therefore coexist safely; canonical
+   * reads still prefer LIVE over BACKFILL.
+   */
+  async upsertBackfill(
+    data: Omit<UpsertCandleInput, "source">,
+    client: DbClient = prisma,
+  ): Promise<MarketCandleModel> {
+    const existingLive = await this.findCurrentLiveCandle(
+      data.instrumentId,
+      data.interval,
+      data.eventTime,
+      client,
+    );
+
+    if (existingLive) {
+      return existingLive;
+    }
+
+    return this.upsert(
+      {
+        ...data,
+        source: MarketDataSource.BACKFILL,
+      },
+      client,
+    );
+  }
+
+  async findCurrentValueAt(
+    instrumentId: string,
+    interval: CandleInterval,
+    eventTime: Date,
+    client: DbClient = prisma,
+  ): Promise<MarketCandleModel | null> {
+    const rows = await client.marketCandle.findMany({
+      where: {
+        instrumentId,
+        interval,
+        eventTime,
+        supersededBy: null,
+      },
+    });
+
+    if (rows.length === 0) {
+      return null;
+    }
+
+    return toMarketCandleModel(this.selectCanonicalCandle(rows));
+  }
+
   async findCurrentLiveCandle(
     instrumentId: string,
     interval: CandleInterval,

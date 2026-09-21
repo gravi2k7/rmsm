@@ -19,6 +19,13 @@ describe("drawing registry", () => {
       "RECTANGLE",
       "ARROW",
       "TEXT",
+      "EXTENDED_LINE",
+      "CROSS_LINE",
+      "CIRCLE",
+      "POLYLINE",
+      "NOTE",
+      "CALLOUT",
+      "PRICE_LABEL",
       "PARALLEL_CHANNEL",
       "PRICE_CHANNEL",
       "REGRESSION_CHANNEL",
@@ -26,6 +33,7 @@ describe("drawing registry", () => {
       "FIB_EXTENSION",
       "FIB_PROJECTION",
       "FIB_TIME",
+      "FIB_CHANNEL",
       "ABCD",
       "XABCD",
       "HEAD_SHOULDERS",
@@ -37,6 +45,8 @@ describe("drawing registry", () => {
       "MEASURE_TIME",
       "MEASURE_PRICE_TIME",
       "MEASURE_RANGE",
+      "LONG_POSITION",
+      "SHORT_POSITION",
     ]);
   });
 

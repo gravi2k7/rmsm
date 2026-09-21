@@ -2,9 +2,29 @@
 
 import { useEffect, useState } from "react";
 import { Palette, LayoutGrid, Bell, Keyboard, Monitor } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Label, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, Switch, Button, toast, Skeleton } from "@rmsm/ui";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Label,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+  Switch,
+  Button,
+  toast,
+  Skeleton,
+} from "@rmsm/ui";
 import { useThemeStore } from "@/lib/theme-store";
-import { usePreferencesStore, type TableDensity, type DefaultLandingPage } from "@/features/preferences/store";
+import {
+  usePreferencesStore,
+  type TableDensity,
+  type DefaultLandingPage,
+} from "@/features/preferences/store";
 import { useUserAccount, useUpdateProfile } from "@/features/profile/hooks/use-profile";
 import { CANDLE_INTERVALS, ASSET_CLASSES } from "@/features/preferences/constants";
 
@@ -38,10 +58,18 @@ function ThemeCard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex gap-2">
-        <Button variant={theme === "light" ? "default" : "outline"} size="sm" onClick={() => setTheme("light")}>
+        <Button
+          variant={theme === "light" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setTheme("light")}
+        >
           Light
         </Button>
-        <Button variant={theme === "dark" ? "default" : "outline"} size="sm" onClick={() => setTheme("dark")}>
+        <Button
+          variant={theme === "dark" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setTheme("dark")}
+        >
           Dark
         </Button>
       </CardContent>
@@ -50,8 +78,16 @@ function ThemeCard() {
 }
 
 function DashboardPreferencesCard() {
-  const { tableDensity, defaultTimeframe, defaultMarket, defaultLandingPage, setTableDensity, setDefaultTimeframe, setDefaultMarket, setDefaultLandingPage } =
-    usePreferencesStore();
+  const {
+    tableDensity,
+    defaultTimeframe,
+    defaultMarket,
+    defaultLandingPage,
+    setTableDensity,
+    setDefaultTimeframe,
+    setDefaultMarket,
+    setDefaultLandingPage,
+  } = usePreferencesStore();
 
   return (
     <Card>
@@ -63,7 +99,7 @@ function DashboardPreferencesCard() {
         <CardDescription>Saved on this device.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="rmsm-mobile-glass-page flex items-center justify-between">
           <Label>Table density</Label>
           <Select value={tableDensity} onValueChange={(v: TableDensity) => setTableDensity(v)}>
             <SelectTrigger className="w-40" aria-label="Table density">
@@ -107,7 +143,10 @@ function DashboardPreferencesCard() {
         </div>
         <div className="flex items-center justify-between">
           <Label>Default landing page</Label>
-          <Select value={defaultLandingPage} onValueChange={(v: DefaultLandingPage) => setDefaultLandingPage(v)}>
+          <Select
+            value={defaultLandingPage}
+            onValueChange={(v: DefaultLandingPage) => setDefaultLandingPage(v)}
+          >
             <SelectTrigger className="w-40" aria-label="Default landing page">
               <SelectValue />
             </SelectTrigger>
@@ -128,7 +167,12 @@ function DashboardPreferencesCard() {
 function NotificationPreferencesCard() {
   const accountQuery = useUserAccount();
   const updateProfile = useUpdateProfile();
-  const [prefs, setPrefs] = useState<{ email: boolean; push: boolean; sms: boolean; marketing: boolean }>({
+  const [prefs, setPrefs] = useState<{
+    email: boolean;
+    push: boolean;
+    sms: boolean;
+    marketing: boolean;
+  }>({
     email: true,
     push: true,
     sms: false,
@@ -138,7 +182,12 @@ function NotificationPreferencesCard() {
   useEffect(() => {
     const saved = accountQuery.data?.profile?.notificationPreferences;
     if (saved) {
-      setPrefs({ email: saved.email ?? true, push: saved.push ?? true, sms: saved.sms ?? false, marketing: saved.marketing ?? false });
+      setPrefs({
+        email: saved.email ?? true,
+        push: saved.push ?? true,
+        sms: saved.sms ?? false,
+        marketing: saved.marketing ?? false,
+      });
     }
   }, [accountQuery.data]);
 
@@ -169,7 +218,11 @@ function NotificationPreferencesCard() {
               <Label htmlFor={`pref-${key}`} className="capitalize">
                 {key} notifications
               </Label>
-              <Switch id={`pref-${key}`} checked={prefs[key]} onCheckedChange={(checked) => toggle(key, checked)} />
+              <Switch
+                id={`pref-${key}`}
+                checked={prefs[key]}
+                onCheckedChange={(checked) => toggle(key, checked)}
+              />
             </div>
           ))
         )}
@@ -186,7 +239,9 @@ function SessionPreferencesCard() {
           <Monitor className="h-4 w-4" aria-hidden="true" />
           Session
         </CardTitle>
-        <CardDescription>Remember Me is set at login. Manage active sessions from Security settings.</CardDescription>
+        <CardDescription>
+          Remember Me is set at login. Manage active sessions from Security settings.
+        </CardDescription>
       </CardHeader>
     </Card>
   );
@@ -213,7 +268,9 @@ function AccessibilityCard() {
           {KEYBOARD_SHORTCUTS.map((s) => (
             <li key={s.keys} className="flex items-center justify-between">
               <span className="text-muted-foreground">{s.action}</span>
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs">{s.keys}</kbd>
+              <kbd className="bg-muted rounded border px-1.5 py-0.5 font-mono text-xs">
+                {s.keys}
+              </kbd>
             </li>
           ))}
         </ul>
@@ -227,7 +284,9 @@ export default function PreferencesPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-xl font-semibold">Preferences</h1>
-        <p className="text-sm text-muted-foreground">Customize how the trading workspace looks and behaves.</p>
+        <p className="text-muted-foreground text-sm">
+          Customize how the trading workspace looks and behaves.
+        </p>
       </div>
       <ThemeCard />
       <DashboardPreferencesCard />

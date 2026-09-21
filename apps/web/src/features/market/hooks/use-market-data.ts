@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { AssetClass, Candle, Exchange, Instrument, InstrumentStatus, MarketDataPage, Quote, CandleInterval } from "../types";
 
@@ -43,6 +43,45 @@ export function useInstrument(instrumentId: string | null) {
     queryKey: ["market-data", "instrument", instrumentId],
     queryFn: () => api.get<Instrument>(`/market-data/instruments/${instrumentId}`),
     enabled: !!instrumentId,
+  });
+}
+
+export function useInstrumentsByIds(
+  instrumentIds: readonly string[],
+) {
+  return useQueries({
+    queries: instrumentIds.map((instrumentId) => ({
+      queryKey: ["market-data", "instrument", instrumentId],
+      queryFn: () =>
+        api.get<Instrument>(
+          `/market-data/instruments/${instrumentId}`,
+        ),
+      enabled: !!instrumentId,
+      staleTime: 60_000,
+    })),
+  });
+}
+
+export function useInstrumentsBatch(
+  instrumentIds: readonly string[],
+) {
+  const ids = [...new Set(instrumentIds)].sort();
+
+  return useQuery({
+    queryKey: ["market-data", "instruments", "batch", ids],
+    queryFn: () => {
+      const qs = new URLSearchParams();
+
+      if (ids.length > 0) {
+        qs.set("ids", ids.join(","));
+      }
+
+      return api.get<Instrument[]>(
+        `/market-data/instruments/batch?${qs.toString()}`,
+      );
+    },
+    enabled: ids.length > 0,
+    staleTime: 60_000,
   });
 }
 
@@ -96,6 +135,5 @@ export function useCandles(params: CandleParams | null) {
         })}`,
       ),
     enabled: params !== null,
-    refetchInterval: 10_000,
   });
 }

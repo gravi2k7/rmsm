@@ -10,6 +10,7 @@ describe("InstrumentController", () => {
       searchInstruments: jest.fn().mockResolvedValue([{ id: "1" }, { id: "2" }]),
       countInstruments: jest.fn().mockResolvedValue(2),
       getInstrument: jest.fn(),
+      getInstrumentsByIds: jest.fn(),
       ...overrides,
     } as unknown as MarketDataService;
 
@@ -32,6 +33,56 @@ describe("InstrumentController", () => {
       instrumentOnboardingService,
     };
   }
+
+  it("returns instruments for a comma-separated batch of ids", async () => {
+    const instruments = [
+      { id: "11111111-1111-4111-8111-111111111111", symbol: "EURUSD" },
+      { id: "22222222-2222-4222-8222-222222222222", symbol: "NAS100" },
+    ];
+
+    const { controller, marketDataService } = buildController({
+      getInstrumentsByIds: jest.fn().mockResolvedValue(instruments),
+    });
+
+    const result = await controller.batch(
+      "11111111-1111-4111-8111-111111111111,22222222-2222-4222-8222-222222222222",
+    );
+
+    expect(marketDataService.getInstrumentsByIds).toHaveBeenCalledWith([
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222",
+    ]);
+    expect(result).toEqual(instruments);
+  });
+
+  it("deduplicates and trims batch ids", async () => {
+    const { controller, marketDataService } = buildController({
+      getInstrumentsByIds: jest.fn().mockResolvedValue([]),
+    });
+
+    await controller.batch(
+      " 11111111-1111-4111-8111-111111111111,11111111-1111-4111-8111-111111111111 ",
+    );
+
+    expect(marketDataService.getInstrumentsByIds).toHaveBeenCalledWith([
+      "11111111-1111-4111-8111-111111111111",
+    ]);
+  });
+
+  it("rejects invalid batch instrument ids", async () => {
+    const { controller } = buildController();
+
+    await expect(controller.batch("not-a-uuid")).rejects.toThrow(
+      "Invalid instrument id: not-a-uuid",
+    );
+  });
+
+  it("returns an empty array when no batch ids are supplied", async () => {
+    const { controller, marketDataService } = buildController();
+
+    await expect(controller.batch()).resolves.toEqual([]);
+    expect(marketDataService.getInstrumentsByIds).not.toHaveBeenCalled();
+  });
 
   it("returns a paginated result with correct metadata", async () => {
     const { controller } = buildController();

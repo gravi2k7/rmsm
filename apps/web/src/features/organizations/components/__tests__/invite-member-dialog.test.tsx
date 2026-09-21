@@ -3,7 +3,8 @@ import { screen, waitFor } from "@testing-library/react";
 import { renderWithQueryClient } from "@/test/render-with-query";
 import userEvent from "@testing-library/user-event";
 import { InviteMemberDialog } from "../invite-member-dialog";
-import { useSessionStore } from "@/lib/session-store";
+import { useAuthStore } from "@/lib/auth-store";
+import { useOrganizationStore } from "@/lib/organization-store";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -17,11 +18,19 @@ describe("InviteMemberDialog (WM-020E)", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
-    useSessionStore.getState().clear();
+    useAuthStore.setState({
+      accessToken: null,
+      refreshToken: null,
+      user: null,
+      rememberMe: false,
+      sessionExpired: false,
+    });
+    useOrganizationStore.getState().setActiveOrganization(null);
   });
 
   it("submits email, role, message, and expiresInDays to the org-scoped invite endpoint", async () => {
-    useSessionStore.setState({ organizationId: "org-1", accessToken: "session-token" });
+    useAuthStore.setState({ accessToken: "session-token" });
+    useOrganizationStore.setState({ activeOrganization: { id: "org-1" } as never });
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ message: "Invitation sent." }));
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
@@ -46,7 +55,8 @@ describe("InviteMemberDialog (WM-020E)", () => {
   });
 
   it("shows a validation error for an invalid email and never calls fetch", async () => {
-    useSessionStore.setState({ organizationId: "org-1", accessToken: "session-token" });
+    useAuthStore.setState({ accessToken: "session-token" });
+    useOrganizationStore.setState({ activeOrganization: { id: "org-1" } as never });
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
@@ -61,7 +71,8 @@ describe("InviteMemberDialog (WM-020E)", () => {
   });
 
   it("shows a server error banner (e.g. duplicate invitation) without closing the dialog", async () => {
-    useSessionStore.setState({ organizationId: "org-1", accessToken: "session-token" });
+    useAuthStore.setState({ accessToken: "session-token" });
+    useOrganizationStore.setState({ activeOrganization: { id: "org-1" } as never });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(

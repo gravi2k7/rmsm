@@ -26,6 +26,5 @@
  */
 import "./market-status-widget-card";
 import "./trading-sessions-widget-card";
-import "./system-status-widget";
 import "./quick-actions-widget";
 import "./recent-activity-widget";

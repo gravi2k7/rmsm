@@ -42,13 +42,14 @@ function NewVersionForm() {
           toast.success(`Version ${version.versionNumber} created as DRAFT.`);
           router.push(`/strategies/${params.strategyId}/versions/${version.id}`);
         },
-        onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to create version."),
+        onError: (err) =>
+          toast.error(err instanceof Error ? err.message : "Failed to create version."),
       },
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="rmsm-mobile-glass-page space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">New Strategy Version</h1>
         <div className="flex gap-2">

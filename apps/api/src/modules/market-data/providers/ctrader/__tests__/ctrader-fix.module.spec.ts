@@ -4,6 +4,8 @@ import {
 } from "../ctrader-fix.module";
 import { ProviderRegistryService } from "../../provider-registry.service";
 import { ProviderFactoryService } from "../../provider-factory.service";
+import { MarketDataProviderConfigRepository } from "../../../repositories/market-data-provider-config.repository";
+import { InstrumentAliasRepository } from "../../../repositories/instrument-alias.repository";
 import type { Env } from "@rmsm/config";
 
 function buildEnv(overrides: Partial<Env> = {}): Env {
@@ -29,22 +31,80 @@ function buildEnv(overrides: Partial<Env> = {}): Env {
   } as Env;
 }
 
+function buildProviderConfigRepository(
+  config: Record<string, unknown> | null = {
+    id: "ctrader-config",
+    type: "CTRADER",
+    name: "cTrader FIX",
+    baseUrl: null,
+    credentialReference: null,
+    priority: 1,
+    rateLimitPerMinute: null,
+    lastConnectionTestAt: null,
+    lastConnectionTestStatus: null,
+    supportedAssetClasses: ["FOREX"],
+    isActive: true,
+    createdById: null,
+    updatedById: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+): MarketDataProviderConfigRepository {
+  return {
+    findByType: jest.fn().mockResolvedValue(config),
+  } as unknown as MarketDataProviderConfigRepository;
+}
+
+function buildAliasRepository(): InstrumentAliasRepository {
+  return {
+    findByProviderSymbol: jest.fn(),
+  } as unknown as InstrumentAliasRepository;
+}
+
 describe("CTraderFixRegistrarService", () => {
-  it("registers CTRADER with the provider registry", () => {
+  it("registers CTRADER with the provider registry including historical capability", async () => {
     const registry = new ProviderRegistryService();
     const factory = new ProviderFactoryService();
     const client = {
       connect: jest.fn().mockResolvedValue(undefined),
     } as unknown as CTraderFixClient;
 
+    const providerConfigRepository = {
+      findByType: jest.fn().mockResolvedValue({
+        id: "ctrader-config",
+        type: "CTRADER",
+        name: "cTrader FIX",
+        baseUrl: null,
+        credentialReference: null,
+        priority: 1,
+        rateLimitPerMinute: null,
+        lastConnectionTestAt: null,
+        lastConnectionTestStatus: null,
+        supportedAssetClasses: ["FOREX"],
+        isActive: true,
+        createdById: null,
+        updatedById: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    } as unknown as MarketDataProviderConfigRepository;
+
     const registrar = new CTraderFixRegistrarService(
       registry,
       factory,
       client,
-      buildEnv(),
+      buildEnv({
+        CTRADER_OPENAPI_ENABLED: true,
+        CTRADER_OPENAPI_CLIENT_ID: "test-client",
+        CTRADER_OPENAPI_CLIENT_SECRET: "test-secret",
+        CTRADER_OPENAPI_ACCESS_TOKEN: "test-token",
+        CTRADER_OPENAPI_ACCOUNT_ID: 12345,
+      }),
+      providerConfigRepository,
+      buildAliasRepository(),
     );
 
-    registrar.onModuleInit();
+    await registrar.onModuleInit();
 
     const provider = registry.get("CTRADER");
 
@@ -53,10 +113,11 @@ describe("CTraderFixRegistrarService", () => {
     expect(provider?.metadata.name).toBe("cTrader FIX Price Connection");
     expect(provider?.metadata.supportsQuotes).toBe(true);
     expect(provider?.metadata.supportsStreaming).toBe(true);
+    expect(provider?.metadata.supportsHistorical).toBe(true);
     expect(provider?.enabled).toBe(true);
   });
 
-  it("registers a CTRADER factory builder", () => {
+  it("registers a CTRADER factory builder", async () => {
     const registry = new ProviderRegistryService();
     const factory = new ProviderFactoryService();
     const client = {
@@ -68,9 +129,11 @@ describe("CTraderFixRegistrarService", () => {
       factory,
       client,
       buildEnv(),
+      buildProviderConfigRepository(),
+      buildAliasRepository(),
     );
 
-    registrar.onModuleInit();
+    await registrar.onModuleInit();
 
     const provider = factory.create({
       id: "ctrader-test",
@@ -95,7 +158,7 @@ describe("CTraderFixRegistrarService", () => {
     expect(provider.metadata.supportsStreaming).toBe(true);
   });
 
-  it("reports CTRADER disabled when credentials are only partially configured", () => {
+  it("reports CTRADER disabled when credentials are only partially configured", async () => {
     const registry = new ProviderRegistryService();
     const factory = new ProviderFactoryService();
     const client = {} as CTraderFixClient;
@@ -109,9 +172,11 @@ describe("CTraderFixRegistrarService", () => {
         CTRADER_FIX_USERNAME: undefined,
         CTRADER_FIX_PASSWORD: undefined,
       }),
+      buildProviderConfigRepository(),
+      buildAliasRepository(),
     );
 
-    registrar.onModuleInit();
+    await registrar.onModuleInit();
 
     const provider = registry.tryGet("CTRADER");
 
@@ -120,7 +185,7 @@ describe("CTraderFixRegistrarService", () => {
     expect(provider?.enabled).toBe(false);
   });
 
-  it("does not enable CTRADER from a database credentialReference alone", () => {
+  it("does not enable CTRADER from a database credentialReference alone", async () => {
     const registry = new ProviderRegistryService();
     const factory = new ProviderFactoryService();
     const client = {} as CTraderFixClient;
@@ -134,9 +199,11 @@ describe("CTraderFixRegistrarService", () => {
         CTRADER_FIX_USERNAME: undefined,
         CTRADER_FIX_PASSWORD: undefined,
       }),
+      buildProviderConfigRepository(),
+      buildAliasRepository(),
     );
 
-    registrar.onModuleInit();
+    await registrar.onModuleInit();
 
     const provider = factory.create({
       id: "ctrader-credential-reference-only",
@@ -160,7 +227,7 @@ describe("CTraderFixRegistrarService", () => {
     expect(provider.enabled).toBe(false);
   });
 
-  it("reports CTRADER disabled when required credentials are absent", () => {
+  it("reports CTRADER disabled when required credentials are absent", async () => {
     const registry = new ProviderRegistryService();
     const factory = new ProviderFactoryService();
     const client = {} as CTraderFixClient;
@@ -174,9 +241,11 @@ describe("CTraderFixRegistrarService", () => {
         CTRADER_FIX_USERNAME: undefined,
         CTRADER_FIX_PASSWORD: undefined,
       }),
+      buildProviderConfigRepository(),
+      buildAliasRepository(),
     );
 
-    registrar.onModuleInit();
+    await registrar.onModuleInit();
 
     const provider = registry.tryGet("CTRADER");
 

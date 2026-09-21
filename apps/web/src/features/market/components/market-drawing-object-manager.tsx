@@ -12,6 +12,7 @@ import {
   ChevronsDown,
   ChevronUp,
   ChevronDown,
+  X,
 } from "lucide-react";
 
 import { Button } from "@rmsm/ui";
@@ -37,6 +38,7 @@ interface MarketDrawingObjectManagerProps {
   onShowAll: () => void;
   onHideAll: () => void;
   onDeleteAll: () => void;
+  onClose: () => void;
 }
 
 function getDrawingLabel(drawing: Drawing): string {
@@ -243,6 +245,7 @@ export function MarketDrawingObjectManager({
   onShowAll,
   onHideAll,
   onDeleteAll,
+  onClose,
 }: MarketDrawingObjectManagerProps) {
   const drawings = useMemo(
     () =>
@@ -254,13 +257,13 @@ export function MarketDrawingObjectManager({
 
   return (
     <div
-      className="w-[min(720px,calc(100vw-2rem))] rounded-lg border bg-popover p-2 shadow-xl"
+      className="w-[min(420px,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] rounded-lg border bg-popover p-2 shadow-xl"
       role="region"
       aria-label="Chart objects"
     >
-      <div className="mb-2 flex items-center justify-between gap-2 border-b pb-2">
-        <div>
-          <div className="text-sm font-medium">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium">
             Chart Objects
           </div>
           <div className="text-xs text-muted-foreground">
@@ -268,7 +271,7 @@ export function MarketDrawingObjectManager({
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
           <Button
             type="button"
             size="sm"
@@ -295,6 +298,21 @@ export function MarketDrawingObjectManager({
             onClick={onDeleteAll}
           >
             Delete all
+          </Button>
+
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 shrink-0"
+            aria-label="Close objects panel"
+            title="Close objects panel"
+            onClick={onClose}
+          >
+            <X
+              className="h-4 w-4"
+              aria-hidden="true"
+            />
           </Button>
         </div>
       </div>

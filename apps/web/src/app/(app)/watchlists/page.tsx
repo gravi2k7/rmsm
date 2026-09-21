@@ -18,7 +18,11 @@ import {
   Skeleton,
 } from "@rmsm/ui";
 import { useWatchlistStore } from "@/features/watchlists/store";
-import { useInstruments, useQuotes } from "@/features/market/hooks/use-market-data";
+import {
+  useInstruments,
+  useInstrumentsByIds,
+  useQuotes,
+} from "@/features/market/hooks/use-market-data";
 import { toNumber } from "@/features/market/types";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
@@ -44,9 +48,15 @@ function CreateWatchlistDialog() {
         <DialogHeader>
           <DialogTitle>New watchlist</DialogTitle>
         </DialogHeader>
-        <div className="space-y-2">
+        <div className="rmsm-mobile-glass-page space-y-2">
           <Label htmlFor="watchlist-name">Name</Label>
-          <Input id="watchlist-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Majors" onKeyDown={(e) => e.key === "Enter" && handleCreate()} />
+          <Input
+            id="watchlist-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Majors"
+            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+          />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
@@ -78,24 +88,31 @@ function AddSymbolDialog({ watchlistId }: { watchlistId: string }) {
         <DialogHeader>
           <DialogTitle>Add a symbol</DialogTitle>
         </DialogHeader>
-        <Input placeholder="Search symbol or name…" value={search} onChange={(e) => setSearch(e.target.value)} autoFocus />
+        <Input
+          placeholder="Search symbol or name…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          autoFocus
+        />
         <div className="max-h-72 space-y-1 overflow-y-auto">
           {instrumentsQuery.isLoading && <Skeleton className="h-8 w-full" />}
           {instrumentsQuery.data?.data.map((instrument) => (
             <button
               key={instrument.id}
               type="button"
-              className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
+              className="hover:bg-accent flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm"
               onClick={() => {
                 addToWatchlist(watchlistId, instrument.id);
                 setOpen(false);
               }}
             >
               <span className="font-medium">{instrument.symbol}</span>
-              <span className="text-xs text-muted-foreground">{instrument.name}</span>
+              <span className="text-muted-foreground text-xs">{instrument.name}</span>
             </button>
           ))}
-          {instrumentsQuery.data?.data.length === 0 && <p className="p-2 text-sm text-muted-foreground">No matches.</p>}
+          {instrumentsQuery.data?.data.length === 0 && (
+            <p className="text-muted-foreground p-2 text-sm">No matches.</p>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -119,17 +136,21 @@ export default function WatchlistsPage() {
 
   const active = watchlists.find((w) => w.id === activeWatchlistId) ?? watchlists[0];
 
-  // Instruments aren't individually fetchable in bulk by id in one call
-  // (the market-data module has no "get many by id" endpoint), so this
-  // page pages through instruments client-side matched against the
-  // watchlist's stored ids — fine at the scale a personal watchlist
-  // actually reaches, and avoids an N+1 request per row.
-  const instrumentsQuery = useInstruments({ pageSize: 500 });
-  const watchlistInstruments = useMemo(() => {
-    if (!active) return [];
-    const byId = new Map((instrumentsQuery.data?.data ?? []).map((i) => [i.id, i]));
-    return active.instrumentIds.map((id) => byId.get(id)).filter((i): i is NonNullable<typeof i> => !!i);
-  }, [active, instrumentsQuery.data]);
+  const watchlistInstrumentIds = active?.instrumentIds ?? [];
+
+  const instrumentQueries = useInstrumentsByIds(watchlistInstrumentIds);
+
+  const watchlistInstruments = useMemo(
+    () =>
+      instrumentQueries
+        .map((query) => query.data)
+        .filter(
+          (instrument): instrument is NonNullable<typeof instrument> => instrument !== undefined,
+        ),
+    [instrumentQueries],
+  );
+
+  const watchlistInstrumentsLoading = instrumentQueries.some((query) => query.isLoading);
 
   const quotesQuery = useQuotes(watchlistInstruments.map((i) => i.id));
 
@@ -148,9 +169,11 @@ export default function WatchlistsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Watchlists</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Saved on this device.{" "}
-            <span className="text-xs">(No cross-device sync yet — see this page&apos;s own notes.)</span>
+            <span className="text-xs">
+              (No cross-device sync yet — see this page&apos;s own notes.)
+            </span>
           </p>
         </div>
         <CreateWatchlistDialog />
@@ -208,7 +231,13 @@ export default function WatchlistsPage() {
                 >
                   <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteWatchlist(active.id)} aria-label="Delete watchlist">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => deleteWatchlist(active.id)}
+                  aria-label="Delete watchlist"
+                >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
               </div>
@@ -216,10 +245,16 @@ export default function WatchlistsPage() {
             <AddSymbolDialog watchlistId={active.id} />
           </div>
 
-          {watchlistInstruments.length === 0 ? (
-            <p className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+          {watchlistInstrumentIds.length === 0 ? (
+            <p className="text-muted-foreground rounded-md border border-dashed py-8 text-center text-sm">
               No symbols yet. Use &quot;Add symbol&quot; to get started.
             </p>
+          ) : watchlistInstrumentsLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
           ) : (
             <ul className="divide-y rounded-md border">
               {watchlistInstruments.map((instrument, index) => {
@@ -235,17 +270,32 @@ export default function WatchlistsPage() {
                     className="flex items-center justify-between gap-3 px-3 py-2"
                   >
                     <div className="flex items-center gap-2">
-                      <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground" aria-hidden="true" />
-                      <button type="button" onClick={() => toggleFavorite(instrument.id)} aria-label={isFavorite ? "Unfavorite" : "Favorite"}>
-                        <Star className={`h-3.5 w-3.5 ${isFavorite ? "fill-warning text-warning" : "text-muted-foreground"}`} aria-hidden="true" />
+                      <GripVertical
+                        className="text-muted-foreground h-4 w-4 cursor-grab"
+                        aria-hidden="true"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => toggleFavorite(instrument.id)}
+                        aria-label={isFavorite ? "Unfavorite" : "Favorite"}
+                      >
+                        <Star
+                          className={`h-3.5 w-3.5 ${isFavorite ? "fill-warning text-warning" : "text-muted-foreground"}`}
+                          aria-hidden="true"
+                        />
                       </button>
-                      <Link href={`/market/${instrument.id}`} className="font-medium hover:underline">
+                      <Link
+                        href={`/trading?instrument=${instrument.id}`}
+                        className="font-medium hover:underline"
+                      >
                         {instrument.symbol}
                       </Link>
-                      <span className="text-xs text-muted-foreground">{instrument.name}</span>
+                      <span className="text-muted-foreground text-xs">{instrument.name}</span>
                     </div>
                     <div className="flex items-center gap-4">
-                      <span className="tabular-nums text-sm">{toNumber(quote?.lastPrice)?.toFixed(5) ?? "—"}</span>
+                      <span className="text-sm tabular-nums">
+                        {toNumber(quote?.lastPrice)?.toFixed(5) ?? "—"}
+                      </span>
                       <Button
                         variant="ghost"
                         size="sm"

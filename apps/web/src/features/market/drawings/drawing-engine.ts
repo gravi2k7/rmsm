@@ -28,6 +28,7 @@ import { textTool } from "./tools/text";
 import { trendLineTool } from "./tools/trend-line";
 import { verticalLineTool } from "./tools/vertical-line";
 import { advancedDrawingTools } from "./tools/advanced";
+import { drawingToolPalette } from "./palette";
 import {
   fibonacciDrawingTools,
   fibonacciExtensionLevels,
@@ -35,6 +36,10 @@ import {
   fibonacciRetracementLevels,
   fibonacciTimeLevels,
 } from "./tools/fibonacci";
+import {
+  positionGeometry,
+  polylineSegments,
+} from "./tools/patterns-measuring";
 
 export interface DrawingToolAdapter {
   type: DrawingType;
@@ -87,6 +92,11 @@ export function isDrawingComplete(
 export function createDrawingFromTool(
   type: DrawingType,
   points: DrawingPoint[],
+  styleOverride?: Partial<import("./types").DrawingStyle>,
+  contentOverride?: {
+    text?: string;
+    fontSize?: number;
+  },
 ): Drawing {
   const adapter = getDrawingToolAdapter(type);
 
@@ -105,7 +115,39 @@ export function createDrawingFromTool(
     );
   }
 
-  return createDrawing(type, points);
+  const palette = drawingToolPalette(type);
+
+  const drawing = createDrawing(type, points, {
+    style: {
+      color: palette.color,
+      fillColor: palette.fillColor,
+      fillOpacity: palette.fillOpacity,
+      ...styleOverride,
+    },
+  });
+
+  if (
+    type === "TEXT" ||
+    type === "NOTE" ||
+    type === "CALLOUT" ||
+    type === "PRICE_LABEL"
+  ) {
+    return {
+      ...drawing,
+      text:
+        contentOverride?.text ??
+        (type === "TEXT"
+          ? "Text"
+          : type === "NOTE"
+            ? "Note"
+            : type === "CALLOUT"
+              ? "Callout"
+              : ""),
+      fontSize: contentOverride?.fontSize ?? 14,
+    };
+  }
+
+  return drawing;
 }
 
 export interface ScreenPointToDrawingPointContext {
@@ -403,13 +445,153 @@ function drawingHit(
 
     case "TREND_LINE":
     case "ARROW":
+    case "EXTENDED_LINE":
+      if (points.length < 2) {
+        return false;
+      }
+
+      if (drawing.type === "EXTENDED_LINE") {
+        const dx = points[1]!.x - points[0]!.x;
+        const dy = points[1]!.y - points[0]!.y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+
+        if (length < 0.0001) {
+          return false;
+        }
+
+        const ux = dx / length;
+        const uy = dy / length;
+        const scale = Math.max(
+          context.width,
+          context.height,
+        ) * 4;
+
+        return pointToSegmentDistance(
+          cursor,
+          {
+            x: points[0]!.x - ux * scale,
+            y: points[0]!.y - uy * scale,
+          },
+          {
+            x: points[0]!.x + ux * scale,
+            y: points[0]!.y + uy * scale,
+          },
+        ) <= tolerance;
+      }
+
+      return isPointNearSegment(
+        cursor,
+        points[0]!,
+        points[1]!,
+        tolerance,
+      );
+
+    case "CROSS_LINE":
+      if (points.length < 1) {
+        return false;
+      }
+
+      return (
+        Math.abs(cursor.x - points[0]!.x) <= tolerance ||
+        Math.abs(cursor.y - points[0]!.y) <= tolerance
+      );
+
+    case "CIRCLE":
+      if (points.length < 2) {
+        return false;
+      }
+
+      {
+        const dx = points[1]!.x - points[0]!.x;
+        const dy = points[1]!.y - points[0]!.y;
+        const radius = Math.sqrt(dx * dx + dy * dy);
+        const distance = Math.sqrt(
+          (cursor.x - points[0]!.x) ** 2 +
+          (cursor.y - points[0]!.y) ** 2,
+        );
+
+        return Math.abs(distance - radius) <= tolerance;
+      }
+
+    case "POLYLINE":
+      return polylineSegments(drawing.points).some((segment) => {
+        const start = pointToScreen(segment.start, context);
+        const end = pointToScreen(segment.end, context);
+
+        return (
+          start !== null &&
+          end !== null &&
+          pointToSegmentDistance(cursor, start, end) <= tolerance
+        );
+      });
+
+    case "CALLOUT":
       return points.length >= 2 &&
         isPointNearSegment(
           cursor,
           points[0]!,
           points[1]!,
-          tolerance,
+          tolerance + 4,
         );
+
+    case "PRICE_LABEL":
+    case "NOTE":
+      return pointToSegmentDistance(
+        cursor,
+        points[0]!,
+        points[0]!,
+      ) <= Math.max(tolerance, 12);
+
+    case "FIB_CHANNEL":
+      if (points.length < 3) {
+        return false;
+      }
+
+      return channelSegments(
+        points,
+        context.width,
+        context.height,
+      ).some(([start, end]) =>
+        pointToSegmentDistance(
+          cursor,
+          start,
+          end,
+        ) <= tolerance,
+      );
+
+    case "LONG_POSITION":
+    case "SHORT_POSITION":
+      if (points.length < 2) {
+        return false;
+      }
+
+      {
+        const geometry = positionGeometry(drawing.points);
+
+        if (!geometry) {
+          return false;
+        }
+
+        const entry = pointToScreen(geometry.entry, context);
+        const target = pointToScreen(geometry.target, context);
+        const stop = pointToScreen(geometry.stop, context);
+
+        if (!entry || !target || !stop) {
+          return false;
+        }
+
+        const left = Math.min(entry.x, target.x, stop.x);
+        const right = Math.max(entry.x, target.x, stop.x);
+        const top = Math.min(entry.y, target.y, stop.y);
+        const bottom = Math.max(entry.y, target.y, stop.y);
+
+        return (
+          cursor.x >= left - tolerance &&
+          cursor.x <= right + tolerance &&
+          cursor.y >= top - tolerance &&
+          cursor.y <= bottom + tolerance
+        );
+      }
 
     case "PARALLEL_CHANNEL":
     case "PRICE_CHANNEL":
@@ -1094,6 +1276,11 @@ export function addDrawingInteractionPoint(
   state: DrawingState,
   point: DrawingPoint,
   pendingPoints: DrawingPoint[] = [],
+  styleOverride?: Partial<import("./types").DrawingStyle>,
+  contentOverride?: {
+    text?: string;
+    fontSize?: number;
+  },
 ): DrawingInteractionResult {
   const type = state.activeTool;
 
@@ -1131,11 +1318,18 @@ export function addDrawingInteractionPoint(
     };
   }
 
+  const completedDrawing = createDrawingFromTool(
+    type,
+    points,
+    styleOverride,
+    contentOverride,
+  );
+
   return {
-    state: addDrawing(
-      state,
-      createDrawingFromTool(type, points),
-    ),
+    state: {
+      ...addDrawing(state, completedDrawing),
+      activeTool: "SELECT",
+    },
     pendingPoints: [],
     completed: true,
   };

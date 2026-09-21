@@ -3,13 +3,19 @@ import {
   calculateADX,
   calculateATR,
   calculateBollingerBands,
+  calculateCCI,
   calculateEMA,
   calculateMACD,
+  calculateOBV,
+  calculateROC,
   calculateRSI,
   calculateSMA,
   calculateStochastic,
+  calculateVolume,
   calculateVWAP,
+  calculateVWMA,
   calculateWMA,
+  calculateWilliamsR,
 } from "../technical-indicators";
 
 const candles = Array.from({ length: 40 }, (_, index) => {
@@ -137,10 +143,91 @@ describe("technical indicators", () => {
     expect(last.minusDi).not.toBeNull();
   });
 
+  it("calculates VWMA", () => {
+    const values = calculateVWMA(candles, 3);
+
+    expect(values).toHaveLength(candles.length);
+    expect(values.slice(0, 2)).toEqual([null, null]);
+
+    const expected =
+      (102 * 1020 + 103 * 1030 + 104 * 1040) /
+      (1020 + 1030 + 1040);
+
+    expect(values[4]).toBeCloseTo(expected, 10);
+  });
+
+  it("calculates CCI", () => {
+    const testCandles = [
+      { time: 0, open: 9, high: 11, low: 9, close: 10, volume: 100 },
+      { time: 1, open: 10, high: 12, low: 10, close: 11, volume: 100 },
+      { time: 2, open: 11, high: 13, low: 11, close: 12, volume: 100 },
+    ];
+
+    const values = calculateCCI(testCandles, 3);
+
+    expect(values).toHaveLength(3);
+    expect(values.slice(0, 2)).toEqual([null, null]);
+    expect(values[2]).toBeCloseTo(100, 10);
+  });
+
+  it("calculates ROC", () => {
+    const values = calculateROC(
+      [100, 105, 110, 120],
+      2,
+    );
+
+    expect(values).toEqual([
+      null,
+      null,
+      10,
+      (120 - 105) / 105 * 100,
+    ]);
+  });
+
+  it("calculates Williams %R", () => {
+    const testCandles = [
+      { time: 0, open: 9, high: 12, low: 8, close: 10, volume: 100 },
+      { time: 1, open: 10, high: 14, low: 9, close: 13, volume: 100 },
+      { time: 2, open: 12, high: 15, low: 10, close: 11, volume: 100 },
+    ];
+
+    const values = calculateWilliamsR(testCandles, 3);
+
+    expect(values).toHaveLength(3);
+    expect(values.slice(0, 2)).toEqual([null, null]);
+    expect(values[2]).toBeCloseTo(-57.142857142857146, 10);
+  });
+
+  it("calculates OBV", () => {
+    const testCandles = [
+      { time: 0, open: 9, high: 11, low: 8, close: 10, volume: 100 },
+      { time: 1, open: 10, high: 12, low: 9, close: 12, volume: 200 },
+      { time: 2, open: 12, high: 13, low: 10, close: 11, volume: 150 },
+      { time: 3, open: 11, high: 14, low: 10, close: 11, volume: 175 },
+    ];
+
+    expect(calculateOBV(testCandles)).toEqual([
+      0,
+      200,
+      50,
+      50,
+    ]);
+  });
+
+  it("calculates Volume", () => {
+    expect(calculateVolume(candles)).toEqual(
+      candles.map((candle) => candle.volume),
+    );
+  });
+
   it("rejects invalid periods", () => {
     expect(() => calculateSMA([1, 2, 3], 0)).toThrow();
     expect(() => calculateEMA([1, 2, 3], 0)).toThrow();
     expect(() => calculateWMA([1, 2, 3], 0)).toThrow();
     expect(() => calculateRSI([1, 2, 3], 0)).toThrow();
+    expect(() => calculateVWMA(candles, 0)).toThrow();
+    expect(() => calculateCCI(candles, 0)).toThrow();
+    expect(() => calculateROC([1, 2, 3], 0)).toThrow();
+    expect(() => calculateWilliamsR(candles, 0)).toThrow();
   });
 });

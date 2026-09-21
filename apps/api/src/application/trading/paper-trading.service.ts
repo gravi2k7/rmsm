@@ -398,16 +398,27 @@ export class PaperTradingService {
     const quantity = position.quantity.toString();
     const instrumentId = position.instrumentId;
 
+    const reverseSide =
+      position.side === TradingPositionSide.LONG
+        ? "SELL"
+        : "BUY";
+
+    /*
+     * Reverse is intentionally two orders using the same side:
+     *
+     * LONG  -> SELL to close + SELL to open SHORT
+     * SHORT -> BUY  to close + BUY  to open LONG
+     *
+     * The first order closes the existing position. The second order
+     * then opens the opposite position because no position remains.
+     */
     await this.placeMarketOrder(
       organizationId,
       ownerUserId,
       accountId,
       {
         instrumentId,
-        side:
-          position.side === TradingPositionSide.LONG
-            ? "SELL"
-            : "BUY",
+        side: reverseSide,
         quantity,
       },
     );
@@ -418,10 +429,7 @@ export class PaperTradingService {
       accountId,
       {
         instrumentId,
-        side:
-          position.side === TradingPositionSide.LONG
-            ? "BUY"
-            : "SELL",
+        side: reverseSide,
         quantity,
       },
     );

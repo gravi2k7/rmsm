@@ -52,6 +52,48 @@ export const DRAWING_TOOL_DEFINITIONS: readonly DrawingToolDefinition[] = [
     minPoints: 1,
     maxPoints: 1,
   },
+  {
+    type: "EXTENDED_LINE",
+    label: "Extended Line",
+    minPoints: 2,
+    maxPoints: 2,
+  },
+  {
+    type: "CROSS_LINE",
+    label: "Cross Line",
+    minPoints: 1,
+    maxPoints: 1,
+  },
+  {
+    type: "CIRCLE",
+    label: "Circle",
+    minPoints: 2,
+    maxPoints: 2,
+  },
+  {
+    type: "POLYLINE",
+    label: "Polyline",
+    minPoints: 2,
+    maxPoints: 20,
+  },
+  {
+    type: "NOTE",
+    label: "Note",
+    minPoints: 1,
+    maxPoints: 1,
+  },
+  {
+    type: "CALLOUT",
+    label: "Callout",
+    minPoints: 2,
+    maxPoints: 2,
+  },
+  {
+    type: "PRICE_LABEL",
+    label: "Price Label",
+    minPoints: 1,
+    maxPoints: 1,
+  },
 
   {
     type: "PARALLEL_CHANNEL",
@@ -95,6 +137,12 @@ export const DRAWING_TOOL_DEFINITIONS: readonly DrawingToolDefinition[] = [
     label: "Fibonacci Time",
     minPoints: 2,
     maxPoints: 2,
+  },
+  {
+    type: "FIB_CHANNEL",
+    label: "Fibonacci Channel",
+    minPoints: 3,
+    maxPoints: 3,
   },
 
   {
@@ -162,6 +210,18 @@ export const DRAWING_TOOL_DEFINITIONS: readonly DrawingToolDefinition[] = [
   {
     type: "MEASURE_RANGE",
     label: "Measure Range",
+    minPoints: 2,
+    maxPoints: 2,
+  },
+  {
+    type: "LONG_POSITION",
+    label: "Long Position",
+    minPoints: 2,
+    maxPoints: 2,
+  },
+  {
+    type: "SHORT_POSITION",
+    label: "Short Position",
     minPoints: 2,
     maxPoints: 2,
   },

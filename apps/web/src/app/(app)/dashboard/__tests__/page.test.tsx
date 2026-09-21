@@ -2,146 +2,120 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { renderWithQueryClient } from "@/test/render-with-query";
 import DashboardPage from "../page";
-import { useAuthStore } from "@/lib/auth-store";
-import { useSessionStore } from "@/lib/session-store";
 
-function paginated<T>(items: T[]) {
-  return { items, total: items.length, page: 1, pageSize: 500 };
-}
+const replace = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    replace,
+  }),
+}));
 
 function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-}
-
-function renderDashboard() {
-  return renderWithQueryClient(<DashboardPage />);
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 describe("DashboardPage", () => {
- beforeEach(() => {
-  useAuthStore.setState({
-    accessToken: "token",
-    refreshToken: "refresh",
-    user: {
-      sub: "u1",
-      email: "trader@example.com",
-      roles: ["TRADER"],
-      permissions: [],
-      sessionId: "s1",
-    },
+  beforeEach(() => {
+    replace.mockReset();
   });
-
-  useSessionStore.setState({
-    organizationId: "org-1",
-    accessToken: "token",
-  });
- });
 
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  it("renders portfolio figures from real endpoint data once loaded", async () => {
+  it("redirects to the chart workstation using EUR/USD", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async (url: string) => {
-        if (url.includes("/portfolio")) {
+        if (url.includes("/market-data/instruments")) {
           return jsonResponse({
-            id: "pf1",
-            cashBalance: 5000,
-            equity: 12345,
-            buyingPower: 20000,
-            marginUsed: 1000,
-            marginAvailable: 4000,
-            openPositionCount: 1,
-            closedPositionCount: 3,
-            createdAt: "2026-01-01T00:00:00.000Z",
+            data: [
+              {
+                id: "eurusd-1",
+                symbol: "EURUSD",
+                name: "EUR/USD",
+                assetClass: "FOREX",
+                status: "ACTIVE",
+              },
+            ],
+            pagination: {
+              page: 1,
+              pageSize: 100,
+              totalCount: 1,
+              totalPages: 1,
+              hasNextPage: false,
+              hasPreviousPage: false,
+            },
           });
         }
-        if (url.includes("/positions")) return jsonResponse(paginated([]));
-        if (url.includes("/trades")) return jsonResponse(paginated([]));
-        if (url.includes("/orders")) return jsonResponse(paginated([]));
-        if (url.includes("/opportunities")) return jsonResponse(paginated([]));
-        if (url.includes("/decisions")) return jsonResponse(paginated([]));
-        if (url.includes("/strategies")) return jsonResponse(paginated([]));
-        if (url.includes("/markets")) return jsonResponse(paginated([]));
-        if (url.includes("/health/ready"))
-          return jsonResponse({ status: "ok", checks: {} });
-        if (url.includes("/health")) return jsonResponse({ status: "ok" });
+
         return jsonResponse({});
       }),
     );
 
-    renderDashboard();
-
-    expect(
-      screen.getByText(/welcome, trader@example.com/i),
-    ).toBeInTheDocument();
+    renderWithQueryClient(<DashboardPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("$12,345.00")).toBeInTheDocument();
+      expect(replace).toHaveBeenCalledWith("/trading?instrument=eurusd-1");
     });
+
+    expect(replace).toHaveBeenCalledTimes(1);
   });
 
-  it("shows an 'Unavailable' state for a widget whose endpoint fails, without blocking the rest of the page", async () => {
+  it("shows a loading state while the chart instrument is loading", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(
+        () =>
+          new Promise(() => {
+            // Keep the request pending.
+          }),
+      ),
+    );
+
+    renderWithQueryClient(<DashboardPage />);
+
+    expect(
+      screen.getByText("Loading chart workspace…"),
+    ).toBeInTheDocument();
+
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("shows an error when the instrument lookup fails", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async (url: string) => {
-        if (url.includes("/portfolio")) return jsonResponse({}, 500);
-        if (url.includes("/health/ready"))
-          return jsonResponse({ status: "ok", checks: {} });
-        if (url.includes("/health")) return jsonResponse({ status: "ok" });
-        return jsonResponse(paginated([]));
+        if (url.includes("/market-data/instruments")) {
+          return jsonResponse(
+            {
+              success: false,
+              error: {
+                code: "INTERNAL_ERROR",
+                message: "Unable to load instruments",
+              },
+            },
+            500,
+          );
+        }
+
+        return jsonResponse({});
       }),
     );
 
-    renderDashboard();
+    renderWithQueryClient(<DashboardPage />);
 
     await waitFor(() => {
-      expect(screen.getAllByText(/unavailable/i).length).toBeGreaterThan(0);
+      expect(
+        screen.getByText("Unable to load the chart workspace."),
+      ).toBeInTheDocument();
     });
-    // The rest of the dashboard still rendered its shell despite one
-    // widget's data failing.
-    expect(screen.getByText(/your trading workspace/i)).toBeInTheDocument();
-  });
 
-  it("shows the real Notifications unread state rather than fake data", async () => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockImplementation(async (url: string) => {
-      if (url.includes("/health/ready")) {
-        return jsonResponse({ status: "ok", checks: {} });
-      }
-
-      if (url.includes("/health")) {
-        return jsonResponse({ status: "ok" });
-      }
-
-      if (url.includes("/portfolio")) {
-        return jsonResponse({
-          cashBalance: 0,
-          equity: 0,
-          buyingPower: 0,
-          marginUsed: 0,
-          marginAvailable: 0,
-          openPositionCount: 0,
-          closedPositionCount: 0,
-        });
-      }
-
-      if (url.includes("/notifications/organizations/")) {
-        return jsonResponse({ items: [], total: 0 });
-      }
-
-      return jsonResponse(paginated([]));
-    }),
-  );
-
-  renderDashboard();
-
-  await waitFor(() => {
-  expect(screen.getByText("0 unread")).toBeInTheDocument();
-    });
+    expect(replace).not.toHaveBeenCalled();
   });
 });

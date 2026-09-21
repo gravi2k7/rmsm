@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -8,6 +9,7 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
+import { isUUID } from "class-validator";
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -113,6 +115,41 @@ export class InstrumentController {
     @Body() request: InstrumentOnboardingDto,
   ): Promise<InstrumentResponseDto> {
     return this.instrumentOnboardingService.onboard(request);
+  }
+
+  @Get("batch")
+  @RequirePermissions("market-data.read")
+  @ApiOperation({
+    operationId: "getInstrumentsBatch",
+    summary: "Get multiple instruments by id.",
+    description:
+      "Returns all canonical instruments matching the comma-separated ids query parameter.",
+  })
+  @ApiOkResponse({ type: [InstrumentResponseDto] })
+  async batch(
+    @Query("ids") idsQuery?: string,
+  ): Promise<InstrumentResponseDto[]> {
+    const ids = [
+      ...new Set(
+        (idsQuery ?? "")
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean),
+      ),
+    ];
+
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const invalidId = ids.find((id) => !isUUID(id));
+    if (invalidId) {
+      throw new BadRequestException(
+        `Invalid instrument id: ${invalidId}`,
+      );
+    }
+
+    return this.marketDataService.getInstrumentsByIds(ids);
   }
 
   @Get(":id")

@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   OnModuleInit,
+  Optional,
 } from "@nestjs/common";
 import type { Env } from "@rmsm/config";
 
@@ -23,6 +24,30 @@ import { CTraderInstrumentCatalogBootstrapService } from "./ctrader-fix.catalog.
 import { CTraderFixInstrumentResolver } from "./ctrader-fix.instrument-resolver";
 import { InstrumentRepository } from "../../repositories/instrument.repository";
 import { InstrumentAliasRepository } from "../../repositories/instrument-alias.repository";
+import { MarketDataProviderConfigRepository } from "../../repositories/market-data-provider-config.repository";
+import { CTraderOpenApiClient } from "./openapi/ctrader-openapi.client";
+import { CTraderOpenApiHistoricalClient } from "./openapi/ctrader-openapi.historical.client";
+
+@Injectable()
+export class CTraderOpenApiClientFactory {
+  constructor(
+    @Inject(APP_CONFIG)
+    private readonly env: Env,
+  ) {}
+
+  create(): CTraderOpenApiClient {
+    return new CTraderOpenApiClient({
+      host: this.env.CTRADER_OPENAPI_HOST,
+      port: this.env.CTRADER_OPENAPI_PORT,
+      clientId: this.env.CTRADER_OPENAPI_CLIENT_ID ?? "",
+      clientSecret: this.env.CTRADER_OPENAPI_CLIENT_SECRET ?? "",
+      accessToken: this.env.CTRADER_OPENAPI_ACCESS_TOKEN ?? "",
+      accountId: this.env.CTRADER_OPENAPI_ACCOUNT_ID ?? 0,
+      connectTimeoutMs: this.env.CTRADER_OPENAPI_CONNECT_TIMEOUT,
+      requestTimeoutMs: this.env.CTRADER_OPENAPI_REQUEST_TIMEOUT,
+    });
+  }
+}
 
 @Injectable()
 export class CTraderFixClientFactory {
@@ -68,10 +93,17 @@ export class CTraderFixRegistrarService implements OnModuleInit {
     private readonly client: CTraderFixClient,
     @Inject(APP_CONFIG)
     private readonly env: Env,
+    private readonly providerConfigRepository: MarketDataProviderConfigRepository,
+    private readonly openApiClient: CTraderOpenApiClient,
+    @Optional()
+    private readonly aliasRepository?: InstrumentAliasRepository,
   ) {}
 
-  onModuleInit(): void {
-    const provider = this.buildProvider();
+  async onModuleInit(): Promise<void> {
+    const config =
+      await this.providerConfigRepository.findByType("CTRADER");
+
+    const provider = this.buildProvider(config ?? undefined);
 
     this.registry.register(provider);
 
@@ -106,12 +138,32 @@ export class CTraderFixRegistrarService implements OnModuleInit {
     const errorMapper = new CTraderFixErrorMapper();
     const healthProvider = new CTraderFixHealthProvider(client);
 
+    let historicalDataClient;
+
+    if (
+      this.env.CTRADER_OPENAPI_ENABLED &&
+      this.env.CTRADER_OPENAPI_CLIENT_ID &&
+      this.env.CTRADER_OPENAPI_CLIENT_SECRET &&
+      this.env.CTRADER_OPENAPI_ACCESS_TOKEN &&
+      this.env.CTRADER_OPENAPI_ACCOUNT_ID &&
+      this.aliasRepository &&
+      config?.id
+    ) {
+      historicalDataClient = new CTraderOpenApiHistoricalClient(
+        this.openApiClient,
+        this.aliasRepository,
+        config.id,
+        this.env.CTRADER_OPENAPI_ACCOUNT_ID,
+      );
+    }
+
     return new CTraderFixProvider(
       client,
       rateLimiter,
       errorMapper,
       healthProvider,
       this.isConfigured(config),
+      historicalDataClient,
     );
   }
 

@@ -1,16 +1,26 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 /**
- * Example-shaped global UI store (sidebar/theme state). No domain state
- * lives here — this exists to prove Zustand is wired correctly per
- * Module 001 scope. Domain stores are added per-feature starting Module 004+.
+ * Global UI preferences.
+ *
+ * The sidebar starts collapsed for a first-time user and remembers
+ * the user's expand/collapse preference across page reloads.
  */
 interface UiState {
   sidebarOpen: boolean;
   toggleSidebar: () => void;
 }
 
-export const useUiStore = create<UiState>((set) => ({
-  sidebarOpen: true,
-  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
-}));
+export const useUiStore = create<UiState>()(
+  persist(
+    (set) => ({
+      sidebarOpen: false,
+      toggleSidebar: () =>
+        set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+    }),
+    {
+      name: "rmsm-ui-preferences",
+    },
+  ),
+);

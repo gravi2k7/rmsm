@@ -1,3 +1,7 @@
+import { CTraderFixClient } from "../ctrader-fix.client";
+import { CTraderOpenApiClient } from "../openapi/ctrader-openapi.client";
+import { CTraderOpenApiClientFactory } from "../ctrader-fix.module";
+import { MarketDataProviderConfigRepository } from "../../../repositories/market-data-provider-config.repository";
 import { Test } from "@nestjs/testing";
 import type { Env } from "@rmsm/config";
 
@@ -41,8 +45,27 @@ describe("CTraderFixRegistrarService Nest DI", () => {
       providers: [
         ProviderRegistryService,
         ProviderFactoryService,
+        {
+          provide: MarketDataProviderConfigRepository,
+          useValue: {
+            findByType: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        CTraderOpenApiClientFactory,
+        {
+          provide: CTraderOpenApiClient,
+          inject: [CTraderOpenApiClientFactory],
+          useFactory: (factory: CTraderOpenApiClientFactory) =>
+            factory.create(),
+        },
         CTraderFixClientFactory,
-        cTraderFixClientProvider,
+        {
+          provide: CTraderFixClient,
+          useValue: {
+            connect: jest.fn().mockResolvedValue(undefined),
+            disconnect: jest.fn().mockResolvedValue(undefined),
+          },
+        },
         CTraderFixRegistrarService,
         {
           provide: APP_CONFIG,
@@ -56,7 +79,7 @@ describe("CTraderFixRegistrarService Nest DI", () => {
 
     expect(registrar).toBeDefined();
 
-    registrar.onModuleInit();
+    await registrar.onModuleInit();
 
     const provider = registry.get("CTRADER");
 
@@ -80,8 +103,27 @@ describe("CTraderFixRegistrarService Nest DI", () => {
       providers: [
         ProviderRegistryService,
         ProviderFactoryService,
+        {
+          provide: MarketDataProviderConfigRepository,
+          useValue: {
+            findByType: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        CTraderOpenApiClientFactory,
+        {
+          provide: CTraderOpenApiClient,
+          inject: [CTraderOpenApiClientFactory],
+          useFactory: (factory: CTraderOpenApiClientFactory) =>
+            factory.create(),
+        },
         CTraderFixClientFactory,
-        cTraderFixClientProvider,
+        {
+          provide: CTraderFixClient,
+          useValue: {
+            connect: jest.fn().mockResolvedValue(undefined),
+            disconnect: jest.fn().mockResolvedValue(undefined),
+          },
+        },
         CTraderFixRegistrarService,
         {
           provide: APP_CONFIG,
@@ -93,7 +135,7 @@ describe("CTraderFixRegistrarService Nest DI", () => {
     const registrar = moduleRef.get(CTraderFixRegistrarService);
     const registry = moduleRef.get(ProviderRegistryService);
 
-    registrar.onModuleInit();
+    await registrar.onModuleInit();
 
     const provider = registry.tryGet("CTRADER");
 

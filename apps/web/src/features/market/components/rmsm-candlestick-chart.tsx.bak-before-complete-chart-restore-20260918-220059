@@ -1,0 +1,1485 @@
+"use client";
+
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import {
+  CandlestickSeries,
+  ColorType,
+  HistogramSeries,
+  LineSeries,
+  createChart,
+  type CandlestickData,
+  type HistogramData,
+  type IChartApi,
+  type ISeriesApi,
+  type MouseEventParams,
+  type Time,
+} from "lightweight-charts";
+import type { Candle, CandleInterval, Quote } from "../types";
+import type { IndicatorConfig } from "../indicators/config";
+import type { DrawingPoint, DrawingState, DrawingType } from "../drawings/types";
+import { createDrawingState } from "../drawings/state";
+import {
+  addDrawingInteractionPoint,
+  applyDrawingEdit,
+  applyDrawingKeyboardAction,
+  hitTestDrawings,
+  resolveDrawingInteractionTarget,
+  screenPointToDrawingPoint,
+  type DrawingEditTarget,
+} from "../drawings/drawing-engine";
+import { DrawingRenderer } from "../drawings/drawing-renderer";
+import {
+  calculateBollingerBands,
+  calculateEMA,
+  calculateSMA,
+  calculateVWAP,
+  calculateWMA,
+  type IndicatorCandle,
+} from "../indicators/technical-indicators";
+
+export interface RMSMCandlestickChartHandle {
+  fitContent: () => void;
+  resetView: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  autoScale: () => void;
+  takeSnapshot: () => void;
+}
+
+interface RMSMCandlestickChartProps {
+  candles: Candle[];
+  height?: number;
+  indicators?: IndicatorConfig[];
+  liveQuote?: Quote | null;
+  liveCandle?: Candle | null;
+
+  // Trading overlays / chart interactions.
+  // Keep these optional so non-trading chart consumers remain valid.
+  positions?: unknown[];
+  orders?: unknown[];
+  currentPrice?: number | null;
+
+  onPositionRiskChange?: (
+    positionId: string,
+    risk: {
+      stopLossPrice: string | null;
+      takeProfitPrice: string | null;
+    },
+  ) => void;
+
+  onPositionClose?: (positionId: string) => void;
+  onPendingOrderCancel?: (orderId: string) => void;
+  onPendingOrderPriceChange?: (
+    orderId: string,
+    price: number,
+  ) => void;
+
+  interval?: CandleInterval;
+  timezone?: string;
+  pricePrecision?: number;
+  priceMinMove?: number;
+  onRequestOlder?: () => void;
+
+  chartSettings?: unknown;
+
+  activeDrawingTool?: DrawingType;
+  drawingState?: DrawingState;
+  onDrawingStateChange?: (state: DrawingState) => void;
+
+  onChartLimitOrder?: (
+    type: "LIMIT" | "STOP",
+    side: "BUY" | "SELL",
+    price: number,
+    quantity: string,
+  ) => void;
+
+  onChartSettingsOpen?: () => void;
+
+  // Backtest / replay overlays.
+  replayCursor?: number;
+  replayEnabled?: boolean;
+  backtestMarkers?: Array<{
+    time: string;
+    price: number;
+    side: "LONG" | "SHORT";
+    event: "ENTRY" | "EXIT";
+    label?: string;
+  }>;
+
+  volumeVisible?: boolean;
+  onVolumeVisibilityChange?: (visible: boolean) => void;
+}
+
+interface OverlaySeries {
+  configId: string;
+  series: ISeriesApi<"Line">[];
+}
+
+const EMPTY_INDICATORS: IndicatorConfig[] = [];
+
+interface DrawingPointerInteraction {
+  target: DrawingEditTarget;
+  startX: number;
+  startY: number;
+  baseState: DrawingState;
+  dragging: boolean;
+}
+
+export const RMSMCandlestickChart = forwardRef<
+  RMSMCandlestickChartHandle,
+  RMSMCandlestickChartProps
+>(function RMSMCandlestickChart({
+  candles,
+  height,
+  indicators = EMPTY_INDICATORS,
+  liveQuote = null,
+  liveCandle = null,
+  replayCursor,
+  replayEnabled = false,
+  backtestMarkers = [],
+  interval = "ONE_MINUTE",
+  onRequestOlder,
+  activeDrawingTool = "SELECT",
+  drawingState: controlledDrawingState,
+  onDrawingStateChange,
+  volumeVisible = true,
+}, ref) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const overlaySeriesRef = useRef<OverlaySeries[]>([]);
+  const onRequestOlderRef = useRef(onRequestOlder);
+  const previousCandleCountRef = useRef(0);
+  const initialDataLoadedRef = useRef(false);
+
+  const latestRenderedCandleRef = useRef<{
+    time: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+  } | null>(null);
+
+  const [internalDrawingState, setInternalDrawingState] =
+    useState(() =>
+      createDrawingState(activeDrawingTool),
+    );
+
+  const drawingState =
+    controlledDrawingState ?? internalDrawingState;
+
+  const drawingStateRef = useRef(drawingState);
+  drawingStateRef.current = drawingState;
+
+  const setDrawingState = (
+    nextState:
+      | DrawingState
+      | ((state: DrawingState) => DrawingState),
+  ) => {
+    if (controlledDrawingState === undefined) {
+      setInternalDrawingState(nextState);
+      return;
+    }
+
+    const current =
+      drawingStateRef.current;
+
+    const resolved =
+      typeof nextState === "function"
+        ? nextState(current)
+        : nextState;
+
+    onDrawingStateChange?.(resolved);
+  };
+  const [, setPendingDrawingPoints] = useState<DrawingPoint[]>([]);
+
+  const pendingDrawingPointsRef = useRef<DrawingPoint[]>([]);
+  const onDrawingStateChangeRef = useRef(onDrawingStateChange);
+
+  const drawingPointerInteractionRef =
+    useRef<DrawingPointerInteraction | null>(null);
+
+  const suppressDrawingClickRef = useRef(false);
+
+  const fitContent = () => {
+    chartRef.current?.timeScale().fitContent();
+  };
+
+  const resetView = () => {
+    const chart = chartRef.current;
+
+    if (!chart) {
+      return;
+    }
+
+    chart.timeScale().fitContent();
+    chart.priceScale("right").applyOptions({
+      autoScale: true,
+    });
+  };
+
+  const zoomIn = () => {
+    const chart = chartRef.current;
+
+    if (!chart) {
+      return;
+    }
+
+    const range = chart.timeScale().getVisibleLogicalRange();
+
+    if (!range) {
+      return;
+    }
+
+    const center = (range.from + range.to) / 2;
+    const halfWidth = Math.max((range.to - range.from) * 0.4, 5);
+
+    chart.timeScale().setVisibleLogicalRange({
+      from: center - halfWidth,
+      to: center + halfWidth,
+    });
+  };
+
+  const zoomOut = () => {
+    const chart = chartRef.current;
+
+    if (!chart) {
+      return;
+    }
+
+    const range = chart.timeScale().getVisibleLogicalRange();
+
+    if (!range) {
+      return;
+    }
+
+    const center = (range.from + range.to) / 2;
+    const halfWidth = Math.max((range.to - range.from) * 0.625, 5);
+
+    chart.timeScale().setVisibleLogicalRange({
+      from: center - halfWidth,
+      to: center + halfWidth,
+    });
+  };
+
+  const takeSnapshot = () => {
+    const chart = chartRef.current;
+
+    if (!chart) {
+      return;
+    }
+
+    const canvas = chart.takeScreenshot();
+
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+
+      anchor.href = url;
+      anchor.download = "rmsm-chart.png";
+      anchor.click();
+
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  };
+
+  const autoScale = () => {
+    chartRef.current?.priceScale("right").applyOptions({
+      autoScale: true,
+    });
+  };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      fitContent,
+      resetView,
+      zoomIn,
+      zoomOut,
+      autoScale,
+      takeSnapshot,
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    volumeSeriesRef.current?.applyOptions({
+      visible: volumeVisible,
+    });
+  }, [volumeVisible]);
+
+  useEffect(() => {
+    onDrawingStateChangeRef.current = onDrawingStateChange;
+  }, [onDrawingStateChange]);
+
+  useEffect(() => {
+    if (controlledDrawingState === undefined) {
+      setInternalDrawingState((state) => ({
+        ...state,
+        activeTool: activeDrawingTool,
+        selectedDrawingId:
+          activeDrawingTool === "SELECT"
+            ? state.selectedDrawingId
+            : null,
+      }));
+    }
+
+    pendingDrawingPointsRef.current = [];
+    setPendingDrawingPoints([]);
+  }, [activeDrawingTool, controlledDrawingState]);
+
+  useEffect(() => {
+    onRequestOlderRef.current = onRequestOlder;
+  }, [onRequestOlder]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const chartRoot = container?.parentElement;
+
+    if (!container || !chartRoot) {
+      return;
+    }
+
+    const chart = createChart(container, {
+      width: container.clientWidth,
+      height: height ?? container.clientHeight,
+      layout: {
+        background: {
+          type: ColorType.Solid,
+          color: "transparent",
+        },
+        textColor: "#94a3b8",
+        attributionLogo: false,
+      },
+      grid: {
+        vertLines: {
+          color: "rgba(148, 163, 184, 0.06)",
+        },
+        horzLines: {
+          color: "rgba(148, 163, 184, 0.06)",
+        },
+      },
+      crosshair: {
+        mode: 1,
+        vertLine: {
+          color: "rgba(148, 163, 184, 0.45)",
+          width: 1,
+          style: 2,
+          labelBackgroundColor: "#334155",
+        },
+        horzLine: {
+          color: "rgba(148, 163, 184, 0.45)",
+          width: 1,
+          style: 2,
+          labelBackgroundColor: "#334155",
+        },
+      },
+      rightPriceScale: {
+        borderColor: "rgba(148, 163, 184, 0.18)",
+        scaleMargins: {
+          top: 0.08,
+          bottom: 0.30,
+        },
+        minimumWidth: 72,
+      },
+      timeScale: {
+        borderColor: "rgba(148, 163, 184, 0.18)",
+        timeVisible: true,
+        secondsVisible: false,
+        rightOffset: 6,
+        barSpacing: 8,
+        minBarSpacing: 2,
+      },
+    });
+
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: "#22c55e",
+      downColor: "#ef4444",
+      borderVisible: false,
+      wickUpColor: "#22c55e",
+      wickDownColor: "#ef4444",
+      priceLineVisible: true,
+      lastValueVisible: true,
+    });
+
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: {
+        type: "volume",
+      },
+      priceScaleId: "",
+      color: "rgba(148, 163, 184, 0.45)",
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+
+    volumeSeries.priceScale().applyOptions({
+      scaleMargins: {
+        top: 0.75,
+        bottom: 0,
+      },
+    });
+
+    chartRef.current = chart;
+    candleSeriesRef.current = candleSeries;
+    volumeSeriesRef.current = volumeSeries;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+
+      if (!entry) {
+        return;
+      }
+
+      const { width, height: containerHeight } = entry.contentRect;
+
+      if (width > 0 && containerHeight > 0) {
+        chart.applyOptions({
+          width,
+          height: containerHeight,
+        });
+      }
+    });
+
+    resizeObserver.observe(container);
+
+    const timeScale = chart.timeScale();
+
+    const handleVisibleLogicalRangeChange = () => {
+      const range = timeScale.getVisibleLogicalRange();
+
+      if (!range) {
+        return;
+      }
+
+      if (range.from <= 20) {
+        onRequestOlderRef.current?.();
+      }
+    };
+
+    timeScale.subscribeVisibleLogicalRangeChange(
+      handleVisibleLogicalRangeChange,
+    );
+
+    const getDrawingHitTestContext = () => ({
+      width: container.clientWidth,
+      height: container.clientHeight,
+      timeToX: (value: number) =>
+        chart.timeScale().timeToCoordinate(value as Time),
+      priceToY: (value: number) =>
+        candleSeries.priceToCoordinate(value),
+    });
+
+    const getDrawingPointFromScreen = (
+      x: number,
+      y: number,
+    ): DrawingPoint | null => {
+      try {
+        return screenPointToDrawingPoint(
+          {
+            state: drawingStateRef.current,
+            ...getDrawingHitTestContext(),
+            xToTime: (screenX) => {
+              const value =
+                chart.timeScale().coordinateToTime(screenX);
+
+              if (value === null || value === undefined) {
+                return null;
+              }
+
+              return typeof value === "number"
+                ? value
+                : Number(value);
+            },
+            yToPrice: (screenY) =>
+              candleSeries.coordinateToPrice(screenY),
+          },
+          x,
+          y,
+        );
+      } catch {
+        return null;
+      }
+    };
+
+    const emitDrawingState = (nextState: DrawingState) => {
+      drawingStateRef.current = nextState;
+      setDrawingState(nextState);
+    };
+
+    const handleDrawingKeyDown = (
+      event: KeyboardEvent,
+    ) => {
+      let action:
+        | "DELETE"
+        | "ESCAPE"
+        | "MOVE_LEFT"
+        | "MOVE_RIGHT"
+        | "MOVE_UP"
+        | "MOVE_DOWN"
+        | null = null;
+
+      switch (event.key) {
+        case "Delete":
+        case "Backspace":
+          action = "DELETE";
+          break;
+        case "Escape":
+          action = "ESCAPE";
+          break;
+        case "ArrowLeft":
+          action = "MOVE_LEFT";
+          break;
+        case "ArrowRight":
+          action = "MOVE_RIGHT";
+          break;
+        case "ArrowUp":
+          action = "MOVE_UP";
+          break;
+        case "ArrowDown":
+          action = "MOVE_DOWN";
+          break;
+        default:
+          return;
+      }
+
+      const currentState = drawingStateRef.current;
+
+      /*
+       * No selection is a true keyboard no-op.
+       * This must remain distinct from a locked selection.
+       */
+      if (
+        currentState.selectedDrawingId === null
+      ) {
+        return;
+      }
+
+      const selectedDrawing =
+        currentState.drawings.find(
+          (drawing) =>
+            drawing.id === currentState.selectedDrawingId,
+        );
+
+      /*
+       * Locked drawings cannot be modified, but the keyboard
+       * interaction is still consumed and the controlled state
+       * callback receives the unchanged state.
+       */
+      if (selectedDrawing?.locked) {
+        event.preventDefault();
+        emitDrawingState(currentState);
+        return;
+      }
+
+      const nextState = applyDrawingKeyboardAction(
+        currentState,
+        action,
+      );
+
+      if (nextState === currentState) {
+        return;
+      }
+
+      event.preventDefault();
+
+      emitDrawingState(nextState);
+    };
+
+
+    const handleDrawingPointerDown = (
+      event: PointerEvent,
+    ) => {
+      if (
+        drawingStateRef.current.activeTool !== "SELECT" ||
+        event.button !== 0
+      ) {
+        return;
+      }
+
+      const rect = container.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      if (
+        x < 0 ||
+        y < 0 ||
+        x > rect.width ||
+        y > rect.height
+      ) {
+        return;
+      }
+
+      const target = resolveDrawingInteractionTarget(
+        drawingStateRef.current,
+        x,
+        y,
+        getDrawingHitTestContext(),
+      );
+
+      if (!target) {
+        return;
+      }
+
+      const nextState = {
+        ...drawingStateRef.current,
+        selectedDrawingId: target.drawingId,
+      };
+
+      emitDrawingState(nextState);
+
+      const editTarget: DrawingEditTarget =
+        target.kind === "HANDLE"
+          ? {
+              drawingId: target.drawingId,
+              mode: "ENDPOINT",
+              pointIndex: target.pointIndex,
+            }
+          : {
+              drawingId: target.drawingId,
+              mode: "MOVE",
+            };
+
+      drawingPointerInteractionRef.current = {
+        target: editTarget,
+        startX: x,
+        startY: y,
+        baseState: nextState,
+        dragging: false,
+      };
+
+      suppressDrawingClickRef.current = false;
+
+      container.setPointerCapture?.(event.pointerId);
+    };
+
+    const handleDrawingPointerMove = (
+      event: PointerEvent,
+    ) => {
+      const interaction =
+        drawingPointerInteractionRef.current;
+
+      if (!interaction) {
+        return;
+      }
+
+      const rect = container.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      const distance = Math.hypot(
+        x - interaction.startX,
+        y - interaction.startY,
+      );
+
+      if (!interaction.dragging && distance < 2) {
+        return;
+      }
+
+      const point = getDrawingPointFromScreen(x, y);
+
+      if (!point) {
+        return;
+      }
+
+      const startPoint = getDrawingPointFromScreen(
+        interaction.startX,
+        interaction.startY,
+      );
+
+      if (!startPoint) {
+        return;
+      }
+
+      const delta = {
+        time: point.time - startPoint.time,
+        price: point.price - startPoint.price,
+      };
+
+      const nextState = applyDrawingEdit(
+        interaction.baseState,
+        interaction.target,
+        delta,
+      );
+
+      interaction.dragging = true;
+
+      drawingPointerInteractionRef.current = interaction;
+
+      if (nextState !== drawingStateRef.current) {
+        emitDrawingState(nextState);
+        suppressDrawingClickRef.current = true;
+      }
+    };
+
+    const handleDrawingPointerUp = (
+      event: PointerEvent,
+    ) => {
+      const interaction =
+        drawingPointerInteractionRef.current;
+
+      if (!interaction) {
+        return;
+      }
+
+      drawingPointerInteractionRef.current = null;
+
+      if (container.hasPointerCapture?.(event.pointerId)) {
+        container.releasePointerCapture?.(event.pointerId);
+      }
+
+      if (interaction.dragging) {
+        suppressDrawingClickRef.current = true;
+      }
+    };
+
+    chartRoot.addEventListener(
+      "keydown",
+      handleDrawingKeyDown,
+    );
+
+    container.addEventListener(
+      "pointerdown",
+      handleDrawingPointerDown,
+    );
+
+    container.addEventListener(
+      "pointermove",
+      handleDrawingPointerMove,
+    );
+
+    container.addEventListener(
+      "pointerup",
+      handleDrawingPointerUp,
+    );
+
+    const handleChartClick = (param: MouseEventParams<Time>) => {
+      if (suppressDrawingClickRef.current) {
+        suppressDrawingClickRef.current = false;
+        return;
+      }
+
+      if (
+        !param.point ||
+        param.point.x < 0 ||
+        param.point.y < 0
+      ) {
+        return;
+      }
+
+      if (drawingStateRef.current.activeTool === "SELECT") {
+        const selectedId = hitTestDrawings(
+          drawingStateRef.current,
+          {
+            x: param.point.x,
+            y: param.point.y,
+          },
+          {
+            width: container.clientWidth,
+            height: container.clientHeight,
+            timeToX: (value) =>
+              chart.timeScale().timeToCoordinate(value as Time),
+            priceToY: (value) =>
+              candleSeries.priceToCoordinate(value),
+          },
+        );
+
+        const nextState = {
+          ...drawingStateRef.current,
+          selectedDrawingId: selectedId,
+        };
+
+        drawingStateRef.current = nextState;
+        setDrawingState(nextState);
+        pendingDrawingPointsRef.current = [];
+        setPendingDrawingPoints([]);
+
+        onDrawingStateChangeRef.current?.(nextState);
+
+        return;
+      }
+
+      const time = chart.timeScale().coordinateToTime(param.point.x);
+      const price = candleSeries.coordinateToPrice(param.point.y);
+
+      if (time === null || time === undefined || price === null) {
+        return;
+      }
+
+      const point = screenPointToDrawingPoint(
+        {
+          state: drawingStateRef.current,
+          timeToX: (value) =>
+            chart.timeScale().timeToCoordinate(value as Time),
+          priceToY: (value) =>
+            candleSeries.priceToCoordinate(value),
+          xToTime: (x) => {
+            const time = chart.timeScale().coordinateToTime(x);
+
+            if (time === null || time === undefined) {
+              return null;
+            }
+
+            return typeof time === "number" ? time : Number(time);
+          },
+          yToPrice: (y) =>
+            candleSeries.coordinateToPrice(y),
+        },
+        param.point.x,
+        param.point.y,
+      );
+
+      const result = addDrawingInteractionPoint(
+        drawingStateRef.current,
+        point,
+        pendingDrawingPointsRef.current,
+      );
+
+      pendingDrawingPointsRef.current =
+        result.pendingPoints;
+
+      drawingStateRef.current = result.state;
+
+      setPendingDrawingPoints(result.pendingPoints);
+      setDrawingState(result.state);
+
+      onDrawingStateChangeRef.current?.(
+        result.state,
+      );
+    };
+
+    chart.subscribeClick(handleChartClick);
+
+    return () => {
+      chart.unsubscribeClick(handleChartClick);
+      timeScale.unsubscribeVisibleLogicalRangeChange(
+        handleVisibleLogicalRangeChange,
+      );
+
+      chartRoot.removeEventListener(
+        "keydown",
+        handleDrawingKeyDown,
+      );
+
+      container.removeEventListener(
+        "pointerdown",
+        handleDrawingPointerDown,
+      );
+
+      container.removeEventListener(
+        "pointermove",
+        handleDrawingPointerMove,
+      );
+
+      container.removeEventListener(
+        "pointerup",
+        handleDrawingPointerUp,
+      );
+
+      drawingPointerInteractionRef.current = null;
+
+      resizeObserver.disconnect();
+      chart.remove();
+
+      chartRef.current = null;
+      candleSeriesRef.current = null;
+      volumeSeriesRef.current = null;
+      overlaySeriesRef.current = [];
+
+      previousCandleCountRef.current = 0;
+      initialDataLoadedRef.current = false;
+      latestRenderedCandleRef.current = null;
+    };
+  }, [height]);
+
+  useEffect(() => {
+    const candleSeries = candleSeriesRef.current;
+    const volumeSeries = volumeSeriesRef.current;
+
+    if (!candleSeries || !volumeSeries || !liveCandle) {
+      return;
+    }
+
+    const time = Math.floor(
+      new Date(liveCandle.eventTime).getTime() / 1000,
+    );
+
+    const open = Number(liveCandle.open);
+    const high = Number(liveCandle.high);
+    const low = Number(liveCandle.low);
+    const close = Number(liveCandle.close);
+    const volume = Number(liveCandle.volume);
+
+    if (
+      !Number.isFinite(time) ||
+      !Number.isFinite(open) ||
+      !Number.isFinite(high) ||
+      !Number.isFinite(low) ||
+      !Number.isFinite(close)
+    ) {
+      return;
+    }
+
+    candleSeries.update({
+      time: time as Time,
+      open,
+      high,
+      low,
+      close,
+    });
+
+    volumeSeries.update({
+      time: time as Time,
+      value: Number.isFinite(volume) ? volume : 0,
+    });
+  }, [liveCandle]);
+
+  useEffect(() => {
+    const candleSeries = candleSeriesRef.current;
+    const volumeSeries = volumeSeriesRef.current;
+
+    if (!candleSeries || !volumeSeries || !liveQuote?.lastPrice) {
+      return;
+    }
+
+    const price = Number(liveQuote.lastPrice);
+
+    if (!Number.isFinite(price)) {
+      return;
+    }
+
+    const intervalSeconds: Record<CandleInterval, number> = {
+      ONE_MINUTE: 60,
+      FIVE_MINUTES: 300,
+      FIFTEEN_MINUTES: 900,
+      THIRTY_MINUTES: 1800,
+      ONE_HOUR: 3600,
+      FOUR_HOURS: 14400,
+      ONE_DAY: 86400,
+      ONE_WEEK: 604800,
+      ONE_MONTH: 2592000,
+    };
+
+    const seconds = intervalSeconds[interval];
+
+    if (!seconds) {
+      return;
+    }
+
+    const quoteSeconds = Math.floor(
+      new Date(liveQuote.eventTime).getTime() / 1000,
+    );
+
+    if (!Number.isFinite(quoteSeconds)) {
+      return;
+    }
+
+    const candleTime =
+      Math.floor(quoteSeconds / seconds) * seconds;
+
+    const latestRendered = latestRenderedCandleRef.current;
+
+    /*
+     * Lightweight Charts requires update() timestamps to be
+     * chronological. Ignore stale live quotes that belong to a
+     * candle older than the latest candle already rendered.
+     */
+    if (
+      latestRendered &&
+      candleTime < latestRendered.time
+    ) {
+      return;
+    }
+
+    const existing = candles
+      .map((candle) => ({
+        time: Math.floor(
+          new Date(candle.eventTime).getTime() / 1000,
+        ),
+        open: Number(candle.open),
+        high: Number(candle.high),
+        low: Number(candle.low),
+        close: Number(candle.close),
+        volume: Number(candle.volume),
+      }))
+      .filter(
+        (candle) =>
+          Number.isFinite(candle.time) &&
+          Number.isFinite(candle.open) &&
+          Number.isFinite(candle.high) &&
+          Number.isFinite(candle.low) &&
+          Number.isFinite(candle.close) &&
+          Number.isFinite(candle.volume),
+      )
+      .find((candle) => {
+        const bucket =
+          Math.floor(candle.time / seconds) * seconds;
+
+        return bucket === candleTime;
+      });
+
+    if (existing) {
+      const nextCandle = {
+        time: candleTime,
+        open: existing.open,
+        high: Math.max(existing.high, price),
+        low: Math.min(existing.low, price),
+        close: price,
+        volume: existing.volume,
+      };
+
+      candleSeries.update({
+        time: candleTime as Time,
+        open: nextCandle.open,
+        high: nextCandle.high,
+        low: nextCandle.low,
+        close: nextCandle.close,
+      });
+
+      volumeSeries.update({
+        time: candleTime as Time,
+        value: nextCandle.volume,
+        color:
+          price >= existing.open
+            ? "rgba(34, 197, 94, 0.45)"
+            : "rgba(239, 68, 68, 0.45)",
+      });
+
+      latestRenderedCandleRef.current = nextCandle;
+
+      return;
+    }
+
+    /*
+     * No historical candle exists for the current live interval.
+     * Start a new live candle from the latest traded price.
+     */
+    const nextCandle = {
+      time: candleTime,
+      open: price,
+      high: price,
+      low: price,
+      close: price,
+      volume: 0,
+    };
+
+    candleSeries.update({
+      time: candleTime as Time,
+      open: price,
+      high: price,
+      low: price,
+      close: price,
+    });
+
+    volumeSeries.update({
+      time: candleTime as Time,
+      value: 0,
+      color: "rgba(34, 197, 94, 0.45)",
+    });
+
+    latestRenderedCandleRef.current = nextCandle;
+  }, [liveQuote, candles, interval, replayEnabled, replayCursor]);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    const candleSeries = candleSeriesRef.current;
+    const volumeSeries = volumeSeriesRef.current;
+
+    if (!chart || !candleSeries || !volumeSeries) {
+      return;
+    }
+
+    /*
+     * Lightweight Charts requires strictly ascending, unique timestamps.
+     *
+     * The backend normally canonicalizes source duplicates, but the chart
+     * keeps its own defensive normalization so LIVE/BACKFILL or other
+     * duplicate logical timestamps can never reach setData().
+     *
+     * If duplicate timestamps are present, retain the last valid row
+     * received for that logical timestamp.
+     */
+    const candlesByTime = new Map<
+      number,
+      {
+        candle: Candle;
+        time: Time;
+        open: number;
+        high: number;
+        low: number;
+        close: number;
+        volume: number;
+      }
+    >();
+
+    /*
+     * Backtest replay exposes only the candles through the current cursor.
+     *
+     * Cursor semantics are zero-based:
+     *   0   -> first candle
+     *   2   -> first three candles
+     *   >=N -> all N candles
+     *
+     * Keep this inside the canonical normalization pipeline so replay uses
+     * the same timestamp deduplication, ordering, and OHLCV validation as
+     * normal chart rendering.
+     */
+    const replayCandles =
+      replayEnabled && replayCursor !== undefined
+        ? candles.slice(0, Math.max(0, replayCursor + 1))
+        : candles;
+
+    for (const candle of replayCandles) {
+      const time = Math.floor(
+        new Date(candle.eventTime).getTime() / 1000,
+      ) as Time;
+
+      const open = Number(candle.open);
+      const high = Number(candle.high);
+      const low = Number(candle.low);
+      const close = Number(candle.close);
+      const volume = Number(candle.volume);
+
+      if (
+        !Number.isFinite(Number(time)) ||
+        !Number.isFinite(open) ||
+        !Number.isFinite(high) ||
+        !Number.isFinite(low) ||
+        !Number.isFinite(close) ||
+        !Number.isFinite(volume)
+      ) {
+        continue;
+      }
+
+      candlesByTime.set(Number(time), {
+        candle,
+        time,
+        open,
+        high,
+        low,
+        close,
+        volume,
+      });
+    }
+
+    const candlesWithNumbers = [...candlesByTime.values()].sort(
+      (a, b) => Number(a.time) - Number(b.time),
+    );
+
+    if (candlesWithNumbers.length === 0) {
+      candleSeries.setData([]);
+      volumeSeries.setData([]);
+
+      chart.timeScale().fitContent();
+
+      previousCandleCountRef.current = 0;
+      initialDataLoadedRef.current = false;
+      latestRenderedCandleRef.current = null;
+
+      return;
+    }
+
+    const candleData: CandlestickData<Time>[] = candlesWithNumbers.map(
+      (item) => ({
+        time: item.time,
+        open: item.open,
+        high: item.high,
+        low: item.low,
+        close: item.close,
+      }),
+    );
+
+    const volumeData: HistogramData<Time>[] = candlesWithNumbers.map(
+      (item) => ({
+        time: item.time,
+        value: item.volume,
+        color:
+          item.close >= item.open
+            ? "rgba(34, 197, 94, 0.45)"
+            : "rgba(239, 68, 68, 0.45)",
+      }),
+    );
+
+    const previousVisibleRange =
+      chart.timeScale().getVisibleLogicalRange();
+
+    const previousCandleCount = previousCandleCountRef.current;
+
+    candleSeries.setData(candleData);
+    volumeSeries.setData(volumeData);
+
+    const latest = candlesWithNumbers[candlesWithNumbers.length - 1];
+
+    latestRenderedCandleRef.current = latest
+      ? {
+          time: Number(latest.time),
+          open: latest.open,
+          high: latest.high,
+          low: latest.low,
+          close: latest.close,
+          volume: latest.volume,
+        }
+      : null;
+
+    const newCandleCount = candlesWithNumbers.length;
+    const prependedCount =
+      previousCandleCount > 0
+        ? Math.max(0, newCandleCount - previousCandleCount)
+        : 0;
+
+    if (!initialDataLoadedRef.current) {
+      chart.timeScale().fitContent();
+      initialDataLoadedRef.current = true;
+    } else if (
+      previousVisibleRange &&
+      prependedCount > 0
+    ) {
+      chart.timeScale().setVisibleLogicalRange({
+        from: previousVisibleRange.from + prependedCount,
+        to: previousVisibleRange.to + prependedCount,
+      });
+    }
+
+    previousCandleCountRef.current = newCandleCount;
+
+    const indicatorCandles: IndicatorCandle[] = candlesWithNumbers.map(
+      (item) => ({
+        time: Number(item.time),
+        open: item.open,
+        high: item.high,
+        low: item.low,
+        close: item.close,
+        volume: item.volume,
+      }),
+    );
+
+    const visibleOverlays = indicators.filter(
+      (indicator) =>
+        indicator.visible && indicator.placement === "overlay",
+    );
+
+    for (const overlay of overlaySeriesRef.current) {
+      for (const series of overlay.series) {
+        chart.removeSeries(series);
+      }
+    }
+
+    overlaySeriesRef.current = [];
+
+    for (const config of visibleOverlays) {
+      if (config.type === "SMA") {
+        const values = calculateSMA(
+          indicatorCandles.map((item) => item.close),
+          config.period ?? 20,
+        );
+
+        const series = chart.addSeries(LineSeries, {
+          color: "#f59e0b",
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: true,
+          title: `SMA ${config.period ?? 20}`,
+        });
+
+        series.setData(
+          values.flatMap((value, index) =>
+            value === null
+              ? []
+              : [{
+                  time: indicatorCandles[index]!.time as Time,
+                  value,
+                }],
+          ),
+        );
+
+        overlaySeriesRef.current.push({
+          configId: config.id,
+          series: [series],
+        });
+      }
+
+      if (config.type === "EMA") {
+        const values = calculateEMA(
+          indicatorCandles.map((item) => item.close),
+          config.period ?? 20,
+        );
+
+        const series = chart.addSeries(LineSeries, {
+          color: "#38bdf8",
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: true,
+          title: `EMA ${config.period ?? 20}`,
+        });
+
+        series.setData(
+          values.flatMap((value, index) =>
+            value === null
+              ? []
+              : [{
+                  time: indicatorCandles[index]!.time as Time,
+                  value,
+                }],
+          ),
+        );
+
+        overlaySeriesRef.current.push({
+          configId: config.id,
+          series: [series],
+        });
+      }
+
+      if (config.type === "WMA") {
+        const values = calculateWMA(
+          indicatorCandles.map((item) => item.close),
+          config.period ?? 20,
+        );
+
+        const series = chart.addSeries(LineSeries, {
+          color: "#a78bfa",
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: true,
+          title: `WMA ${config.period ?? 20}`,
+        });
+
+        series.setData(
+          values.flatMap((value, index) =>
+            value === null
+              ? []
+              : [{
+                  time: indicatorCandles[index]!.time as Time,
+                  value,
+                }],
+          ),
+        );
+
+        overlaySeriesRef.current.push({
+          configId: config.id,
+          series: [series],
+        });
+      }
+
+      if (config.type === "VWAP") {
+        const values = calculateVWAP(indicatorCandles);
+
+        const series = chart.addSeries(LineSeries, {
+          color: "#f97316",
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: true,
+          title: "VWAP",
+        });
+
+        series.setData(
+          values.flatMap((value, index) =>
+            value === null
+              ? []
+              : [{
+                  time: indicatorCandles[index]!.time as Time,
+                  value,
+                }],
+          ),
+        );
+
+        overlaySeriesRef.current.push({
+          configId: config.id,
+          series: [series],
+        });
+      }
+
+      if (config.type === "BOLLINGER") {
+        const points = calculateBollingerBands(
+          indicatorCandles.map((candle) => candle.close),
+          config.period ?? 20,
+          config.standardDeviations ?? 2,
+        );
+
+        const middle = chart.addSeries(LineSeries, {
+          color: "#64748b",
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          title: "BB Middle",
+        });
+
+        const upper = chart.addSeries(LineSeries, {
+          color: "#94a3b8",
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          title: "BB Upper",
+        });
+
+        const lower = chart.addSeries(LineSeries, {
+          color: "#94a3b8",
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          title: "BB Lower",
+        });
+
+        middle.setData(
+          points.map((point) => ({
+            time: point.time as Time,
+            value: point.middle,
+          })),
+        );
+
+        upper.setData(
+          points.map((point) => ({
+            time: point.time as Time,
+            value: point.upper,
+          })),
+        );
+
+        lower.setData(
+          points.map((point) => ({
+            time: point.time as Time,
+            value: point.lower,
+          })),
+        );
+
+        overlaySeriesRef.current.push({
+          configId: config.id,
+          series: [middle, upper, lower],
+        });
+      }
+    }
+
+  }, [candles, indicators]);
+
+  return (
+    <div
+      className="relative h-full min-h-0 w-full overflow-hidden rounded-md"
+      style={height !== undefined ? { height } : undefined}
+      data-testid="rmsm-candlestick-chart"
+    >
+      <div
+        ref={containerRef}
+        className="absolute inset-0"
+      />
+
+      {drawingState.drawings.length > 0 && (
+        <DrawingRenderer
+          drawings={drawingState.drawings}
+          width={containerRef.current?.clientWidth ?? 0}
+          height={containerRef.current?.clientHeight ?? 0}
+          timeToX={(time) =>
+            chartRef.current?.timeScale().timeToCoordinate(time as Time) ??
+            null
+          }
+          priceToY={(price) =>
+            candleSeriesRef.current?.priceToCoordinate(price) ?? null
+          }
+          selectedDrawingId={drawingState.selectedDrawingId}
+        />
+      )}
+    </div>
+  );
+});

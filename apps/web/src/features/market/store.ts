@@ -5,11 +5,17 @@ import type { CandleInterval } from "./types";
 import type { DrawingState, DrawingType } from "./drawings/types";
 import type { IndicatorConfig } from "./indicators/config";
 import type { MarketChartLayout } from "./components/market-chart-workspace-controls";
+import {
+  cloneMarketChartSettings,
+  DEFAULT_MARKET_CHART_SETTINGS,
+  type MarketChartSettings,
+} from "./chart-settings";
 export interface MarketWorkspace {
   interval: CandleInterval;
+  timezone: string;
   activeDrawingTool: DrawingType;
-  volumeVisible: boolean;
   chartLayout: MarketChartLayout;
+  chartSettings: MarketChartSettings;
   indicators: IndicatorConfig[];
   drawingState: DrawingState;
 }
@@ -27,9 +33,12 @@ interface MarketWorkspaceState {
 
 export const DEFAULT_MARKET_WORKSPACE: MarketWorkspace = {
   interval: "ONE_MINUTE",
+  timezone: "Etc/UTC",
   activeDrawingTool: "SELECT",
-  volumeVisible: true,
   chartLayout: "SPLIT",
+  chartSettings: cloneMarketChartSettings(
+    DEFAULT_MARKET_CHART_SETTINGS,
+  ),
   indicators: [],
   drawingState: {
     drawings: [],
@@ -43,6 +52,10 @@ function cloneWorkspace(
 ): MarketWorkspace {
   return {
     ...workspace,
+    chartSettings: cloneMarketChartSettings(
+      workspace.chartSettings ??
+        DEFAULT_MARKET_CHART_SETTINGS,
+    ),
     indicators: workspace.indicators.map((indicator) => ({
       ...indicator,
     })),
@@ -80,6 +93,11 @@ export const useMarketWorkspaceStore =
             const next: MarketWorkspace = {
               ...current,
               ...patch,
+              chartSettings: cloneMarketChartSettings(
+                patch.chartSettings ??
+                  current.chartSettings ??
+                  DEFAULT_MARKET_CHART_SETTINGS,
+              ),
               indicators:
                 patch.indicators
                   ? patch.indicators.map((indicator) => ({

@@ -8,7 +8,13 @@ export type MarketIndicatorType =
   | "MACD"
   | "STOCHASTIC"
   | "ATR"
-  | "ADX";
+  | "ADX"
+  | "CCI"
+  | "ROC"
+  | "WILLIAMS_R"
+  | "OBV"
+  | "VOLUME"
+  | "VWMA";
 
 export interface MovingAverageIndicator {
   id: string;
