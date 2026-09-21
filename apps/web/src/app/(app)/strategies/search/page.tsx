@@ -9,7 +9,7 @@ export default function StrategySearchPage() {
   const q = params.get("q") ?? "";
 
   return (
-    <div className="space-y-6">
+    <div className="rmsm-mobile-glass-page space-y-6">
       <h1 className="text-xl font-semibold">Search Strategies</h1>
       <SessionGate>
         <StrategyTable initialSearchText={q} />

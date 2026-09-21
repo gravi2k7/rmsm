@@ -4,6 +4,7 @@ import type { TLSSocket, ConnectionOptions as TlsConnectionOptions } from "node:
 import { connect as tlsConnect } from "node:tls";
 
 import {
+  CTRADER_FIX_MD_ENTRY_TYPES,
   CTRADER_FIX_MESSAGE_TYPES,
   CTRADER_FIX_SOH,
   CTRADER_FIX_TAGS,
@@ -909,6 +910,31 @@ export class CTraderFixClient extends EventEmitter {
     this.lastQuoteAt = new Date();
 
     this.emit("quote", quote);
+
+    this.emit("depth", {
+      providerSymbol,
+      bids: entries
+        .filter(
+          (entry) =>
+            entry.type === CTRADER_FIX_MD_ENTRY_TYPES.BID &&
+            typeof entry.price === "string",
+        )
+        .map((entry) => ({
+          price: entry.price as string,
+          size: entry.size,
+        })),
+      asks: entries
+        .filter(
+          (entry) =>
+            entry.type === CTRADER_FIX_MD_ENTRY_TYPES.OFFER &&
+            typeof entry.price === "string",
+        )
+        .map((entry) => ({
+          price: entry.price as string,
+          size: entry.size,
+        })),
+      eventTime: snapshot.eventTime,
+    });
   }
 
   private sendLogon(): void {

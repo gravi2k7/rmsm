@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_INDICATORS,
+  mergeIndicatorConfigs,
   type IndicatorConfig,
 } from "../config";
 
@@ -17,7 +18,69 @@ describe("indicator configuration", () => {
       "STOCHASTIC",
       "ATR",
       "ADX",
+      "VWMA",
+      "CCI",
+      "ROC",
+      "WILLIAMS_R",
+      "OBV",
+      "VOLUME",
     ]);
+  });
+
+  it("merges newly added indicators into legacy persisted configurations", () => {
+    const legacyIndicators = DEFAULT_INDICATORS
+      .slice(0, 10)
+      .map((indicator) => ({
+        ...indicator,
+      }));
+
+    const macd = legacyIndicators.find(
+      (indicator) => indicator.id === "macd-12-26-9",
+    );
+
+    expect(macd).toBeDefined();
+
+    if (macd) {
+      macd.visible = true;
+      macd.fastPeriod = 8;
+    }
+
+    const merged = mergeIndicatorConfigs(legacyIndicators);
+
+    expect(merged).toHaveLength(DEFAULT_INDICATORS.length);
+    expect(merged.map((indicator) => indicator.id)).toEqual(
+      DEFAULT_INDICATORS.map((indicator) => indicator.id),
+    );
+
+    expect(
+      merged.find(
+        (indicator) => indicator.id === "macd-12-26-9",
+      ),
+    ).toMatchObject({
+      visible: true,
+      fastPeriod: 8,
+    });
+
+    expect(
+      merged.find(
+        (indicator) => indicator.id === "vwma-20",
+      ),
+    ).toMatchObject({
+      type: "VWMA",
+      placement: "overlay",
+      period: 20,
+      visible: false,
+    });
+
+    expect(
+      merged.find(
+        (indicator) => indicator.id === "volume",
+      ),
+    ).toMatchObject({
+      type: "VOLUME",
+      placement: "pane",
+      visible: false,
+    });
   });
 
   it("separates overlays from indicator panes", () => {
@@ -31,6 +94,7 @@ describe("indicator configuration", () => {
       "WMA",
       "VWAP",
       "BOLLINGER",
+      "VWMA",
     ]);
 
     expect(
@@ -43,6 +107,11 @@ describe("indicator configuration", () => {
       "STOCHASTIC",
       "ATR",
       "ADX",
+      "CCI",
+      "ROC",
+      "WILLIAMS_R",
+      "OBV",
+      "VOLUME",
     ]);
   });
 

@@ -5,6 +5,7 @@ import { EventEmitter } from "node:events";
 export const MARKET_DATA_STREAM_EVENTS = {
   QUOTE: "market-data.quote",
   CANDLE: "market-data.candle",
+  DEPTH: "market-data.depth",
 } as const;
 
 export interface MarketDataQuoteStreamPayload {
@@ -34,6 +35,19 @@ export interface MarketDataCandleStreamPayload {
   sourceTimestamp?: Date;
 }
 
+export interface MarketDataDepthLevel {
+  price: string;
+  size?: string;
+}
+
+export interface MarketDataDepthStreamPayload {
+  instrumentId: string;
+  providerSymbol: string;
+  bids: MarketDataDepthLevel[];
+  asks: MarketDataDepthLevel[];
+  eventTime: Date;
+}
+
 @Injectable()
 export class MarketDataStreamPublisher {
   private readonly emitter = new EventEmitter();
@@ -50,6 +64,10 @@ export class MarketDataStreamPublisher {
     this.emitter.emit(MARKET_DATA_STREAM_EVENTS.CANDLE, payload);
   }
 
+  publishDepth(payload: MarketDataDepthStreamPayload): void {
+    this.emitter.emit(MARKET_DATA_STREAM_EVENTS.DEPTH, payload);
+  }
+
   onQuote(
     listener: (payload: MarketDataQuoteStreamPayload) => void,
   ): void {
@@ -62,6 +80,12 @@ export class MarketDataStreamPublisher {
     this.emitter.on(MARKET_DATA_STREAM_EVENTS.CANDLE, listener);
   }
 
+  onDepth(
+    listener: (payload: MarketDataDepthStreamPayload) => void,
+  ): void {
+    this.emitter.on(MARKET_DATA_STREAM_EVENTS.DEPTH, listener);
+  }
+
   offQuote(
     listener: (payload: MarketDataQuoteStreamPayload) => void,
   ): void {
@@ -72,5 +96,11 @@ export class MarketDataStreamPublisher {
     listener: (payload: MarketDataCandleStreamPayload) => void,
   ): void {
     this.emitter.off(MARKET_DATA_STREAM_EVENTS.CANDLE, listener);
+  }
+
+  offDepth(
+    listener: (payload: MarketDataDepthStreamPayload) => void,
+  ): void {
+    this.emitter.off(MARKET_DATA_STREAM_EVENTS.DEPTH, listener);
   }
 }

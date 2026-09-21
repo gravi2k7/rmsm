@@ -79,3 +79,14 @@ export const invitationApi = {
     return api.post<{ message: string }>("/organizations/invitations/decline", { token }, { skipAuth: true });
   },
 };
+
+import type { Organization } from "@/types/dashboard";
+
+export interface OrganizationListResponse {
+  items: Organization[];
+  total: number;
+}
+
+export function listOrganizations(): Promise<OrganizationListResponse> {
+  return api.get<OrganizationListResponse>("/organizations");
+}

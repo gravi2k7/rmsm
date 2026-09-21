@@ -3,7 +3,22 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Search, ArrowUpDown, ListOrdered } from "lucide-react";
-import { Input, Tabs, TabsList, TabsTrigger, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Skeleton, Alert, AlertDescription } from "@rmsm/ui";
+import {
+  Input,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Badge,
+  Skeleton,
+  Alert,
+  AlertDescription,
+} from "@rmsm/ui";
 import { EmptyState } from "@/components/ui-extra/empty-state";
 import { TablePagination } from "@/components/ui-extra/table-pagination";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -38,14 +53,18 @@ export default function OrderManagementPage() {
     const all = ordersQuery.data?.items ?? [];
     const statuses = TAB_STATUSES[tab];
     const q = debouncedSearch.trim().toUpperCase();
-    return all.filter((o) => statuses.includes(o.status) && (!q || o.symbolCode.toUpperCase().includes(q)));
+    return all.filter(
+      (o) => statuses.includes(o.status) && (!q || o.symbolCode.toUpperCase().includes(q)),
+    );
   }, [ordersQuery.data, tab, debouncedSearch]);
 
   const sorted = useMemo(() => {
     const copy = [...filtered];
     const dir = sortDir === "asc" ? 1 : -1;
     copy.sort((a, b) =>
-      sortKey === "quantityUnits" ? (a.quantityUnits - b.quantityUnits) * dir : (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir,
+      sortKey === "quantityUnits"
+        ? (a.quantityUnits - b.quantityUnits) * dir
+        : (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir,
     );
     return copy;
   }, [filtered, sortKey, sortDir]);
@@ -62,11 +81,13 @@ export default function OrderManagementPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="rmsm-mobile-glass-page space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Order Management</h1>
-          <p className="text-sm text-muted-foreground">All orders placed against approved decisions.</p>
+          <p className="text-muted-foreground text-sm">
+            All orders placed against approved decisions.
+          </p>
         </div>
         <CreateOrderDialog />
       </div>
@@ -88,7 +109,10 @@ export default function OrderManagementPage() {
           </TabsList>
         </Tabs>
         <div className="relative min-w-[200px]">
-          <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <Search
+            className="text-muted-foreground pointer-events-none absolute left-2.5 top-2.5 h-4 w-4"
+            aria-hidden="true"
+          />
           <Input
             value={search}
             onChange={(e) => {
@@ -126,15 +150,25 @@ export default function OrderManagementPage() {
                 <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>
-                  <button type="button" className="flex items-center gap-1 font-medium" onClick={() => toggleSort("quantityUnits")}>
-                    Quantity <ArrowUpDown className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 font-medium"
+                    onClick={() => toggleSort("quantityUnits")}
+                  >
+                    Quantity{" "}
+                    <ArrowUpDown className="text-muted-foreground h-3 w-3" aria-hidden="true" />
                   </button>
                 </TableHead>
                 <TableHead>Filled</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead>
-                  <button type="button" className="flex items-center gap-1 font-medium" onClick={() => toggleSort("createdAt")}>
-                    Created <ArrowUpDown className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 font-medium"
+                    onClick={() => toggleSort("createdAt")}
+                  >
+                    Created{" "}
+                    <ArrowUpDown className="text-muted-foreground h-3 w-3" aria-hidden="true" />
                   </button>
                 </TableHead>
               </TableRow>
@@ -155,11 +189,15 @@ export default function OrderManagementPage() {
                     <StatusBadge status={o.status} />
                   </TableCell>
                   <TableCell className="tabular-nums">{o.quantityUnits.toLocaleString()}</TableCell>
-                  <TableCell className="tabular-nums text-sm text-muted-foreground">
+                  <TableCell className="text-muted-foreground text-sm tabular-nums">
                     {o.filledQuantityUnits.toLocaleString()} / {o.quantityUnits.toLocaleString()}
                   </TableCell>
-                  <TableCell className="tabular-nums">{o.averageFillPrice ?? o.limitPrice ?? o.stopPrice ?? "—"}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{new Date(o.createdAt).toLocaleString()}</TableCell>
+                  <TableCell className="tabular-nums">
+                    {o.averageFillPrice ?? o.limitPrice ?? o.stopPrice ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {new Date(o.createdAt).toLocaleString()}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

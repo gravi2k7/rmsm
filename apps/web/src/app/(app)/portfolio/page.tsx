@@ -26,7 +26,7 @@ import {
 import { EmptyState } from "@/components/ui-extra/empty-state";
 import { TablePagination } from "@/components/ui-extra/table-pagination";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { usePortfolio, usePositions, useTrades } from "@/features/portfolio/hooks/use-portfolio";
+
 import {
   computePerformanceMetrics,
   computeTodaysRealizedPnl,
@@ -36,9 +36,28 @@ import {
 import { StatCard } from "@/features/dashboard/components/widget-card";
 import { paginateClientSide } from "@/lib/paginate-client-side";
 import type { Position, Trade } from "@/features/portfolio/types";
+import { useSessionStore } from "@/lib/session-store";
+import {
+  useTradingAccounts,
+  useTradingPositions,
+  useTradingTrades,
+} from "@/features/trading/hooks/use-trading-accounts";
+import { useInstrumentsBatch, useQuotes } from "@/features/market/hooks/use-market-data";
+import { useCreateDemoTradingAccount } from "@/features/trading/hooks/use-create-demo-trading-account";
+import { useTradingAccountMaintenance } from "@/features/trading/hooks/use-trading-account-maintenance";
+import { PortfolioTradingAccounts } from "@/features/trading/components/portfolio-trading-accounts";
 
 const PAGE_SIZE = 15;
-const CHART_COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
+const CHART_COLORS = [
+  "#3b82f6",
+  "#22c55e",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+  "#06b6d4",
+  "#ec4899",
+  "#84cc16",
+];
 
 function currency(value: number | undefined): string {
   if (value === undefined) return "—";
@@ -56,13 +75,21 @@ function AllocationChart({ positions }: { positions: Position[] }) {
   }, [positions]);
 
   if (data.length === 0) {
-    return <p className="text-sm text-muted-foreground">No open positions to allocate.</p>;
+    return <p className="text-muted-foreground text-sm">No open positions to allocate.</p>;
   }
 
   return (
     <ResponsiveContainer width="100%" height={220}>
       <PieChart>
-        <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(entry) => entry.name}>
+        <Pie
+          data={data}
+          dataKey="value"
+          nameKey="name"
+          cx="50%"
+          cy="50%"
+          outerRadius={80}
+          label={(entry) => entry.name}
+        >
           {data.map((_, i) => (
             <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
           ))}
@@ -90,21 +117,30 @@ function CurrencyExposure({ positions }: { positions: Position[] }) {
     return Array.from(byCurrency.entries()).sort((a, b) => b[1] - a[1]);
   }, [positions]);
 
-  if (exposure.length === 0) return <p className="text-sm text-muted-foreground">No open positions.</p>;
+  if (exposure.length === 0)
+    return <p className="text-muted-foreground text-sm">No open positions.</p>;
 
   return (
     <ul className="space-y-2 text-sm">
       {exposure.map(([currencyCode, notional]) => (
         <li key={currencyCode} className="flex items-center justify-between">
           <span>{currencyCode}</span>
-          <span className="tabular-nums text-muted-foreground">{currency(notional)}</span>
+          <span className="text-muted-foreground tabular-nums">{currency(notional)}</span>
         </li>
       ))}
     </ul>
   );
 }
 
-function PositionsTable({ positions, isLoading, status }: { positions: Position[]; isLoading: boolean; status: "OPEN" | "CLOSED" }) {
+function PositionsTable({
+  positions,
+  isLoading,
+  status,
+}: {
+  positions: Position[];
+  isLoading: boolean;
+  status: "OPEN" | "CLOSED";
+}) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -119,7 +155,10 @@ function PositionsTable({ positions, isLoading, status }: { positions: Position[
   return (
     <div className="space-y-3">
       <div className="relative max-w-xs">
-        <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <Search
+          className="text-muted-foreground pointer-events-none absolute left-2.5 top-2.5 h-4 w-4"
+          aria-hidden="true"
+        />
         <Input
           value={search}
           onChange={(e) => {
@@ -159,14 +198,20 @@ function PositionsTable({ positions, isLoading, status }: { positions: Position[
                   </TableCell>
                   <TableCell className="tabular-nums">{p.quantityUnits.toLocaleString()}</TableCell>
                   <TableCell className="tabular-nums">{p.averageEntryPrice}</TableCell>
-                  {status === "CLOSED" && <TableCell className="tabular-nums">{p.averageExitPrice ?? "—"}</TableCell>}
                   {status === "CLOSED" && (
-                    <TableCell className={`tabular-nums ${(p.realizedPnl ?? 0) >= 0 ? "text-success" : "text-destructive"}`}>
+                    <TableCell className="tabular-nums">{p.averageExitPrice ?? "—"}</TableCell>
+                  )}
+                  {status === "CLOSED" && (
+                    <TableCell
+                      className={`tabular-nums ${(p.realizedPnl ?? 0) >= 0 ? "text-success" : "text-destructive"}`}
+                    >
                       {p.realizedPnl !== undefined ? currency(p.realizedPnl) : "—"}
                     </TableCell>
                   )}
-                  <TableCell className="text-sm text-muted-foreground">
-                    {new Date(status === "OPEN" ? p.openedAt : (p.closedAt ?? p.openedAt)).toLocaleString()}
+                  <TableCell className="text-muted-foreground text-sm">
+                    {new Date(
+                      status === "OPEN" ? p.openedAt : (p.closedAt ?? p.openedAt),
+                    ).toLocaleString()}
                   </TableCell>
                 </TableRow>
               ))}
@@ -186,7 +231,9 @@ function TradeHistoryTable({ trades, isLoading }: { trades: Trade[]; isLoading: 
 
   const filtered = useMemo(() => {
     const q = debouncedSearch.trim().toUpperCase();
-    return [...trades].filter((t) => !q || t.symbolCode.toUpperCase().includes(q)).sort((a, b) => new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime());
+    return [...trades]
+      .filter((t) => !q || t.symbolCode.toUpperCase().includes(q))
+      .sort((a, b) => new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime());
   }, [trades, debouncedSearch]);
 
   const { pageItems, meta } = paginateClientSide(filtered, page, PAGE_SIZE);
@@ -194,7 +241,10 @@ function TradeHistoryTable({ trades, isLoading }: { trades: Trade[]; isLoading: 
   return (
     <div className="space-y-3">
       <div className="relative max-w-xs">
-        <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <Search
+          className="text-muted-foreground pointer-events-none absolute left-2.5 top-2.5 h-4 w-4"
+          aria-hidden="true"
+        />
         <Input
           value={search}
           onChange={(e) => {
@@ -221,6 +271,7 @@ function TradeHistoryTable({ trades, isLoading }: { trades: Trade[]; isLoading: 
                 <TableHead>Quantity</TableHead>
                 <TableHead>Entry</TableHead>
                 <TableHead>Exit</TableHead>
+                <TableHead>Open Time</TableHead>
                 <TableHead>Realized P&amp;L</TableHead>
                 <TableHead>Closed</TableHead>
               </TableRow>
@@ -235,8 +286,17 @@ function TradeHistoryTable({ trades, isLoading }: { trades: Trade[]; isLoading: 
                   <TableCell className="tabular-nums">{t.quantityUnits.toLocaleString()}</TableCell>
                   <TableCell className="tabular-nums">{t.entryPrice}</TableCell>
                   <TableCell className="tabular-nums">{t.exitPrice}</TableCell>
-                  <TableCell className={`tabular-nums ${t.realizedPnl >= 0 ? "text-success" : "text-destructive"}`}>{currency(t.realizedPnl)}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{new Date(t.closedAt).toLocaleString()}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {new Date(t.openedAt).toLocaleString()}
+                  </TableCell>
+                  <TableCell
+                    className={`tabular-nums ${t.realizedPnl >= 0 ? "text-success" : "text-destructive"}`}
+                  >
+                    {currency(t.realizedPnl)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {new Date(t.closedAt).toLocaleString()}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -249,15 +309,159 @@ function TradeHistoryTable({ trades, isLoading }: { trades: Trade[]; isLoading: 
 }
 
 export default function PortfolioCenterPage() {
-  const portfolioQuery = usePortfolio();
-  const positionsQuery = usePositions();
-  const tradesQuery = useTrades();
   const [positionTab, setPositionTab] = useState<"open" | "closed" | "history">("open");
 
-  const positions = positionsQuery.data?.items ?? [];
+  const organizationId = useSessionStore((state) => state.organizationId) ?? undefined;
+
+  const tradingAccountsQuery = useTradingAccounts(organizationId);
+
+  const demoTradingAccounts = useMemo(
+    () =>
+      (tradingAccountsQuery.data ?? []).filter(
+        (account) => account.type === "DEMO" && account.status !== "CLOSED",
+      ),
+    [tradingAccountsQuery.data],
+  );
+
+  const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>(undefined);
+
+  const activeAccountId = selectedAccountId ?? demoTradingAccounts[0]?.id;
+
+  const tradingPositionsQuery = useTradingPositions(organizationId, activeAccountId);
+
+  const tradingTradesQuery = useTradingTrades(organizationId, activeAccountId);
+
+  const instrumentIds = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...(tradingPositionsQuery.data ?? []).map((position) => position.instrumentId),
+          ...(tradingTradesQuery.data ?? []).map((trade) => trade.instrumentId),
+        ]),
+      ),
+    [tradingPositionsQuery.data, tradingTradesQuery.data],
+  );
+
+  const instrumentsQuery = useInstrumentsBatch(instrumentIds);
+
+  const instrumentById = useMemo(() => {
+    const map = new Map<string, { symbol: string; currency: string }>();
+
+    for (const instrument of instrumentsQuery.data ?? []) {
+      map.set(instrument.id, {
+        symbol: instrument.symbol,
+        currency: instrument.currency,
+      });
+    }
+
+    return map;
+  }, [instrumentsQuery.data]);
+
+  const quoteQuery = useQuotes(instrumentIds);
+
+  const quoteByInstrumentId = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        bidPrice?: string | null;
+        askPrice?: string | null;
+        lastPrice?: string | null;
+      }
+    >();
+
+    (quoteQuery.data ?? []).forEach((quote) => {
+      map.set(quote.instrumentId, quote);
+    });
+
+    return map;
+  }, [quoteQuery.data]);
+
+  const createDemoAccount = useCreateDemoTradingAccount(organizationId);
+
+  const maintenance = useTradingAccountMaintenance(organizationId, activeAccountId);
+
+  const positions: Position[] = useMemo(
+    () =>
+      (tradingPositionsQuery.data ?? []).map((position) => ({
+        id: position.id,
+        symbolCode: instrumentById.get(position.instrumentId)?.symbol ?? "Unknown",
+        side: position.side,
+        quantityUnits: Number(position.quantity),
+        averageEntryPrice: Number(position.averageEntryPrice),
+        status: position.status,
+        openedAt: position.openedAt,
+        closedAt: position.closedAt ?? undefined,
+        averageExitPrice: position.averageExitPrice ? Number(position.averageExitPrice) : undefined,
+        realizedPnl: position.realizedPnl ? Number(position.realizedPnl) : undefined,
+      })),
+    [tradingPositionsQuery.data, instrumentById],
+  );
+
   const openPositions = positions.filter((p) => p.status === "OPEN");
+
   const closedPositions = positions.filter((p) => p.status === "CLOSED");
-  const trades = tradesQuery.data?.items ?? [];
+
+  const trades: Trade[] = useMemo(
+    () =>
+      (tradingTradesQuery.data ?? []).map((trade) => ({
+        id: trade.id,
+        symbolCode: instrumentById.get(trade.instrumentId)?.symbol ?? "Unknown",
+        side: trade.side,
+        quantityUnits: Number(trade.quantity),
+        entryPrice: Number(trade.entryPrice),
+        exitPrice: Number(trade.exitPrice),
+        realizedPnl: Number(trade.realizedPnl),
+        isWin: Number(trade.realizedPnl) > 0,
+        openedAt: trade.openedAt,
+        closedAt: trade.closedAt,
+      })),
+    [tradingTradesQuery.data, instrumentById],
+  );
+
+  const activeAccount = demoTradingAccounts.find((account) => account.id === activeAccountId);
+
+  const accountBalance = activeAccount ? Number(activeAccount.balance) : undefined;
+
+  const unrealizedPnl = useMemo(() => {
+    let total = 0;
+
+    for (const position of (tradingPositionsQuery.data ?? []).filter(
+      (position) => position.status === "OPEN",
+    )) {
+      const quote = quoteByInstrumentId.get(position.instrumentId);
+
+      const quantity = Number(position.quantity);
+
+      const entry = Number(position.averageEntryPrice);
+
+      if (!quote || !Number.isFinite(quantity) || !Number.isFinite(entry)) {
+        continue;
+      }
+
+      const executablePrice =
+        position.side === "LONG"
+          ? Number(quote.bidPrice ?? quote.lastPrice)
+          : Number(quote.askPrice ?? quote.lastPrice);
+
+      if (!Number.isFinite(executablePrice)) {
+        continue;
+      }
+
+      total +=
+        position.side === "LONG"
+          ? (executablePrice - entry) * quantity
+          : (entry - executablePrice) * quantity;
+    }
+
+    return total;
+  }, [tradingPositionsQuery.data, quoteByInstrumentId]);
+
+  const accountEquity = accountBalance !== undefined ? accountBalance + unrealizedPnl : undefined;
+
+  const availableCash = accountBalance;
+  const buyingPower = accountBalance;
+  const marginUsed = 0;
+  const marginAvailable = accountBalance;
 
   const performance = computePerformanceMetrics(trades);
   const dailyPnl = computeTodaysRealizedPnl(trades);
@@ -265,69 +469,207 @@ export default function PortfolioCenterPage() {
   const monthlyPnl = computeMonthlyRealizedPnl(trades);
 
   return (
-    <div className="space-y-6">
+    <div className="rmsm-mobile-glass-page w-full min-w-0 space-y-4 overflow-x-hidden pb-8 sm:space-y-6">
       <div>
         <h1 className="text-xl font-semibold">Portfolio Center</h1>
-        <p className="text-sm text-muted-foreground">Positions, holdings, exposure, and trade history.</p>
+        <p className="text-muted-foreground text-sm">
+          Positions, holdings, exposure, and trade history.
+        </p>
       </div>
 
-      {(portfolioQuery.isError || positionsQuery.isError || tradesQuery.isError) && (
+      {(tradingAccountsQuery.isError ||
+        tradingPositionsQuery.isError ||
+        tradingTradesQuery.isError) && (
         <Alert variant="destructive">
-          <AlertDescription>Some portfolio data couldn&apos;t be loaded.</AlertDescription>
+          <AlertDescription>Some trading account data couldn&apos;t be loaded.</AlertDescription>
         </Alert>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Account Equity" icon={<Wallet className="h-4 w-4 text-muted-foreground" />} value={currency(portfolioQuery.data?.equity)} isLoading={portfolioQuery.isLoading} isError={portfolioQuery.isError} />
-        <StatCard title="Available Cash" icon={<Wallet className="h-4 w-4 text-muted-foreground" />} value={currency(portfolioQuery.data?.cashBalance)} isLoading={portfolioQuery.isLoading} isError={portfolioQuery.isError} />
-        <StatCard title="Buying Power" icon={<Wallet className="h-4 w-4 text-muted-foreground" />} value={currency(portfolioQuery.data?.buyingPower)} isLoading={portfolioQuery.isLoading} isError={portfolioQuery.isError} />
+      <PortfolioTradingAccounts
+        accounts={demoTradingAccounts}
+        isLoading={tradingAccountsQuery.isLoading}
+        errorMessage={
+          tradingAccountsQuery.isError
+            ? tradingAccountsQuery.error instanceof Error
+              ? tradingAccountsQuery.error.message
+              : "Unable to load trading accounts."
+            : null
+        }
+        onCreate={(input) => {
+          void createDemoAccount.mutateAsync({
+            ...input,
+            leverage: input.leverage ?? 10,
+          });
+        }}
+        onAddFunds={(account, amount) => {
+          setSelectedAccountId(account.id);
+          void maintenance.addFunds.mutateAsync(amount);
+        }}
+        onReset={(account) => {
+          setSelectedAccountId(account.id);
+          void maintenance.reset.mutateAsync();
+        }}
+        isCreating={createDemoAccount.isPending}
+        creatingError={
+          createDemoAccount.isError
+            ? createDemoAccount.error instanceof Error
+              ? createDemoAccount.error.message
+              : "Unable to create Demo account."
+            : null
+        }
+        isAddingFunds={maintenance.addFunds.isPending}
+        addingFundsAccountId={activeAccountId}
+        isResetting={maintenance.reset.isPending}
+        resettingAccountId={activeAccountId}
+      />
+      <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
+        <StatCard
+          title="Account Equity"
+          icon={<Wallet className="text-muted-foreground h-4 w-4" />}
+          value={currency(accountEquity)}
+          isLoading={tradingAccountsQuery.isLoading}
+          isError={tradingAccountsQuery.isError}
+        />
+        <StatCard
+          title="Available Cash"
+          icon={<Wallet className="text-muted-foreground h-4 w-4" />}
+          value={currency(availableCash)}
+          isLoading={tradingAccountsQuery.isLoading}
+          isError={tradingAccountsQuery.isError}
+        />
+        <StatCard
+          title="Buying Power"
+          icon={<Wallet className="text-muted-foreground h-4 w-4" />}
+          value={currency(buyingPower)}
+          isLoading={tradingAccountsQuery.isLoading}
+          isError={tradingAccountsQuery.isError}
+        />
         <StatCard
           title="Margin Used"
-          icon={<Wallet className="h-4 w-4 text-muted-foreground" />}
-          value={currency(portfolioQuery.data?.marginUsed)}
-          subtext={portfolioQuery.data ? `${currency(portfolioQuery.data.marginAvailable)} available` : undefined}
-          isLoading={portfolioQuery.isLoading}
-          isError={portfolioQuery.isError}
+          icon={<Wallet className="text-muted-foreground h-4 w-4" />}
+          value={currency(marginUsed)}
+          subtext={`${currency(marginAvailable)} available`}
+          isLoading={tradingAccountsQuery.isLoading}
+          isError={tradingAccountsQuery.isError}
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Daily P&L" icon={dailyPnl >= 0 ? <TrendingUp className="h-4 w-4 text-success" /> : <TrendingDown className="h-4 w-4 text-destructive" />} value={currency(dailyPnl)} valueClassName={dailyPnl >= 0 ? "text-success" : "text-destructive"} isLoading={tradesQuery.isLoading} isError={tradesQuery.isError} />
-        <StatCard title="Weekly P&L" icon={weeklyPnl >= 0 ? <TrendingUp className="h-4 w-4 text-success" /> : <TrendingDown className="h-4 w-4 text-destructive" />} value={currency(weeklyPnl)} valueClassName={weeklyPnl >= 0 ? "text-success" : "text-destructive"} isLoading={tradesQuery.isLoading} isError={tradesQuery.isError} />
-        <StatCard title="Monthly P&L" icon={monthlyPnl >= 0 ? <TrendingUp className="h-4 w-4 text-success" /> : <TrendingDown className="h-4 w-4 text-destructive" />} value={currency(monthlyPnl)} valueClassName={monthlyPnl >= 0 ? "text-success" : "text-destructive"} isLoading={tradesQuery.isLoading} isError={tradesQuery.isError} />
-        <StatCard title="Realized P&L (all time)" icon={<Wallet className="h-4 w-4 text-muted-foreground" />} value={currency(performance.realizedPnl)} valueClassName={performance.realizedPnl >= 0 ? "text-success" : "text-destructive"} subtext={`${performance.winRate.toFixed(0)}% win rate`} isLoading={tradesQuery.isLoading} isError={tradesQuery.isError} />
+      <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
+        <StatCard
+          title="Daily P&L"
+          icon={
+            dailyPnl >= 0 ? (
+              <TrendingUp className="text-success h-4 w-4" />
+            ) : (
+              <TrendingDown className="text-destructive h-4 w-4" />
+            )
+          }
+          value={currency(dailyPnl)}
+          valueClassName={dailyPnl >= 0 ? "text-success" : "text-destructive"}
+          isLoading={tradingTradesQuery.isLoading}
+          isError={tradingTradesQuery.isError}
+        />
+        <StatCard
+          title="Weekly P&L"
+          icon={
+            weeklyPnl >= 0 ? (
+              <TrendingUp className="text-success h-4 w-4" />
+            ) : (
+              <TrendingDown className="text-destructive h-4 w-4" />
+            )
+          }
+          value={currency(weeklyPnl)}
+          valueClassName={weeklyPnl >= 0 ? "text-success" : "text-destructive"}
+          isLoading={tradingTradesQuery.isLoading}
+          isError={tradingTradesQuery.isError}
+        />
+        <StatCard
+          title="Monthly P&L"
+          icon={
+            monthlyPnl >= 0 ? (
+              <TrendingUp className="text-success h-4 w-4" />
+            ) : (
+              <TrendingDown className="text-destructive h-4 w-4" />
+            )
+          }
+          value={currency(monthlyPnl)}
+          valueClassName={monthlyPnl >= 0 ? "text-success" : "text-destructive"}
+          isLoading={tradingTradesQuery.isLoading}
+          isError={tradingTradesQuery.isError}
+        />
+        <StatCard
+          title="Realized P&L (all time)"
+          icon={<Wallet className="text-muted-foreground h-4 w-4" />}
+          value={currency(performance.realizedPnl)}
+          valueClassName={performance.realizedPnl >= 0 ? "text-success" : "text-destructive"}
+          subtext={`${performance.winRate.toFixed(0)}% win rate`}
+          isLoading={tradingTradesQuery.isLoading}
+          isError={tradingTradesQuery.isError}
+        />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm">
+          <CardHeader className="px-3 py-3 sm:px-6 sm:py-4">
+            <CardTitle className="flex items-center gap-2 text-xs sm:text-sm">
               <PieChartIcon className="h-4 w-4" aria-hidden="true" />
               Asset Allocation (open positions, by notional)
             </CardTitle>
           </CardHeader>
-          <CardContent>{positionsQuery.isLoading ? <Skeleton className="h-56 w-full" /> : <AllocationChart positions={openPositions} />}</CardContent>
+          <CardContent className="px-3 pb-3 sm:px-6 sm:pb-6">
+            {tradingPositionsQuery.isLoading ? (
+              <Skeleton className="h-56 w-full" />
+            ) : (
+              <AllocationChart positions={openPositions} />
+            )}
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Currency Exposure</CardTitle>
+          <CardHeader className="px-3 py-3 sm:px-6 sm:py-4">
+            <CardTitle className="text-xs sm:text-sm">Currency Exposure</CardTitle>
           </CardHeader>
-          <CardContent>{positionsQuery.isLoading ? <Skeleton className="h-56 w-full" /> : <CurrencyExposure positions={openPositions} />}</CardContent>
+          <CardContent className="px-3 pb-3 sm:px-6 sm:pb-6">
+            {tradingPositionsQuery.isLoading ? (
+              <Skeleton className="h-56 w-full" />
+            ) : (
+              <CurrencyExposure positions={openPositions} />
+            )}
+          </CardContent>
         </Card>
       </div>
 
-      <div className="space-y-3">
+      <div className="min-w-0 space-y-3">
         <Tabs value={positionTab} onValueChange={(v) => setPositionTab(v as typeof positionTab)}>
-          <TabsList>
-            <TabsTrigger value="open">Open Positions ({openPositions.length})</TabsTrigger>
-            <TabsTrigger value="closed">Closed Positions ({closedPositions.length})</TabsTrigger>
-            <TabsTrigger value="history">Trade History ({trades.length})</TabsTrigger>
+          <TabsList className="w-full overflow-x-auto">
+            <TabsTrigger className="shrink-0" value="open">
+              Open Positions ({openPositions.length})
+            </TabsTrigger>
+            <TabsTrigger className="shrink-0" value="closed">
+              Closed Positions ({closedPositions.length})
+            </TabsTrigger>
+            <TabsTrigger className="shrink-0" value="history">
+              Trade History ({trades.length})
+            </TabsTrigger>
           </TabsList>
         </Tabs>
 
-        {positionTab === "open" && <PositionsTable positions={openPositions} isLoading={positionsQuery.isLoading} status="OPEN" />}
-        {positionTab === "closed" && <PositionsTable positions={closedPositions} isLoading={positionsQuery.isLoading} status="CLOSED" />}
-        {positionTab === "history" && <TradeHistoryTable trades={trades} isLoading={tradesQuery.isLoading} />}
+        {positionTab === "open" && (
+          <PositionsTable
+            positions={openPositions}
+            isLoading={tradingPositionsQuery.isLoading}
+            status="OPEN"
+          />
+        )}
+        {positionTab === "closed" && (
+          <PositionsTable
+            positions={closedPositions}
+            isLoading={tradingPositionsQuery.isLoading}
+            status="CLOSED"
+          />
+        )}
+        {positionTab === "history" && (
+          <TradeHistoryTable trades={trades} isLoading={tradingTradesQuery.isLoading} />
+        )}
       </div>
     </div>
   );

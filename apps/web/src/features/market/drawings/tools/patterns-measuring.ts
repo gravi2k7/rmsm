@@ -117,3 +117,74 @@ export function projectionEnd(
     price: end.price + (end.price - start.price),
   };
 }
+
+export function extendedLineEnd(
+  points: DrawingPoint[],
+): PatternSegment | null {
+  if (points.length < 2) {
+    return null;
+  }
+
+  return {
+    start: points[0]!,
+    end: points[1]!,
+  };
+}
+
+export function polylineSegments(
+  points: DrawingPoint[],
+): PatternSegment[] {
+  return segmentsFromPoints(points);
+}
+
+export function calloutSegment(
+  points: DrawingPoint[],
+): PatternSegment | null {
+  if (points.length < 2) {
+    return null;
+  }
+
+  return {
+    start: points[0]!,
+    end: points[1]!,
+  };
+}
+
+export function positionGeometry(
+  points: DrawingPoint[],
+): {
+  entry: DrawingPoint;
+  target: DrawingPoint;
+  stop: DrawingPoint;
+} | null {
+  if (points.length < 2) {
+    return null;
+  }
+
+  const entry = points[0]!;
+  const second = points[1]!;
+  const distance = Math.abs(second.price - entry.price);
+
+  if (distance === 0) {
+    return {
+      entry,
+      target: second,
+      stop: second,
+    };
+  }
+
+  const direction =
+    second.price >= entry.price ? 1 : -1;
+
+  return {
+    entry,
+    target: {
+      time: second.time,
+      price: entry.price + distance * direction,
+    },
+    stop: {
+      time: second.time,
+      price: entry.price - distance * direction,
+    },
+  };
+}

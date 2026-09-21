@@ -16,11 +16,13 @@ export default function TeamPage() {
   const ctx = useRequestContext();
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="rmsm-mobile-glass-page mx-auto max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Team</h1>
-          <p className="text-sm text-muted-foreground">Invite teammates and manage pending invitations.</p>
+          <p className="text-muted-foreground text-sm">
+            Invite teammates and manage pending invitations.
+          </p>
         </div>
         {canInvite && <InviteMemberDialog />}
       </div>
@@ -32,14 +34,18 @@ export default function TeamPage() {
               <Users className="h-4 w-4" aria-hidden="true" />
               No active organization session
             </CardTitle>
-            <CardDescription>Sign in to view and manage this organization&apos;s team.</CardDescription>
+            <CardDescription>
+              Sign in to view and manage this organization&apos;s team.
+            </CardDescription>
           </CardHeader>
         </Card>
       ) : (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Pending Invitations</CardTitle>
-            <CardDescription>Invitations that haven&apos;t been accepted or declined yet.</CardDescription>
+            <CardDescription>
+              Invitations that haven&apos;t been accepted or declined yet.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <PendingInvitationsList />

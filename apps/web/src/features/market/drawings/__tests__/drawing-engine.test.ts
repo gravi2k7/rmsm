@@ -256,3 +256,34 @@ describe("drawing engine", () => {
   });
 
 });
+
+describe("drawing templates", () => {
+  it("applies an optional style override when creating a drawing", () => {
+    const state = createDrawingState("TREND_LINE");
+
+    const first = addDrawingInteractionPoint(
+      state,
+      { time: 100, price: 10 },
+    );
+
+    const second = addDrawingInteractionPoint(
+      first.state,
+      { time: 200, price: 20 },
+      first.pendingPoints,
+      {
+        color: "#FF0000",
+        width: 3,
+        lineStyle: "dashed",
+        opacity: 0.8,
+      },
+    );
+
+    expect(second.completed).toBe(true);
+    expect(second.state.drawings[0]?.style).toMatchObject({
+      color: "#FF0000",
+      width: 3,
+      lineStyle: "dashed",
+      opacity: 0.8,
+    });
+  });
+});

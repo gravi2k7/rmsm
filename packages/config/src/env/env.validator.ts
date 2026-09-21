@@ -11,6 +11,7 @@ import { alphaVantageSchema } from "../schemas/alphavantage.schema";
 import { yahooFinanceSchema } from "../schemas/yahoo-finance.schema";
 import { metaTrader5Schema } from "../schemas/metatrader5.schema";
 import { ctraderFixSchema } from "../schemas/ctrader-fix.schema";
+import { ctraderOpenApiSchema } from "../schemas/ctrader-openapi.schema";
 import { emailSchema } from "../schemas/email.schema";
 import { booleanFromString, durationMs } from "./env.parser";
 import { ConfigValidationError } from "../types/config.types";
@@ -78,6 +79,7 @@ const mergedEnvSchema = appSchema
   .merge(yahooFinanceSchema)
   .merge(metaTrader5Schema)
   .merge(ctraderFixSchema)
+  .merge(ctraderOpenApiSchema)
   .merge(emailSchema)
   .merge(platformIntegrationsSchema);
 

@@ -167,3 +167,46 @@ describe("MKT-UI-010 interaction", () => {
     ).toBe(state);
   });
 });
+
+describe("one-shot drawing tools", () => {
+  it("returns to SELECT after completing a drawing", async () => {
+    const { addDrawingInteractionPoint } =
+      await import("../drawing-engine");
+
+    const state = createDrawingState("TREND_LINE");
+
+    const first = addDrawingInteractionPoint(
+      state,
+      { time: 10, price: 100 },
+      [],
+    );
+
+    expect(first.completed).toBe(false);
+    expect(first.pendingPoints).toHaveLength(1);
+    expect(first.state.activeTool).toBe("TREND_LINE");
+
+    const second = addDrawingInteractionPoint(
+      first.state,
+      { time: 20, price: 110 },
+      first.pendingPoints,
+    );
+
+    expect(second.completed).toBe(true);
+    expect(second.pendingPoints).toHaveLength(0);
+    expect(second.state.drawings).toHaveLength(1);
+    expect(second.state.selectedDrawingId).toBe(
+      second.state.drawings[0]?.id,
+    );
+    expect(second.state.activeTool).toBe("SELECT");
+
+    const third = addDrawingInteractionPoint(
+      second.state,
+      { time: 30, price: 120 },
+      [],
+    );
+
+    expect(third.completed).toBe(false);
+    expect(third.state.drawings).toHaveLength(1);
+    expect(third.state.activeTool).toBe("SELECT");
+  });
+});

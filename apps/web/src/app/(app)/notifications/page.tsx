@@ -6,7 +6,7 @@ import { Input, Select, SelectTrigger, SelectValue, SelectContent, SelectItem, B
 import { SessionGate } from "@/components/ui-extra/session-gate";
 import { EmptyState } from "@/components/ui-extra/empty-state";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { useNotifications, useMarkNotificationRead, useArchiveNotification, useDeleteNotification, useMarkAllRead } from "@/features/notifications/hooks/use-notifications";
+import { useNotifications, useMarkNotificationRead, useArchiveNotification, useDeleteNotification, useMarkAllRead, useDeleteAllNotifications } from "@/features/notifications/hooks/use-notifications";
 import type { Notification, NotificationPriority } from "@/features/notifications/types";
 
 type Tab = "unread" | "read" | "archived";
@@ -59,6 +59,7 @@ function NotificationRow({ notification }: { notification: Notification }) {
 function NotificationCenterContent() {
   const notificationsQuery = useNotifications();
   const markAllRead = useMarkAllRead();
+  const deleteAll = useDeleteAllNotifications();
   const [tab, setTab] = useState<Tab>("unread");
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState<NotificationPriority | "ALL">("ALL");
@@ -78,19 +79,39 @@ function NotificationCenterContent() {
     });
   }, [all, tab, priority, debouncedSearch]);
 
-  const unreadIds = all.filter(isUnread).map((n) => n.id);
+  const unreadCount = all.filter(isUnread).length;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Notifications</h1>
-          <p className="text-sm text-muted-foreground">{unreadIds.length} unread</p>
+          <p className="text-sm text-muted-foreground">{unreadCount} unread</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => markAllRead.mutate(unreadIds)} disabled={unreadIds.length === 0 || markAllRead.isPending}>
-          <CheckCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-          {markAllRead.isPending ? "Marking…" : "Mark all read"}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => markAllRead.mutate()}
+            disabled={unreadCount === 0 || markAllRead.isPending || deleteAll.isPending}
+          >
+            <CheckCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+            {markAllRead.isPending ? "Marking…" : "Mark all read"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (window.confirm("Delete all notifications? This cannot be undone.")) {
+                deleteAll.mutate();
+              }
+            }}
+            disabled={all.length === 0 || markAllRead.isPending || deleteAll.isPending}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+            {deleteAll.isPending ? "Deleting…" : "Delete all"}
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">

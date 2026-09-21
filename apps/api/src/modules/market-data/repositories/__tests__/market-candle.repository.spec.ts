@@ -151,6 +151,113 @@ describe("MarketCandleRepository", () => {
     });
   });
 
+    it("returns LIVE when LIVE and BACKFILL share the same timestamp", async () => {
+      const eventTime = new Date("2026-01-01T00:01:00Z");
+
+      const live = {
+        ...baseInput,
+        id: "live-1",
+        eventTime,
+        source: "LIVE",
+        open: { toString: () => "100" },
+        high: { toString: () => "101" },
+        low: { toString: () => "99" },
+        close: { toString: () => "100.5" },
+        volume: { toString: () => "1000" },
+        receivedAt: new Date("2026-01-01T00:02:00Z"),
+        updatedAt: new Date("2026-01-01T00:02:00Z"),
+        createdAt: new Date("2026-01-01T00:02:00Z"),
+        importJobId: null,
+        sourceTimestamp: null,
+        normalizationVersion: 1,
+        isCorrection: false,
+        supersedesId: null,
+      };
+
+      const backfill = {
+        ...live,
+        id: "backfill-1",
+        source: "BACKFILL",
+        open: { toString: () => "98" },
+        high: { toString: () => "99" },
+        low: { toString: () => "97" },
+        close: { toString: () => "98.5" },
+        volume: { toString: () => "500" },
+      };
+
+      prisma.marketCandle.findMany.mockResolvedValue([
+        backfill,
+        live,
+      ]);
+
+      const result = await repository.findRangeCurrentValues({
+        instrumentId: "inst1",
+        interval: "ONE_MINUTE",
+        from: new Date("2026-01-01T00:00:00Z"),
+        to: new Date("2026-01-01T01:00:00Z"),
+        limit: 100,
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.id).toBe("live-1");
+      expect(result[0]!.source).toBe("LIVE");
+    });
+
+    it("returns one canonical candle per timestamp in chronological order", async () => {
+      const candle1 = {
+        ...baseInput,
+        id: "c1",
+        eventTime: new Date("2026-01-01T00:01:00Z"),
+        source: "LIVE",
+        receivedAt: new Date(),
+        updatedAt: new Date(),
+        createdAt: new Date(),
+        importJobId: null,
+        sourceTimestamp: null,
+        normalizationVersion: 1,
+        isCorrection: false,
+        supersedesId: null,
+        open: { toString: () => "1" },
+        high: { toString: () => "2" },
+        low: { toString: () => "0" },
+        close: { toString: () => "1" },
+        volume: { toString: () => "10" },
+      };
+
+      const candle2 = {
+        ...candle1,
+        id: "c2",
+        eventTime: new Date("2026-01-01T00:02:00Z"),
+      };
+
+      const duplicateBackfill = {
+        ...candle2,
+        id: "c2-backfill",
+        source: "BACKFILL",
+      };
+
+      prisma.marketCandle.findMany.mockResolvedValue([
+        duplicateBackfill,
+        candle2,
+        candle1,
+      ]);
+
+      const result = await repository.findRangeCurrentValues({
+        instrumentId: "inst1",
+        interval: "ONE_MINUTE",
+        from: new Date("2026-01-01T00:00:00Z"),
+        to: new Date("2026-01-01T01:00:00Z"),
+        limit: 100,
+      });
+
+      expect(result).toHaveLength(2);
+      expect(result.map((candle) => candle.id)).toEqual(["c1", "c2"]);
+      expect(result.map((candle) => candle.source)).toEqual([
+        "LIVE",
+        "LIVE",
+      ]);
+    });
+
   describe("findCorrectionChain", () => {
     it("walks the supersedesId chain back to the original row, oldest first", async () => {
       const original = { ...baseInput, id: "c1", supersedesId: null, open: { toString: () => "1" }, high: { toString: () => "1" }, low: { toString: () => "1" }, close: { toString: () => "1" }, volume: { toString: () => "1" }, receivedAt: new Date(), importJobId: null, sourceTimestamp: null, normalizationVersion: 1, isCorrection: false, createdAt: new Date(), updatedAt: new Date() };

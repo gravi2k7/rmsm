@@ -25,7 +25,12 @@ import { ConfirmDialog } from "@/components/ui-extra/confirm-dialog";
 import { StrategyStatusBadge, VersionStatusBadge } from "@/components/strategy/status-badges";
 import { EditStrategyDialog } from "@/components/strategy/edit-strategy-dialog";
 import { CompareVersionsDialog } from "@/components/strategy/compare-versions-dialog";
-import { useArchiveStrategy, useCloneStrategy, usePublishLatestApproved, useStrategy } from "@/hooks/use-strategies";
+import {
+  useArchiveStrategy,
+  useCloneStrategy,
+  usePublishLatestApproved,
+  useStrategy,
+} from "@/hooks/use-strategies";
 import { useStrategyVersions } from "@/hooks/use-strategy-versions";
 
 function StrategyDetailsContent({ strategyId }: { strategyId: string }) {
@@ -51,21 +56,26 @@ function StrategyDetailsContent({ strategyId }: { strategyId: string }) {
   }
 
   if (strategy.isError || !strategy.data) {
-    return <EmptyState title="Strategy not found" description={strategy.error instanceof Error ? strategy.error.message : "Unknown error"} />;
+    return (
+      <EmptyState
+        title="Strategy not found"
+        description={strategy.error instanceof Error ? strategy.error.message : "Unknown error"}
+      />
+    );
   }
 
   const s = strategy.data;
   const hasApprovedVersion = versions.data?.some((v) => v.status === "APPROVED") ?? false;
 
   return (
-    <div className="space-y-6">
+    <div className="rmsm-mobile-glass-page space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold">{s.name}</h1>
             <StrategyStatusBadge status={s.status} />
           </div>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{s.description}</p>
+          <p className="text-muted-foreground mt-1 max-w-2xl text-sm">{s.description}</p>
           <div className="mt-2 flex flex-wrap gap-1">
             {s.tags.map((t) => (
               <Badge key={t} variant="outline">
@@ -111,7 +121,10 @@ function StrategyDetailsContent({ strategyId }: { strategyId: string }) {
             </CardHeader>
             <CardContent className="grid gap-2 text-sm">
               <Row label="Category" value={s.category.replace(/_/g, " ")} />
-              <Row label="Currently published version" value={s.currentPublishedVersionId ?? "None"} />
+              <Row
+                label="Currently published version"
+                value={s.currentPublishedVersionId ?? "None"}
+              />
               <Row label="Created by" value={s.createdByUserId} />
               <Row label="Created" value={new Date(s.createdAt).toLocaleString()} />
             </CardContent>
@@ -121,13 +134,15 @@ function StrategyDetailsContent({ strategyId }: { strategyId: string }) {
             <CardHeader>
               <CardTitle className="text-sm">Trading Activity</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Performance Summary, Strategy Health, and Last Execution aren&apos;t shown here: this Strategy Builder (the
-              org-scoped <code className="text-xs">strategy-engine</code> module) and the live trading pipeline
-              (Opportunities → Decisions → Orders → Executions, which reference a separate Phase 4A strategy id space) aren&apos;t
-              cross-referenced anywhere in the API — there is no field connecting a strategy-engine strategy id to the strategies
-              that actually generate live opportunities. This is a real architectural gap found while building the Trading
-              Operations module, not a missing UI feature.
+            <CardContent className="text-muted-foreground text-sm">
+              Performance Summary, Strategy Health, and Last Execution aren&apos;t shown here: this
+              Strategy Builder (the org-scoped <code className="text-xs">strategy-engine</code>{" "}
+              module) and the live trading pipeline (Opportunities → Decisions → Orders →
+              Executions, which reference a separate Phase 4A strategy id space) aren&apos;t
+              cross-referenced anywhere in the API — there is no field connecting a strategy-engine
+              strategy id to the strategies that actually generate live opportunities. This is a
+              real architectural gap found while building the Trading Operations module, not a
+              missing UI feature.
             </CardContent>
           </Card>
         </TabsContent>
@@ -138,7 +153,12 @@ function StrategyDetailsContent({ strategyId }: { strategyId: string }) {
               <CardTitle className="text-sm">Versions</CardTitle>
               <div className="flex gap-2">
                 {versions.data && versions.data.length >= 2 && (
-                  <CompareVersionsDialog versions={versions.data.map((v) => ({ id: v.id, versionNumber: v.versionNumber }))} />
+                  <CompareVersionsDialog
+                    versions={versions.data.map((v) => ({
+                      id: v.id,
+                      versionNumber: v.versionNumber,
+                    }))}
+                  />
                 )}
                 <Button size="sm" asChild>
                   <Link href={`/strategies/${strategyId}/versions/new`}>
@@ -158,11 +178,16 @@ function StrategyDetailsContent({ strategyId }: { strategyId: string }) {
                 <ul className="divide-y">
                   {versions.data.map((v) => (
                     <li key={v.id} className="flex items-center justify-between py-2">
-                      <Link href={`/strategies/${strategyId}/versions/${v.id}`} className="text-sm font-medium hover:underline">
+                      <Link
+                        href={`/strategies/${strategyId}/versions/${v.id}`}
+                        className="text-sm font-medium hover:underline"
+                      >
                         v{v.versionNumber}
                       </Link>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{new Date(v.createdAt).toLocaleDateString()}</span>
+                        <span className="text-muted-foreground text-xs">
+                          {new Date(v.createdAt).toLocaleDateString()}
+                        </span>
                         <VersionStatusBadge status={v.status} />
                       </div>
                     </li>
@@ -200,7 +225,8 @@ function StrategyDetailsContent({ strategyId }: { strategyId: string }) {
               toast.success("Strategy archived.");
               setArchiveOpen(false);
             },
-            onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to archive strategy."),
+            onError: (err) =>
+              toast.error(err instanceof Error ? err.message : "Failed to archive strategy."),
           })
         }
       />
@@ -212,7 +238,11 @@ function StrategyDetailsContent({ strategyId }: { strategyId: string }) {
         description={
           <div className="space-y-2 text-left">
             <p>Create a copy of &quot;{s.name}&quot; with its latest version&apos;s rules.</p>
-            <Input value={cloneName} onChange={(e) => setCloneName(e.target.value)} aria-label="New strategy name" />
+            <Input
+              value={cloneName}
+              onChange={(e) => setCloneName(e.target.value)}
+              aria-label="New strategy name"
+            />
           </div>
         }
         confirmLabel="Clone"
@@ -225,7 +255,8 @@ function StrategyDetailsContent({ strategyId }: { strategyId: string }) {
                 toast.success(`Cloned as "${created.name}".`);
                 router.push(`/strategies/${created.id}`);
               },
-              onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to clone strategy."),
+              onError: (err) =>
+                toast.error(err instanceof Error ? err.message : "Failed to clone strategy."),
             },
           )
         }
@@ -244,7 +275,8 @@ function StrategyDetailsContent({ strategyId }: { strategyId: string }) {
               toast.success("Version published.");
               setPublishOpen(false);
             },
-            onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to publish version."),
+            onError: (err) =>
+              toast.error(err instanceof Error ? err.message : "Failed to publish version."),
           })
         }
       />

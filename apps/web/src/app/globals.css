@@ -4,56 +4,117 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 222 47% 40%;
-    --radius: 0.5rem;
+    /*
+     * RMSM Elegant Visual Foundation
+     *
+     * RMSM keeps its own identity:
+     * deep navy + sophisticated emerald + calm neutral surfaces.
+     * This is intentionally restrained rather than a copy of another
+     * financial product.
+     */
 
-    --primary: 222 47% 20%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --destructive: 0 72% 45%;
-    --destructive-foreground: 210 40% 98%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+
+    --border: 214 24% 88%;
+    --input: 214 24% 86%;
+    --ring: 158 64% 38%;
+    --radius: 0.65rem;
+
+    --primary: 158 64% 32%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 24% 95%;
+    --secondary-foreground: 222 47% 13%;
+
+    --destructive: 0 68% 47%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 158 64% 32%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 45%;
+    --warning-foreground: 222 47% 11%;
+
+    --muted: 210 24% 95%;
+    --muted-foreground: 215 16% 44%;
+
+    --accent: 158 42% 94%;
+    --accent-foreground: 158 58% 25%;
+
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
+
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
   }
-  .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
-    --ring: 217 91% 60%;
 
-    --primary: 210 40% 92%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --destructive: 0 72% 60%;
-    --destructive-foreground: 222 47% 11%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
-    --card: 222 44% 12%;
-    --card-foreground: 210 40% 98%;
+  .dark {
+    --background: 222 42% 8%;
+    --foreground: 210 30% 96%;
+
+    --border: 217 28% 19%;
+    --input: 217 28% 21%;
+    --ring: 158 58% 48%;
+
+    --primary: 158 58% 48%;
+    --primary-foreground: 222 42% 8%;
+
+    --secondary: 217 28% 15%;
+    --secondary-foreground: 210 30% 96%;
+
+    --destructive: 0 68% 58%;
+    --destructive-foreground: 222 42% 8%;
+
+    --success: 158 58% 48%;
+    --success-foreground: 222 42% 8%;
+
+    --warning: 38 92% 55%;
+    --warning-foreground: 222 42% 8%;
+
+    --muted: 217 28% 15%;
+    --muted-foreground: 215 18% 66%;
+
+    --accent: 158 30% 16%;
+    --accent-foreground: 158 55% 72%;
+
+    --popover: 222 40% 10%;
+    --popover-foreground: 210 30% 96%;
+
+    --card: 222 38% 11%;
+    --card-foreground: 210 30% 96%;
   }
-  * { @apply border-border; }
-  body { @apply bg-background text-foreground; }
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.16);
+    color: hsl(var(--foreground));
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) hsl(var(--background));
+  }
 
   /* WCAG 2.3.3 / Task 11 — visible focus for keyboard users. */
   :focus-visible {
-    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+    @apply ring-ring ring-offset-background outline-none ring-2 ring-offset-2;
   }
 }
 
@@ -61,10 +122,794 @@
    covers most transitions added in this milestone directly in JSX; this
    catches every other CSS transition/animation globally as a baseline. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* RMSM MOBILE GLASS FOUNDATION */
+
+/* RMSM MOBILE GLASS FOUNDATION
+ *
+ * Mobile/PWA visual layer only.
+ * Desktop remains completely unchanged because every rule is scoped
+ * to max-width: 767px.
+ */
+@media (max-width: 767px) {
+  .rmsm-mobile-glass-shell {
+    --background: 222 42% 7%;
+    --foreground: 210 30% 96%;
+
+    --border: 217 32% 23%;
+    --input: 217 32% 21%;
+    --ring: 199 92% 62%;
+
+    --primary: 199 92% 62%;
+    --primary-foreground: 222 42% 7%;
+
+    --secondary: 217 32% 14%;
+    --secondary-foreground: 210 30% 96%;
+
+    --muted: 217 32% 14%;
+    --muted-foreground: 215 20% 68%;
+
+    --accent: 199 60% 17%;
+    --accent-foreground: 199 92% 78%;
+
+    --popover: 222 40% 9%;
+    --popover-foreground: 210 30% 96%;
+
+    --card: 222 38% 10%;
+    --card-foreground: 210 30% 96%;
+
+    color-scheme: dark;
+    background:
+      radial-gradient(circle at 50% -10%, hsl(199 90% 35% / 0.18), transparent 42%),
+      radial-gradient(circle at 100% 40%, hsl(210 90% 45% / 0.08), transparent 35%),
+      hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  .rmsm-mobile-glass-shell main {
+    background: transparent;
+  }
+
+  .rmsm-mobile-glass-shell .bg-background {
+    background: transparent;
+  }
+
+  .rmsm-mobile-glass-shell .bg-card {
+    background: linear-gradient(145deg, hsl(222 38% 13% / 0.78), hsl(222 42% 9% / 0.68));
+    border-color: hsl(217 40% 30% / 0.72);
+    box-shadow:
+      inset 0 1px 0 hsl(210 30% 100% / 0.055),
+      0 10px 30px hsl(222 60% 3% / 0.24);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  .rmsm-mobile-glass-shell .border {
+    border-color: hsl(217 40% 30% / 0.72);
+  }
+
+  .rmsm-mobile-glass-shell input,
+  .rmsm-mobile-glass-shell select,
+  .rmsm-mobile-glass-shell textarea {
+    background: hsl(222 38% 8% / 0.72);
+    border-color: hsl(217 40% 29% / 0.82);
+    color: hsl(var(--foreground));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .rmsm-mobile-glass-shell input::placeholder,
+  .rmsm-mobile-glass-shell textarea::placeholder {
+    color: hsl(215 20% 60%);
+  }
+
+  .rmsm-mobile-glass-shell button {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .rmsm-mobile-glass-shell ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .rmsm-mobile-glass-shell ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .rmsm-mobile-glass-shell ::-webkit-scrollbar-thumb {
+    background: hsl(217 32% 28% / 0.8);
+    border-radius: 999px;
+  }
+}
+
+/* RMSM MOBILE GLASS BATCH 2 — ALL NON-TRADING PAGES
+ *
+ * Mobile/PWA only.
+ * Desktop (md+) remains on the existing design system.
+ */
+
+@media (max-width: 767px) {
+  /* ------------------------------------------------------------
+     Legacy surface classes
+     ------------------------------------------------------------ */
+
+  .border-border {
+    border-color: rgb(255 255 255 / 0.1);
+  }
+
+  .border-border\/50 {
+    border-color: rgb(255 255 255 / 0.07);
+  }
+
+  .border-border\/60 {
+    border-color: rgb(255 255 255 / 0.08);
+  }
+
+  .border-border\/70 {
+    border-color: rgb(255 255 255 / 0.1);
+  }
+
+  .border-border\/80 {
+    border-color: rgb(255 255 255 / 0.12);
+  }
+
+  .bg-muted {
+    background: linear-gradient(135deg, rgb(255 255 255 / 0.055), rgb(255 255 255 / 0.025));
+  }
+
+  .bg-muted\/30 {
+    background-color: rgb(255 255 255 / 0.025);
+  }
+
+  .bg-muted\/50 {
+    background-color: rgb(255 255 255 / 0.04);
+  }
+
+  .bg-muted\/80 {
+    background-color: rgb(255 255 255 / 0.055);
+  }
+
+  /* ------------------------------------------------------------
+     Glass cards / panels
+     ------------------------------------------------------------ */
+
+  .rmsm-mobile-glass-shell .bg-card,
+  .rmsm-mobile-glass-shell [class*="bg-card"] {
+    border-color: rgb(255 255 255 / 0.1);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.045),
+      inset 0 0 0 1px rgb(255 255 255 / 0.012),
+      0 12px 30px rgb(0 0 0 / 0.22);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* ------------------------------------------------------------
+     Interactive glass controls
+     ------------------------------------------------------------ */
+
+  button:not([data-radix-collection-item]),
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input,
+  textarea,
+  select {
+    border-color: rgb(255 255 255 / 0.1);
+    background-color: rgb(255 255 255 / 0.035);
+    color: rgb(241 245 249);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.025),
+      0 6px 18px rgb(0 0 0 / 0.1);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    border-color: rgb(103 232 249 / 0.42);
+    box-shadow:
+      0 0 0 2px rgb(34 211 238 / 0.1),
+      inset 0 1px 0 rgb(255 255 255 / 0.04);
+  }
+
+  /* ------------------------------------------------------------
+     Tables
+     ------------------------------------------------------------ */
+
+  table {
+    border-color: rgb(255 255 255 / 0.08);
+  }
+
+  thead {
+    background-color: rgb(255 255 255 / 0.025);
+  }
+
+  th {
+    color: rgb(148 163 184);
+    border-color: rgb(255 255 255 / 0.07);
+  }
+
+  td {
+    border-color: rgb(255 255 255 / 0.06);
+  }
+
+  tbody tr {
+    border-color: rgb(255 255 255 / 0.06);
+  }
+
+  tbody tr:active {
+    background-color: rgb(255 255 255 / 0.035);
+  }
+
+  /* ------------------------------------------------------------
+     Tabs
+     ------------------------------------------------------------ */
+
+  [role="tablist"] {
+    border-color: rgb(255 255 255 / 0.08);
+    background-color: rgb(255 255 255 / 0.025);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  [role="tab"][data-state="active"] {
+    border-color: rgb(103 232 249 / 0.18);
+    background-color: rgb(34 211 238 / 0.09);
+    color: rgb(207 250 254);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.045),
+      0 0 18px rgb(34 211 238 / 0.06);
+  }
+
+  /* ------------------------------------------------------------
+     Separators
+     ------------------------------------------------------------ */
+
+  hr,
+  [data-orientation="horizontal"] {
+    border-color: rgb(255 255 255 / 0.08);
+    background-color: rgb(255 255 255 / 0.08);
+  }
+
+  /* ------------------------------------------------------------
+     Common mobile headings / secondary text
+     ------------------------------------------------------------ */
+
+  .text-muted-foreground {
+    color: rgb(148 163 184);
+  }
+
+  /* ------------------------------------------------------------
+     Status surfaces
+     ------------------------------------------------------------ */
+
+  .bg-success {
+    background-color: rgb(34 197 94 / 0.1);
+  }
+
+  .bg-destructive {
+    background-color: rgb(239 68 68 / 0.1);
+  }
+
+  .bg-warning {
+    background-color: rgb(245 158 11 / 0.1);
+  }
+
+  /* ------------------------------------------------------------
+     Dense mobile page content
+     ------------------------------------------------------------ */
+
+  .space-y-4 > * + *,
+  .space-y-5 > * + *,
+  .space-y-6 > * + * {
+    border-radius: 0.875rem;
+  }
+
+  /* Keep touch targets comfortable without changing desktop sizing. */
+  @media (pointer: coarse) {
+    button,
+    [role="button"],
+    a {
+      min-height: 40px;
+    }
+  }
+}
+
+/* RMSM MOBILE GLASS BATCH 2A — PAGE SURFACES */
+@media (max-width: 767px) {
+  .rmsm-mobile-glass-page {
+    color: #e2e8f0;
+  }
+
+  .rmsm-mobile-glass-page .bg-card,
+  .rmsm-mobile-glass-page [class*="bg-card"] {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
+    border-color: rgba(255, 255, 255, 0.09);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.045),
+      0 14px 34px rgba(0, 0, 0, 0.22);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  .rmsm-mobile-glass-page .border,
+  .rmsm-mobile-glass-page .border-border {
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .rmsm-mobile-glass-page input,
+  .rmsm-mobile-glass-page textarea,
+  .rmsm-mobile-glass-page select {
+    background: rgba(255, 255, 255, 0.035);
+    border-color: rgba(255, 255, 255, 0.09);
+    color: #f8fafc;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  }
+
+  .rmsm-mobile-glass-page input:focus,
+  .rmsm-mobile-glass-page textarea:focus,
+  .rmsm-mobile-glass-page select:focus {
+    border-color: rgba(103, 232, 249, 0.35);
+    box-shadow:
+      0 0 0 1px rgba(103, 232, 249, 0.16),
+      0 0 20px rgba(34, 211, 238, 0.08);
+  }
+
+  .rmsm-mobile-glass-page [role="tablist"] {
+    background: rgba(255, 255, 255, 0.025);
+    border-color: rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .rmsm-mobile-glass-page [role="tab"][data-state="active"] {
+    background: rgba(34, 211, 238, 0.1);
+    color: #cffafe;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.045),
+      0 0 18px rgba(34, 211, 238, 0.07);
+  }
+
+  .rmsm-mobile-glass-page button {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .rmsm-mobile-glass-page .text-muted-foreground {
+    color: #94a3b8;
+  }
+}
+
+/* ============================================================
+   RMSM MOBILE REFERENCE UI — BULK PASS
+   Mobile/PWA only. Desktop intentionally untouched.
+   ============================================================ */
+
+@media (max-width: 767px) {
+
+  /* ---------- GLOBAL MOBILE ATMOSPHERE ---------- */
+
+  body {
+    background:
+      radial-gradient(
+        circle at 50% -10%,
+        rgba(14, 165, 233, 0.13),
+        transparent 42%
+      ),
+      radial-gradient(
+        circle at 100% 35%,
+        rgba(34, 211, 238, 0.055),
+        transparent 38%
+      ),
+      #06111f;
+  }
+
+  /* ---------- COMMON GLASS SURFACE ---------- */
+
+  .rmsm-mobile-glass-page .bg-card,
+  .rmsm-mobile-glass-page [class*="bg-card"],
+  .rmsm-mobile-glass-shell .bg-card,
+  .rmsm-mobile-glass-shell [class*="bg-card"] {
+    background:
+      linear-gradient(
+        145deg,
+        rgba(255,255,255,0.065),
+        rgba(255,255,255,0.018)
+      );
+    border-color: rgba(125, 211, 252, 0.14);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.055),
+      0 12px 30px rgba(0,0,0,0.28);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* ---------- REFERENCE CARD SHAPE ---------- */
+
+  .rmsm-mobile-glass-page .rounded-xl,
+  .rmsm-mobile-glass-page .rounded-2xl,
+  .rmsm-mobile-glass-shell .rounded-xl,
+  .rmsm-mobile-glass-shell .rounded-2xl {
+    border-radius: 16px;
+  }
+
+  /* ---------- MOBILE INPUTS ---------- */
+
+  .rmsm-mobile-glass-page input,
+  .rmsm-mobile-glass-page textarea,
+  .rmsm-mobile-glass-page select,
+  .rmsm-mobile-glass-shell input,
+  .rmsm-mobile-glass-shell textarea,
+  .rmsm-mobile-glass-shell select {
+    background: rgba(2, 12, 24, 0.56);
+    border-color: rgba(125, 211, 252, 0.16);
+    color: #f8fafc;
+    border-radius: 12px;
+  }
+
+  .rmsm-mobile-glass-page input:focus,
+  .rmsm-mobile-glass-page textarea:focus,
+  .rmsm-mobile-glass-page select:focus,
+  .rmsm-mobile-glass-shell input:focus,
+  .rmsm-mobile-glass-shell textarea:focus,
+  .rmsm-mobile-glass-shell select:focus {
+    border-color: rgba(103,232,249,0.55);
+    box-shadow:
+      0 0 0 1px rgba(103,232,249,0.18),
+      0 0 22px rgba(34,211,238,0.10);
+  }
+
+  /* ---------- REFERENCE ACTIVE CONTROL ---------- */
+
+  .rmsm-mobile-glass-page [data-state="active"],
+  .rmsm-mobile-glass-shell [data-state="active"] {
+    border-color: rgba(103,232,249,0.48);
+    background:
+      linear-gradient(
+        180deg,
+        rgba(56,189,248,0.24),
+        rgba(14,165,233,0.10)
+      );
+    color: #ecfeff;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.08),
+      0 0 18px rgba(34,211,238,0.10);
+  }
+
+  /* ---------- TRADING QUOTE EMPHASIS ---------- */
+
+  .rmsm-mobile-glass-shell [class*="text-success"] {
+    text-shadow: 0 0 12px rgba(16,185,129,0.18);
+  }
+
+  /* ---------- MOBILE BUTTONS ---------- */
+
+  .rmsm-mobile-glass-page button,
+  .rmsm-mobile-glass-shell button {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ---------- MOBILE SECONDARY TEXT ---------- */
+
+  .rmsm-mobile-glass-page .text-muted-foreground,
+  .rmsm-mobile-glass-shell .text-muted-foreground {
+    color: #94a3b8;
+  }
+
+  /* ---------- MOBILE BOTTOM NAV ---------- */
+
+  .rmsm-mobile-glass-shell nav {
+    background:
+      linear-gradient(
+        145deg,
+        rgba(7,25,43,0.92),
+        rgba(3,15,28,0.88)
+      );
+    border-color: rgba(125,211,252,0.18);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.05),
+      0 -10px 30px rgba(0,0,0,0.24);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+  }
+
+  /* ---------- MOBILE SCROLL ---------- */
+
+  .rmsm-mobile-glass-page,
+  .rmsm-mobile-glass-shell {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(103,232,249,0.28) transparent;
+  }
+
+  /* ---------- TOUCH TARGETS ---------- */
+
+  .rmsm-mobile-glass-page button,
+  .rmsm-mobile-glass-page [role="button"],
+  .rmsm-mobile-glass-shell button,
+  .rmsm-mobile-glass-shell [role="button"] {
+    touch-action: manipulation;
+  }
+}
+
+
+/* ============================================================
+   RMSM MOBILE GLASS — FINAL VISUAL STRENGTH PASS
+   Mobile/PWA only. Desktop intentionally untouched.
+   ============================================================ */
+
+@media (max-width: 767px) {
+
+  /* ------------------------------------------------------------
+     Stronger mobile atmosphere
+     ------------------------------------------------------------ */
+
+  body {
+    background:
+      radial-gradient(
+        circle at 50% -8%,
+        rgba(14, 165, 233, 0.20),
+        transparent 38%
+      ),
+      radial-gradient(
+        circle at 100% 25%,
+        rgba(34, 211, 238, 0.09),
+        transparent 32%
+      ),
+      radial-gradient(
+        circle at 0% 70%,
+        rgba(37, 99, 235, 0.07),
+        transparent 35%
+      ),
+      #06111f;
+  }
+
+  /* ------------------------------------------------------------
+     REAL CARD SURFACES
+     Catch rounded bordered surfaces even when they don't use
+     bg-card explicitly.
+     ------------------------------------------------------------ */
+
+  .rmsm-mobile-glass-page .rounded-xl.border,
+  .rmsm-mobile-glass-page .rounded-2xl.border,
+  .rmsm-mobile-glass-page .rounded-lg.border,
+  .rmsm-mobile-glass-shell .rounded-xl.border,
+  .rmsm-mobile-glass-shell .rounded-2xl.border,
+  .rmsm-mobile-glass-shell .rounded-lg.border {
+    background:
+      linear-gradient(
+        145deg,
+        rgba(24, 48, 73, 0.58),
+        rgba(7, 22, 39, 0.42)
+      );
+
+    border-color: rgba(125, 211, 252, 0.18);
+
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.075),
+      inset 0 0 0 1px rgba(125,211,252,0.025),
+      0 10px 28px rgba(0,0,0,0.28),
+      0 0 24px rgba(14,165,233,0.035);
+
+    backdrop-filter: blur(22px) saturate(125%);
+    -webkit-backdrop-filter: blur(22px) saturate(125%);
+  }
+
+  /* ------------------------------------------------------------
+     Stronger existing bg-card glass
+     ------------------------------------------------------------ */
+
+  .rmsm-mobile-glass-page .bg-card,
+  .rmsm-mobile-glass-page [class*="bg-card"],
+  .rmsm-mobile-glass-shell .bg-card,
+  .rmsm-mobile-glass-shell [class*="bg-card"] {
+    background:
+      linear-gradient(
+        145deg,
+        rgba(24, 48, 73, 0.62),
+        rgba(7, 22, 39, 0.46)
+      );
+
+    border-color: rgba(125, 211, 252, 0.19);
+
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.075),
+      inset 0 0 0 1px rgba(125,211,252,0.025),
+      0 12px 30px rgba(0,0,0,0.30),
+      0 0 26px rgba(14,165,233,0.04);
+
+    backdrop-filter: blur(22px) saturate(125%);
+    -webkit-backdrop-filter: blur(22px) saturate(125%);
+  }
+
+  /* ------------------------------------------------------------
+     Glass section/header surfaces
+     ------------------------------------------------------------ */
+
+  .rmsm-mobile-glass-page section,
+  .rmsm-mobile-glass-page article,
+  .rmsm-mobile-glass-shell section,
+  .rmsm-mobile-glass-shell article {
+    border-color: rgba(125, 211, 252, 0.13);
+  }
+
+  /* ------------------------------------------------------------
+     Premium controls
+     ------------------------------------------------------------ */
+
+  .rmsm-mobile-glass-page button,
+  .rmsm-mobile-glass-shell button {
+    transition:
+      background 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      transform 100ms ease;
+  }
+
+  .rmsm-mobile-glass-page button:active,
+  .rmsm-mobile-glass-shell button:active {
+    transform: scale(0.985);
+  }
+
+  /* ------------------------------------------------------------
+     Active tabs / selected controls
+     ------------------------------------------------------------ */
+
+  .rmsm-mobile-glass-page [data-state="active"],
+  .rmsm-mobile-glass-shell [data-state="active"] {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(56,189,248,0.30),
+        rgba(14,165,233,0.12)
+      );
+
+    border-color: rgba(103,232,249,0.55);
+
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.10),
+      0 0 18px rgba(34,211,238,0.13),
+      0 0 36px rgba(14,165,233,0.05);
+  }
+
+  /* ------------------------------------------------------------
+     BUY / positive surfaces
+     ------------------------------------------------------------ */
+
+  .rmsm-mobile-glass-shell [class*="bg-success"],
+  .rmsm-mobile-glass-page [class*="bg-success"] {
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      0 0 18px rgba(16,185,129,0.10);
+  }
+
+  /* ------------------------------------------------------------
+     SELL / destructive surfaces
+     ------------------------------------------------------------ */
+
+  .rmsm-mobile-glass-shell [class*="bg-destructive"],
+  .rmsm-mobile-glass-page [class*="bg-destructive"] {
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      0 0 18px rgba(239,68,68,0.09);
+  }
+
+  /* ------------------------------------------------------------
+     Quote emphasis
+     ------------------------------------------------------------ */
+
+  .rmsm-mobile-glass-shell [class*="text-success"] {
+    text-shadow:
+      0 0 8px rgba(16,185,129,0.18),
+      0 0 18px rgba(16,185,129,0.08);
+  }
+
+  /* ------------------------------------------------------------
+     Bottom navigation — reference-style floating glass dock
+     ------------------------------------------------------------ */
+
+  .rmsm-mobile-glass-shell nav {
+    background:
+      linear-gradient(
+        145deg,
+        rgba(10, 31, 51, 0.88),
+        rgba(3, 15, 28, 0.82)
+      );
+
+    border-top-color: rgba(125,211,252,0.20);
+
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.065),
+      0 -10px 32px rgba(0,0,0,0.28),
+      0 0 28px rgba(14,165,233,0.045);
+
+    backdrop-filter: blur(26px) saturate(135%);
+    -webkit-backdrop-filter: blur(26px) saturate(135%);
+  }
+
+  /* ------------------------------------------------------------
+     Mobile header
+     ------------------------------------------------------------ */
+
+  .rmsm-mobile-glass-shell header {
+    background:
+      linear-gradient(
+        145deg,
+        rgba(12, 31, 51, 0.82),
+        rgba(4, 17, 31, 0.72)
+      );
+
+    border-color: rgba(125,211,252,0.14);
+
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.055),
+      0 8px 24px rgba(0,0,0,0.18);
+
+    backdrop-filter: blur(22px) saturate(125%);
+    -webkit-backdrop-filter: blur(22px) saturate(125%);
+  }
+
+  /* ------------------------------------------------------------
+     Glass inputs
+     ------------------------------------------------------------ */
+
+  .rmsm-mobile-glass-page input,
+  .rmsm-mobile-glass-page textarea,
+  .rmsm-mobile-glass-page select,
+  .rmsm-mobile-glass-shell input,
+  .rmsm-mobile-glass-shell textarea,
+  .rmsm-mobile-glass-shell select {
+    background:
+      linear-gradient(
+        145deg,
+        rgba(15, 35, 55, 0.58),
+        rgba(3, 16, 29, 0.48)
+      );
+
+    border-color: rgba(125,211,252,0.17);
+
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.035),
+      0 5px 16px rgba(0,0,0,0.10);
+
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  /* ------------------------------------------------------------
+     Cyan focus glow
+     ------------------------------------------------------------ */
+
+  .rmsm-mobile-glass-page input:focus,
+  .rmsm-mobile-glass-page textarea:focus,
+  .rmsm-mobile-glass-page select:focus,
+  .rmsm-mobile-glass-shell input:focus,
+  .rmsm-mobile-glass-shell textarea:focus,
+  .rmsm-mobile-glass-shell select:focus {
+    border-color: rgba(103,232,249,0.62);
+
+    box-shadow:
+      0 0 0 1px rgba(103,232,249,0.20),
+      0 0 22px rgba(34,211,238,0.12),
+      inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  /* ------------------------------------------------------------
+     Dividers
+     ------------------------------------------------------------ */
+
+  .rmsm-mobile-glass-page hr,
+  .rmsm-mobile-glass-shell hr {
+    border-color: rgba(125,211,252,0.09);
   }
 }

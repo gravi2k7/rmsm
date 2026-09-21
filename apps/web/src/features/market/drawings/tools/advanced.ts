@@ -23,6 +23,15 @@ function tool(
 }
 
 export const advancedDrawingTools: readonly AdvancedDrawingTool[] = [
+  tool("EXTENDED_LINE", 2, 2),
+  tool("CROSS_LINE", 1, 1),
+  tool("CIRCLE", 2, 2),
+  tool("POLYLINE", 2, 20),
+  tool("NOTE", 1, 1),
+  tool("CALLOUT", 2, 2),
+  tool("PRICE_LABEL", 1, 1),
+  tool("LONG_POSITION", 2, 2),
+  tool("SHORT_POSITION", 2, 2),
   tool("PARALLEL_CHANNEL", 3, 3),
   tool("PRICE_CHANNEL", 3, 3),
   tool("REGRESSION_CHANNEL", 3, 3),

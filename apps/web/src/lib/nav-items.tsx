@@ -14,6 +14,7 @@ export interface NavItem {
 /** Phase 4C is now feature-complete across all planned batches. */
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Status", href: "/status", icon: LayoutDashboard },
   { label: "Market Watch", href: "/market", icon: TrendingUp },
   { label: "Watchlists", href: "/watchlists", icon: BookMarked },
   { label: "Strategies", href: "/strategies", icon: LineChart },

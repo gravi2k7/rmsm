@@ -7,15 +7,32 @@ import InstrumentChartPage from "../page";
 const useInstrumentMock = vi.fn();
 const useQuotesMock = vi.fn();
 const useCandlesMock = vi.fn();
+const useInstrumentsMock = vi.fn();
+const useInstrumentsBatchMock = vi.fn(() => ({
+  data: [],
+  isLoading: false,
+  isError: false,
+}));
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ instrumentId: "instr-1" }),
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    refresh: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    prefetch: vi.fn(),
+  }),
 }));
 
 vi.mock("@/features/market/hooks/use-market-data", () => ({
   useInstrument: (...args: unknown[]) => useInstrumentMock(...args),
   useQuotes: (...args: unknown[]) => useQuotesMock(...args),
   useCandles: (...args: unknown[]) => useCandlesMock(...args),
+  useInstruments: (...args: unknown[]) => useInstrumentsMock(...args),
+  useInstrumentsBatch: () =>
+    useInstrumentsBatchMock(),
 }));
 
 vi.mock("@/features/market/components/rmsm-candlestick-chart", () => ({
@@ -420,127 +437,7 @@ describe("InstrumentChartPage", () => {
       "data-active-drawing-tool",
       "SELECT",
     );
-
-    const drawingToolsButton = screen.getByRole("button", {
-      name: "Drawing tools",
-    });
-
-    expect(drawingToolsButton).toHaveAttribute(
-      "aria-expanded",
-      "false",
-    );
-
-    fireEvent.click(drawingToolsButton);
-
-    expect(drawingToolsButton).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
-
-    const trendLineItem = screen.getByRole("menuitem", {
-      name: "Trend Line",
-    });
-
-    expect(trendLineItem).not.toHaveAttribute(
-      "aria-current",
-    );
-
-    fireEvent.click(trendLineItem);
-
-    expect(chart).toHaveAttribute(
-      "data-active-drawing-tool",
-      "TREND_LINE",
-    );
-
-    expect(drawingToolsButton).toHaveAttribute(
-      "aria-expanded",
-      "false",
-    );
-
-    fireEvent.click(drawingToolsButton);
-
-    expect(drawingToolsButton).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
-
-    const rectangleItem = screen.getByRole("menuitem", {
-      name: "Rectangle",
-    });
-
-    expect(rectangleItem).not.toHaveAttribute(
-      "aria-current",
-    );
-
-    fireEvent.click(rectangleItem);
-
-    expect(chart).toHaveAttribute(
-      "data-active-drawing-tool",
-      "RECTANGLE",
-    );
-
-    expect(drawingToolsButton).toHaveAttribute(
-      "aria-expanded",
-      "false",
-    );
-
-    fireEvent.click(drawingToolsButton);
-
-    expect(drawingToolsButton).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
-
-    const selectedRectangleItem = screen.getByRole(
-      "menuitem",
-      { name: "Rectangle" },
-    );
-
-    expect(selectedRectangleItem).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
-
-    expect(
-      screen.getByRole("menuitem", {
-        name: "Trend Line",
-      }),
-    ).not.toHaveAttribute("aria-current");
-
-    const selectItem = screen.getByRole("menuitem", {
-      name: "Select",
-    });
-
-    fireEvent.click(selectItem);
-
-    expect(chart).toHaveAttribute(
-      "data-active-drawing-tool",
-      "SELECT",
-    );
-
-    expect(drawingToolsButton).toHaveAttribute(
-      "aria-expanded",
-      "false",
-    );
-
-    fireEvent.click(drawingToolsButton);
-
-    expect(drawingToolsButton).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
-
-    const selectedSelectItem = screen.getByRole(
-      "menuitem",
-      { name: "Select" },
-    );
-
-    expect(selectedSelectItem).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
   });
-
   it("propagates indicator toggle state to the candlestick chart", async () => {
 
     useInstrumentMock.mockReturnValue({

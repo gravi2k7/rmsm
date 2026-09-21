@@ -103,3 +103,82 @@ export function useRollbackVersion(strategyId: string) {
     },
   });
 }
+
+
+export function useExecutionProfile(versionId: string | undefined) {
+  const ctx = useRequestContext();
+  return useQuery({
+    queryKey: [...versionKeys.detail(versionId ?? ""), "execution-profile"],
+    queryFn: () => versionApi.getExecutionProfile(ctx!, versionId!),
+    enabled: !!ctx && !!versionId,
+  });
+}
+
+export function useSaveExecutionProfile(strategyId: string, versionId: string) {
+  const ctx = useRequestContext();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: {
+      runtime: "RDSE";
+      instrumentId: string;
+      timeframe: "ONE_MINUTE";
+      tradingAccountId: string;
+      quantity: string;
+      executionMode: "PAPER_AUTO" | "SIGNAL_ONLY" | "DISABLED";
+    }) => versionApi.saveExecutionProfile(ctx!, versionId, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [...versionKeys.detail(versionId), "execution-profile"],
+      });
+    },
+  });
+}
+
+export function useSaveRdseV2ExecutionProfile(
+  strategyId: string,
+  versionId: string,
+) {
+  const ctx = useRequestContext();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: {
+      runtime: "RDSE_V2";
+      htf: string;
+      ltf: string;
+      instrumentId: string;
+      tradingAccountId: string;
+      quantity: string;
+      risk: string;
+      executionMode: "PAPER_AUTO" | "SIGNAL_ONLY" | "DISABLED";
+    }) => versionApi.saveRdseV2ExecutionProfile(ctx!, versionId, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [...versionKeys.detail(versionId), "execution-profile"],
+      });
+    },
+  });
+}
+export function useRunStrategyVersionBacktest() {
+  const ctx = useRequestContext();
+
+  return useMutation({
+    mutationFn: ({
+      versionId,
+      input,
+    }: {
+      versionId: string;
+      input: {
+        instrumentId: string;
+        interval: string;
+        from: string;
+        to: string;
+        startingBalance: number;
+        htf?: string;
+        ltf?: string;
+        candleLimit?: number;
+      };
+    }) => versionApi.runBacktest(ctx!, versionId, input),
+  });
+}

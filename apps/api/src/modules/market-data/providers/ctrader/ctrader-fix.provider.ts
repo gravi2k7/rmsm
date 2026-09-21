@@ -4,6 +4,7 @@ import type { MarketDataProvider } from "../../interfaces/market-data-provider.i
 import type { ProviderMetadata } from "../../interfaces/provider-metadata.interface";
 import type { QuoteClient } from "../../interfaces/quote-client.interface";
 import type { NormalizedQuote } from "../../interfaces/normalized-market-data.interface";
+import type { HistoricalDataClient } from "../../interfaces/historical-data-client.interface";
 
 import { CTraderFixClient } from "./ctrader-fix.client";
 import { CTraderFixErrorMapper } from "./ctrader-fix.error-mapper";
@@ -75,10 +76,15 @@ export class CTraderFixProvider implements MarketDataProvider {
     errorMapper: CTraderFixErrorMapper,
     healthProvider: CTraderFixHealthProvider,
     private readonly configured = true,
+    readonly historicalDataClient?: HistoricalDataClient,
   ) {
     this.rateLimitPolicy = rateLimiter;
     this.errorMapper = errorMapper;
     this.healthProvider = healthProvider;
+
+    if (historicalDataClient) {
+      this.historicalDataClient = historicalDataClient;
+    }
 
     this.metadata = {
       name: "cTrader FIX Price Connection",
@@ -86,7 +92,7 @@ export class CTraderFixProvider implements MarketDataProvider {
       marketsSupported: ["GLOBAL"],
       assetClasses: CTRADER_ASSET_CLASSES,
       timeframes: [...CTRADER_TIMEFRAMES],
-      supportsHistorical: false,
+      supportsHistorical: Boolean(historicalDataClient),
       supportsQuotes: true,
       supportsTicks: false,
       supportsStreaming: true,

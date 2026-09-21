@@ -1,6 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import type { ReactElement } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent, Badge } from "@rmsm/ui";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
@@ -31,7 +32,7 @@ const sessionColumns: ColumnDef<Session, unknown>[] = [
   },
 ];
 
-export default function AuditPage() {
+export default function AuditPage(): ReactElement {
   const loginHistory = useLoginHistory();
   const activeSessions = useActiveSessions();
 

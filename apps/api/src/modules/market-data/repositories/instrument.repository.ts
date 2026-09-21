@@ -116,6 +116,23 @@ export class InstrumentRepository {
     return row ? toInstrumentModel(row) : null;
   }
 
+  async findByIds(
+    ids: readonly string[],
+    client: DbClient = prisma,
+  ): Promise<InstrumentModel[]> {
+    if (ids.length === 0) return [];
+
+    const rows = await client.instrument.findMany({
+      where: {
+        id: {
+          in: [...new Set(ids)],
+        },
+      },
+    });
+
+    return rows.map(toInstrumentModel);
+  }
+
   async findByExchangeAndSymbol(
     exchangeId: string,
     symbol: string,

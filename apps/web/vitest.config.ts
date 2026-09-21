@@ -18,7 +18,7 @@ export default defineConfig({
     globals: true,
 
     setupFiles: [
-      "./src/test/setup.ts",
+      resolve(__dirname, "vitest.setup.ts"),
     ],
 
     exclude: [

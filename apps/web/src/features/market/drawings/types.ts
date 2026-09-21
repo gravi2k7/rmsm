@@ -4,9 +4,18 @@ export type DrawingType =
   | "HORIZONTAL_LINE"
   | "VERTICAL_LINE"
   | "RAY"
+  | "EXTENDED_LINE"
+  | "CROSS_LINE"
   | "RECTANGLE"
+  | "CIRCLE"
+  | "TRIANGLE"
+  | "WEDGE"
+  | "POLYLINE"
   | "ARROW"
   | "TEXT"
+  | "NOTE"
+  | "CALLOUT"
+  | "PRICE_LABEL"
   | "PARALLEL_CHANNEL"
   | "PRICE_CHANNEL"
   | "REGRESSION_CHANNEL"
@@ -14,17 +23,18 @@ export type DrawingType =
   | "FIB_EXTENSION"
   | "FIB_PROJECTION"
   | "FIB_TIME"
+  | "FIB_CHANNEL"
   | "ABCD"
   | "XABCD"
   | "HEAD_SHOULDERS"
-  | "TRIANGLE"
-  | "WEDGE"
   | "FORECAST"
   | "PROJECTION"
   | "MEASURE_PRICE"
   | "MEASURE_TIME"
   | "MEASURE_PRICE_TIME"
-  | "MEASURE_RANGE";
+  | "MEASURE_RANGE"
+  | "LONG_POSITION"
+  | "SHORT_POSITION";
 
 export type DrawingLineStyle =
   | "solid"
@@ -41,6 +51,13 @@ export interface DrawingStyle {
   width: number;
   lineStyle: DrawingLineStyle;
   opacity: number;
+
+  /**
+   * Optional for backward compatibility with drawings saved before
+   * rectangle fill properties were introduced.
+   */
+  fillColor?: string;
+  fillOpacity?: number;
 }
 
 export interface DrawingBase {
@@ -51,6 +68,15 @@ export interface DrawingBase {
   locked: boolean;
   visible: boolean;
   zIndex: number;
+
+  /**
+   * Optional text-like drawing properties.
+   *
+   * These remain optional for backward compatibility with drawings
+   * created before editable text content was introduced.
+   */
+  text?: string;
+  fontSize?: number;
 }
 
 export interface TextDrawing extends DrawingBase {
@@ -77,9 +103,11 @@ export interface DrawingState {
 
 export const DEFAULT_DRAWING_STYLE: DrawingStyle = {
   color: "#2962FF",
-  width: 2,
+  width: 1,
   lineStyle: "solid",
   opacity: 1,
+  fillColor: "#2962FF",
+  fillOpacity: 0.15,
 };
 
 

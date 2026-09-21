@@ -148,20 +148,46 @@ describe("CTraderLiveCandleBuilderService", () => {
     });
   });
 
-  it("never persists higher-timeframe candles from the live tick path", async () => {
+  it("persists the completed higher-timeframe candle when its next bucket begins", async () => {
     await loadContext();
 
     emitQuote("2026-09-18T05:00:10.000Z", "3650.00");
     emitQuote("2026-09-18T05:01:01.000Z", "3651.00");
+
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    const fiveMinuteBeforeClose =
+      candles.upsert.mock.calls.filter(
+        ([payload]) =>
+          payload.interval === CandleInterval.FIVE_MINUTES,
+      );
+
+    expect(fiveMinuteBeforeClose).toHaveLength(0);
+
     emitQuote("2026-09-18T05:05:01.000Z", "3655.00");
 
     await new Promise<void>((resolve) => setImmediate(resolve));
 
-    expect(candles.upsert).toHaveBeenCalled();
+    const fiveMinuteCalls =
+      candles.upsert.mock.calls.filter(
+        ([payload]) =>
+          payload.interval === CandleInterval.FIVE_MINUTES,
+      );
 
-    for (const [payload] of candles.upsert.mock.calls) {
-      expect(payload.interval).toBe(CandleInterval.ONE_MINUTE);
-    }
+    expect(fiveMinuteCalls).toHaveLength(1);
+
+    expect(fiveMinuteCalls[0][0]).toMatchObject({
+      instrumentId: "instrument-1",
+      interval: CandleInterval.FIVE_MINUTES,
+      eventTime: new Date("2026-09-18T05:00:00.000Z"),
+      open: "3650.00",
+      high: "3651.00",
+      low: "3650.00",
+      close: "3651.00",
+      volume: "2",
+      providerId: "provider-1",
+      source: MarketDataSource.LIVE,
+    });
   });
 
   it("loads provider and aliases once instead of querying on every quote", async () => {
@@ -175,7 +201,7 @@ describe("CTraderLiveCandleBuilderService", () => {
     expect(aliases.findByProvider).toHaveBeenCalledTimes(1);
   });
 
-  it("publishes higher-timeframe candles without persisting them", async () => {
+  it("publishes higher-timeframe candles while they are open without persisting them", async () => {
     await loadContext();
 
     emitQuote("2026-09-18T05:00:10.000Z", "3650.00");
@@ -199,6 +225,12 @@ describe("CTraderLiveCandleBuilderService", () => {
       ]),
     );
 
-    expect(candles.upsert).not.toHaveBeenCalled();
+    const higherTimeframeCalls =
+      candles.upsert.mock.calls.filter(
+        ([payload]) =>
+          payload.interval !== CandleInterval.ONE_MINUTE,
+      );
+
+    expect(higherTimeframeCalls).toHaveLength(0);
   });
 });

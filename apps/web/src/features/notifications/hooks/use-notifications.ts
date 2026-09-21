@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { notificationApi } from "../api";
 import { useRequestContext } from "@/hooks/use-request-context";
-import type { NotificationStatus } from "../types";
+import type { Notification, NotificationStatus } from "../types";
 
 export const notificationKeys = {
   all: ["notifications"] as const,
@@ -14,7 +14,7 @@ export function useNotifications(status?: NotificationStatus) {
   const ctx = useRequestContext();
   return useQuery({
     queryKey: notificationKeys.list(status),
-    queryFn: () => notificationApi.list(ctx!, { status, take: 500 }),
+    queryFn: () => notificationApi.list(ctx!, { status, take: 100 }),
     enabled: !!ctx,
     refetchInterval: 30_000,
   });
@@ -23,9 +23,34 @@ export function useNotifications(status?: NotificationStatus) {
 export function useMarkNotificationRead() {
   const ctx = useRequestContext();
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (id: string) => notificationApi.markRead(ctx!, id),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: notificationKeys.all }),
+    onSuccess: (_result, id) => {
+      queryClient.setQueriesData<{ items: Notification[]; total: number }>(
+        { queryKey: notificationKeys.all },
+        (current) => {
+          if (!current) return current;
+
+          return {
+            ...current,
+            items: current.items.map((notification) =>
+              notification.id === id
+                ? {
+                    ...notification,
+                    status: "READ",
+                    readAt: new Date().toISOString(),
+                  }
+                : notification,
+            ),
+          };
+        },
+      );
+
+      void queryClient.invalidateQueries({
+        queryKey: notificationKeys.all,
+      });
+    },
   });
 }
 
@@ -47,16 +72,28 @@ export function useDeleteNotification() {
   });
 }
 
-/** There's no bulk "mark all read" endpoint — this issues one real
- * request per notification rather than fabricating a single-call bulk
- * action the API doesn't offer. */
 export function useMarkAllRead() {
   const ctx = useRequestContext();
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: async (ids: string[]) => {
-      await Promise.all(ids.map((id) => notificationApi.markRead(ctx!, id)));
-    },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: notificationKeys.all }),
+    mutationFn: () => notificationApi.markAllRead(ctx!),
+    onSuccess: () =>
+      void queryClient.invalidateQueries({
+        queryKey: notificationKeys.all,
+      }),
+  });
+}
+
+export function useDeleteAllNotifications() {
+  const ctx = useRequestContext();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => notificationApi.deleteAll(ctx!),
+    onSuccess: () =>
+      void queryClient.invalidateQueries({
+        queryKey: notificationKeys.all,
+      }),
   });
 }

@@ -82,7 +82,7 @@ export function NotificationCenter() {
           {unreadCount > 0 && (
             <button
               type="button"
-              onClick={() => markAllRead.mutate(unread.map((n) => n.id))}
+              onClick={() => markAllRead.mutate()}
               disabled={markAllRead.isPending}
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
             >

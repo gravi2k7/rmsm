@@ -162,6 +162,7 @@ export function calculateBollingerBands(
   values: number[],
   period: number,
   standardDeviations = 2,
+  times?: number[],
 ): BollingerPoint[] {
   validatePeriod(period);
 
@@ -185,7 +186,7 @@ export function calculateBollingerBands(
     const deviation = Math.sqrt(variance);
 
     points.push({
-      time: i,
+      time: times?.[i] ?? i,
       middle,
       upper: middle + standardDeviations * deviation,
       lower: middle - standardDeviations * deviation,
@@ -511,6 +512,168 @@ export function calculateADX(
   });
 
   return points;
+}
+
+
+export function calculateVWMA(
+  candles: IndicatorCandle[],
+  period = 20,
+): Array<number | null> {
+  validatePeriod(period);
+
+  const result: Array<number | null> = Array(
+    candles.length,
+  ).fill(null);
+
+  for (let i = period - 1; i < candles.length; i += 1) {
+    let priceVolume = 0;
+    let volume = 0;
+
+    for (let j = i - period + 1; j <= i; j += 1) {
+      const candle = candles[j]!;
+      priceVolume += candle.close * candle.volume;
+      volume += candle.volume;
+    }
+
+    result[i] = volume > 0 ? priceVolume / volume : null;
+  }
+
+  return result;
+}
+
+export function calculateCCI(
+  candles: IndicatorCandle[],
+  period = 20,
+): Array<number | null> {
+  validatePeriod(period);
+
+  const result: Array<number | null> = Array(
+    candles.length,
+  ).fill(null);
+
+  const typicalPrices = candles.map(
+    (candle) =>
+      (candle.high + candle.low + candle.close) / 3,
+  );
+
+  for (let i = period - 1; i < candles.length; i += 1) {
+    const window = typicalPrices.slice(
+      i - period + 1,
+      i + 1,
+    );
+
+    const mean =
+      window.reduce((sum, value) => sum + value, 0) /
+      period;
+
+    const meanDeviation =
+      window.reduce(
+        (sum, value) => sum + Math.abs(value - mean),
+        0,
+      ) / period;
+
+    result[i] =
+      meanDeviation === 0
+        ? 0
+        : (typicalPrices[i]! - mean) /
+          (0.015 * meanDeviation);
+  }
+
+  return result;
+}
+
+export function calculateROC(
+  values: number[],
+  period = 12,
+): Array<number | null> {
+  validatePeriod(period);
+
+  const result: Array<number | null> = Array(
+    values.length,
+  ).fill(null);
+
+  for (let i = period; i < values.length; i += 1) {
+    const previous = values[i - period]!;
+
+    result[i] =
+      previous === 0
+        ? null
+        : ((values[i]! - previous) / previous) * 100;
+  }
+
+  return result;
+}
+
+export function calculateWilliamsR(
+  candles: IndicatorCandle[],
+  period = 14,
+): Array<number | null> {
+  validatePeriod(period);
+
+  const result: Array<number | null> = Array(
+    candles.length,
+  ).fill(null);
+
+  for (let i = period - 1; i < candles.length; i += 1) {
+    const window = candles.slice(
+      i - period + 1,
+      i + 1,
+    );
+
+    const highestHigh = Math.max(
+      ...window.map((candle) => candle.high),
+    );
+
+    const lowestLow = Math.min(
+      ...window.map((candle) => candle.low),
+    );
+
+    const range = highestHigh - lowestLow;
+
+    result[i] =
+      range === 0
+        ? 0
+        : ((highestHigh - candles[i]!.close) / range) *
+          -100;
+  }
+
+  return result;
+}
+
+export function calculateOBV(
+  candles: IndicatorCandle[],
+): Array<number | null> {
+  const result: Array<number | null> = Array(
+    candles.length,
+  ).fill(null);
+
+  if (candles.length === 0) {
+    return result;
+  }
+
+  let obv = 0;
+  result[0] = obv;
+
+  for (let i = 1; i < candles.length; i += 1) {
+    const current = candles[i]!;
+    const previous = candles[i - 1]!;
+
+    if (current.close > previous.close) {
+      obv += current.volume;
+    } else if (current.close < previous.close) {
+      obv -= current.volume;
+    }
+
+    result[i] = obv;
+  }
+
+  return result;
+}
+
+export function calculateVolume(
+  candles: IndicatorCandle[],
+): Array<number | null> {
+  return candles.map((candle) => candle.volume);
 }
 
 export function toIndicatorPoints(

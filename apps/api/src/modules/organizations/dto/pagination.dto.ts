@@ -22,6 +22,10 @@ export class PaginationDto {
     return this.pageSize;
   }
 
+  set take(value: number | string) {
+    this.pageSize = Number(value);
+  }
+
   get skip(): number {
     return (this.page - 1) * this.pageSize;
   }

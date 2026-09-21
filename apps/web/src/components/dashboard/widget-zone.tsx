@@ -26,10 +26,21 @@ import { WidgetGrid } from "@/components/dashboard/widgets/widget-grid";
  * "don't render empty chrome" convention `Sidebar` already follows for a
  * user with zero visible nav items.
  */
-export function DashboardWidgetZone({ zone, columns = 4 }: { zone: DashboardWidgetZoneId; columns?: 3 | 4 }) {
+export function DashboardWidgetZone({
+  zone,
+  columns = 4,
+  excludeWidgetIds = [],
+}: {
+  zone: DashboardWidgetZoneId;
+  columns?: 3 | 4;
+  excludeWidgetIds?: string[];
+}) {
   const widgets = useDashboardWidgetRegistry((s) => s.widgets);
   const hasPermission = useAuthStore((s) => s.hasPermission);
-  const items = getWidgetsForZone(widgets, zone, { hasPermission });
+  const excludedIds = new Set(excludeWidgetIds);
+  const items = getWidgetsForZone(widgets, zone, { hasPermission }).filter(
+    (widget) => !excludedIds.has(widget.id),
+  );
 
   if (items.length === 0) return null;
 

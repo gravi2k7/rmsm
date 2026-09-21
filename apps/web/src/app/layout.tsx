@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { JsonLd } from "@/components/public/json-ld";
 import { siteConfig } from "@/config";
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
+        <ServiceWorkerRegistration />
         {/* WM-015R Part 2 — Organization + WebSite structured data describes
             the whole site, not one page, so it's injected once here rather
             than repeated on every route. Google explicitly supports JSON-LD

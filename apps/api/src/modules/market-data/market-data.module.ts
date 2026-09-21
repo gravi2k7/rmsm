@@ -49,14 +49,17 @@ import { BinanceRegistrarService } from "./providers/binance/binance.module";
 import {
   CTraderFixClientFactory,
   CTraderFixRegistrarService,
+  CTraderOpenApiClientFactory,
   cTraderFixClientProvider,
 } from "./providers/ctrader/ctrader-fix.module";
+import { CTraderOpenApiClient } from "./providers/ctrader/openapi/ctrader-openapi.client";
 import { CTraderInstrumentCatalogService } from "./providers/ctrader/ctrader-fix.catalog.service";
 import { CTraderInstrumentCatalogSynchronizer } from "./providers/ctrader/ctrader-fix.catalog-synchronizer";
 import { CTraderInstrumentCatalogBootstrapService } from "./providers/ctrader/ctrader-fix.catalog.bootstrap";
 import { CTraderFixInstrumentResolver } from "./providers/ctrader/ctrader-fix.instrument-resolver";
 import { CTraderLiveQuoteIngestionService } from "./services/ctrader-live-quote-ingestion.service";
 import { CTraderLiveCandleBuilderService } from "./services/ctrader-live-candle-builder.service";
+import { CTraderTradingScheduleService } from "./providers/ctrader/openapi/ctrader-trading-schedule.service";
 import { MarketDataStreamPublisher } from "./services/market-data-stream.publisher";
 import { MarketDataGateway } from "./gateways/market-data.gateway";
 import { QuoteSyncQueueProcessor } from "./workers/quote-sync-queue.processor";
@@ -64,6 +67,11 @@ import { QuoteSyncCronRegistrar } from "./workers/quote-sync-cron.registrar";
 import { LiveCandleSynchronizationService } from "./services/live-candle-synchronization.service";
 import { LiveCandleSyncQueueProcessor } from "./workers/live-candle-sync-queue.processor";
 import { LiveCandleSyncCronRegistrar } from "./workers/live-candle-sync-cron.registrar";
+import { GapDetectionService } from "./services/gap-detection.service";
+import { CandleAggregationService } from "./services/candle-aggregation.service";
+import { BackfillWorkflowService } from "./services/backfill-workflow.service";
+import { GapRepairQueueProcessor } from "./workers/gap-repair-queue.processor";
+import { GapRepairCronRegistrar } from "./workers/gap-repair-cron.registrar";
 
 /**
  * AI-101 Phase 2A: 13 repositories, domain-model layer (ADR-025).
@@ -88,6 +96,9 @@ imports: [
     }),
       BullModule.registerQueue({
         name: "market-data-candles",
+      }),
+      BullModule.registerQueue({
+        name: "market-data-gap-repair",
       }),
   ],
   controllers: [
@@ -133,6 +144,9 @@ imports: [
     SynchronizationService,
     QuoteSynchronizationService,
     LiveCandleSynchronizationService,
+    GapDetectionService,
+    CandleAggregationService,
+    BackfillWorkflowService,
     ReferenceDataSynchronizationService,
     MarketDataProviderBootstrapService,
     ProviderDiagnosticsService,
@@ -143,6 +157,13 @@ imports: [
     CoinGeckoRegistrarService,
     BinanceRegistrarService,
     CTraderFixClientFactory,
+    CTraderOpenApiClientFactory,
+    {
+      provide: CTraderOpenApiClient,
+      inject: [CTraderOpenApiClientFactory],
+      useFactory: (factory: CTraderOpenApiClientFactory) =>
+        factory.create(),
+    },
     cTraderFixClientProvider,
     CTraderInstrumentCatalogSynchronizer,
     CTraderInstrumentCatalogService,
@@ -151,12 +172,15 @@ imports: [
     CTraderFixRegistrarService,
     CTraderLiveQuoteIngestionService,
     CTraderLiveCandleBuilderService,
+    CTraderTradingScheduleService,
     MarketDataStreamPublisher,
     MarketDataGateway,
       QuoteSyncQueueProcessor,
       QuoteSyncCronRegistrar,
       LiveCandleSyncQueueProcessor,
       LiveCandleSyncCronRegistrar,
+      GapRepairQueueProcessor,
+      GapRepairCronRegistrar,
   ],
   exports: [
     MarketDataProviderConfigRepository,

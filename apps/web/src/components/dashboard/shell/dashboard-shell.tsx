@@ -1,7 +1,9 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { AuthGuard } from "@/components/providers/auth-guard";
+import { OrganizationBootstrap } from "@/components/providers/organization-bootstrap";
 import { SessionExpiredDialog } from "@/components/providers/session-expired-dialog";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topnav } from "@/components/layout/topnav";
@@ -27,18 +29,39 @@ import { useSessionTimeout } from "@/hooks/use-session-timeout";
  * (e.g. a literal `(dashboard)` group, if one is ever introduced) can
  * import the same component with zero duplication.
  */
-export function DashboardShell({ children }: { children: ReactNode }) {
+interface DashboardShellProps {
+  children: ReactNode;
+  compactMain?: boolean;
+}
+
+export function DashboardShell({ children, compactMain = false }: DashboardShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const pathname = usePathname();
+
+  const isMarketRoute = pathname === "/market" || pathname.startsWith("/market/");
+
+  const isTradingRoute = pathname === "/trading" || pathname.startsWith("/trading/");
+
   useSessionTimeout();
 
   return (
     <AuthGuard>
-      <div className="flex min-h-screen min-h-0">
+      <OrganizationBootstrap />
+
+      <div className="rmsm-mobile-glass-shell flex min-h-0 min-h-screen">
         <Sidebar />
         <MobileNav open={mobileNavOpen} onOpenChange={setMobileNavOpen} />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <Topnav onOpenMobileNav={() => setMobileNavOpen(true)} />
-          <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+          {!isTradingRoute ? <Topnav onOpenMobileNav={() => setMobileNavOpen(true)} /> : null}
+          <main
+            className={
+              isTradingRoute
+                ? "min-h-0 flex-1 overflow-hidden p-1"
+                : compactMain || isMarketRoute
+                  ? "min-h-0 flex-1 overflow-y-auto p-1"
+                  : "min-h-0 flex-1 overflow-y-auto p-4 md:p-6"
+            }
+          >
             {children}
           </main>
         </div>

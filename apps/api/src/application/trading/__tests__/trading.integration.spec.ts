@@ -793,6 +793,226 @@ it("POST /orders executes a full BUY then SELL using ask/bid and persists the cl
     expect(ledger[2]!.amount.toString()).toBe("1100");
   });
 
+  it("POST /positions/:positionId/reverse reverses LONG to SHORT", async () => {
+    testQuoteClient.fetchLatestQuote
+      .mockResolvedValueOnce({
+        bidPrice: "100.00",
+        askPrice: "100.25",
+      })
+      .mockResolvedValueOnce({
+        bidPrice: "99.50",
+        askPrice: "99.75",
+      })
+      .mockResolvedValueOnce({
+        bidPrice: "99.50",
+        askPrice: "99.75",
+      });
+
+    const accountResponse =
+      await request(app.getHttpServer())
+        .post(
+          `/organizations/${organizationId}/trading-accounts`,
+        )
+        .send({
+          name: "Reverse LONG Demo",
+          currency: "USD",
+          startingBalance: 100000,
+        })
+        .expect(201);
+
+    const accountId = accountResponse.body.id;
+
+    const openResponse =
+      await request(app.getHttpServer())
+        .post(
+          `/organizations/${organizationId}/trading-accounts/${accountId}/orders`,
+        )
+        .send({
+          instrumentId,
+          side: "BUY",
+          quantity: "2",
+        })
+        .expect(201);
+
+    expect(openResponse.body.position.side).toBe("LONG");
+    expect(openResponse.body.position.quantity).toBe("2");
+
+    const positionId = openResponse.body.position.id;
+
+    const reverseResponse =
+      await request(app.getHttpServer())
+        .post(
+          `/organizations/${organizationId}/trading-accounts/${accountId}/positions/${positionId}/reverse`,
+        )
+        .expect(201);
+
+    expect(reverseResponse.body.position.side).toBe("SHORT");
+    expect(reverseResponse.body.position.status).toBe("OPEN");
+    expect(reverseResponse.body.position.quantity).toBe("2");
+
+    const positions =
+      await prisma.tradingPosition.findMany({
+        where: {
+          accountId,
+          instrumentId,
+        },
+        orderBy: {
+          openedAt: "asc",
+        },
+      });
+
+    expect(positions).toHaveLength(2);
+
+    expect(positions[0]!.side).toBe("LONG");
+    expect(positions[0]!.status).toBe("CLOSED");
+    expect(positions[0]!.quantity.toString()).toBe("0");
+
+    expect(positions[1]!.side).toBe("SHORT");
+    expect(positions[1]!.status).toBe("OPEN");
+    expect(positions[1]!.quantity.toString()).toBe("2");
+
+    const trades =
+      await prisma.tradingTrade.findMany({
+        where: {
+          accountId,
+          instrumentId,
+        },
+        orderBy: {
+          openedAt: "asc",
+        },
+      });
+
+    expect(trades).toHaveLength(1);
+    expect(trades[0]!.side).toBe("LONG");
+    expect(trades[0]!.quantity.toString()).toBe("2");
+
+    const orders =
+      await prisma.tradingOrder.findMany({
+        where: {
+          accountId,
+          instrumentId,
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+      });
+
+    expect(orders).toHaveLength(3);
+    expect(orders[0]!.side).toBe("BUY");
+    expect(orders[1]!.side).toBe("SELL");
+    expect(orders[2]!.side).toBe("SELL");
+  });
+
+  it("POST /positions/:positionId/reverse reverses SHORT to LONG", async () => {
+    testQuoteClient.fetchLatestQuote
+      .mockResolvedValueOnce({
+        bidPrice: "100.00",
+        askPrice: "100.25",
+      })
+      .mockResolvedValueOnce({
+        bidPrice: "100.50",
+        askPrice: "100.75",
+      })
+      .mockResolvedValueOnce({
+        bidPrice: "100.50",
+        askPrice: "100.75",
+      });
+
+    const accountResponse =
+      await request(app.getHttpServer())
+        .post(
+          `/organizations/${organizationId}/trading-accounts`,
+        )
+        .send({
+          name: "Reverse SHORT Demo",
+          currency: "USD",
+          startingBalance: 100000,
+        })
+        .expect(201);
+
+    const accountId = accountResponse.body.id;
+
+    const openResponse =
+      await request(app.getHttpServer())
+        .post(
+          `/organizations/${organizationId}/trading-accounts/${accountId}/orders`,
+        )
+        .send({
+          instrumentId,
+          side: "SELL",
+          quantity: "2",
+        })
+        .expect(201);
+
+    expect(openResponse.body.position.side).toBe("SHORT");
+    expect(openResponse.body.position.quantity).toBe("2");
+
+    const positionId = openResponse.body.position.id;
+
+    const reverseResponse =
+      await request(app.getHttpServer())
+        .post(
+          `/organizations/${organizationId}/trading-accounts/${accountId}/positions/${positionId}/reverse`,
+        )
+        .expect(201);
+
+    expect(reverseResponse.body.position.side).toBe("LONG");
+    expect(reverseResponse.body.position.status).toBe("OPEN");
+    expect(reverseResponse.body.position.quantity).toBe("2");
+
+    const positions =
+      await prisma.tradingPosition.findMany({
+        where: {
+          accountId,
+          instrumentId,
+        },
+        orderBy: {
+          openedAt: "asc",
+        },
+      });
+
+    expect(positions).toHaveLength(2);
+
+    expect(positions[0]!.side).toBe("SHORT");
+    expect(positions[0]!.status).toBe("CLOSED");
+    expect(positions[0]!.quantity.toString()).toBe("0");
+
+    expect(positions[1]!.side).toBe("LONG");
+    expect(positions[1]!.status).toBe("OPEN");
+    expect(positions[1]!.quantity.toString()).toBe("2");
+
+    const trades =
+      await prisma.tradingTrade.findMany({
+        where: {
+          accountId,
+          instrumentId,
+        },
+        orderBy: {
+          openedAt: "asc",
+        },
+      });
+
+    expect(trades).toHaveLength(1);
+    expect(trades[0]!.side).toBe("SHORT");
+    expect(trades[0]!.quantity.toString()).toBe("2");
+
+    const orders =
+      await prisma.tradingOrder.findMany({
+        where: {
+          accountId,
+          instrumentId,
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+      });
+
+    expect(orders).toHaveLength(3);
+    expect(orders[0]!.side).toBe("SELL");
+    expect(orders[1]!.side).toBe("BUY");
+    expect(orders[2]!.side).toBe("BUY");
+  });
+
   it("POST /orders persists SL and TP for a Demo BUY position", async () => {
     testQuoteClient.fetchLatestQuote.mockResolvedValue({
       bidPrice: "100.00",

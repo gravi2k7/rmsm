@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 
 FROM node:24-alpine AS base
+RUN apk add --no-cache openssl
 RUN corepack enable
 WORKDIR /workspace
 
@@ -40,6 +41,8 @@ RUN --mount=type=cache,id=rmsm-turbo-cache,target=/workspace/.turbo \
 
 FROM node:24-alpine AS production
 
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -48,6 +51,7 @@ ENV HOSTNAME=0.0.0.0
 
 COPY --from=build --chown=node:node /workspace/apps/web/.next/standalone ./
 COPY --from=build --chown=node:node /workspace/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build --chown=node:node /workspace/apps/web/public ./apps/web/public
 
 USER node
 

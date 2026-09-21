@@ -129,6 +129,95 @@ export const strategyApi = {
   },
 };
 
+export type BacktestOrderSide = "BUY" | "SELL";
+export type BacktestOrderType =
+  | "MARKET"
+  | "LIMIT"
+  | "STOP"
+  | "STOP_LIMIT";
+
+export type BacktestOrderStatus =
+  | "PENDING"
+  | "FILLED"
+  | "REJECTED"
+  | "CANCELLED";
+
+export interface BacktestOrder {
+  id: string;
+  instrumentId: string;
+  side: BacktestOrderSide;
+  type: BacktestOrderType;
+  quantity: number;
+  limitPrice: number | null;
+  stopPrice: number | null;
+  stopLossPrice: number | null;
+  takeProfitPrice: number | null;
+  requestedPrice: number | null;
+  executedPrice: number | null;
+  status: BacktestOrderStatus;
+  createdAt: string;
+  filledAt: string | null;
+  triggeredAt: string | null;
+  rejectionReason: string | null;
+}
+
+export type BacktestPositionSide = "LONG" | "SHORT";
+
+export interface BacktestPosition {
+  id: string;
+  instrumentId: string;
+  side: BacktestPositionSide;
+  quantity: number;
+  averageEntryPrice: number;
+  stopLossPrice: number | null;
+  takeProfitPrice: number | null;
+  openedAt: string;
+  closedAt: string | null;
+  averageExitPrice: number | null;
+  realizedPnl: number;
+}
+
+export interface BacktestTrade {
+  id: string;
+  instrumentId: string;
+  side: "LONG" | "SHORT";
+  quantity: number;
+  entryPrice: number;
+  exitPrice: number;
+  realizedPnl: number;
+  openedAt: string;
+  closedAt: string;
+}
+
+export interface BacktestEquityPoint {
+  time: string;
+  balance: number;
+  equity: number;
+  unrealizedPnl: number;
+}
+
+export interface BacktestMetrics {
+  startingBalance: number;
+  endingBalance: number;
+  netProfit: number;
+  totalTrades: number;
+  winningTrades: number;
+  losingTrades: number;
+  winRate: number;
+  grossProfit: number;
+  grossLoss: number;
+  maxDrawdown: number;
+  maxDrawdownPercent: number;
+}
+
+export interface BacktestResult {
+  orders: BacktestOrder[];
+  positions: BacktestPosition[];
+  trades: BacktestTrade[];
+  equityCurve: BacktestEquityPoint[];
+  metrics: BacktestMetrics;
+}
+
 export const versionApi = {
   get(ctx: RequestContext, versionId: string): Promise<StrategyVersion> {
     return request(ctx, `/strategy-versions/${versionId}`);
@@ -152,6 +241,84 @@ export const versionApi = {
 
   rollback(ctx: RequestContext, versionId: string): Promise<StrategyVersion> {
     return request(ctx, `/strategy-versions/${versionId}/rollback`, { method: "POST" });
+  },
+
+  runBacktest(
+    ctx: RequestContext,
+    versionId: string,
+    input: {
+      instrumentId: string;
+      interval: string;
+      from: string;
+      to: string;
+      startingBalance: number;
+      htf?: string;
+      ltf?: string;
+      candleLimit?: number;
+    },
+  ): Promise<BacktestResult> {
+    return request(
+      ctx,
+      `/strategy-versions/${versionId}/backtest`,
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+    );
+  },
+
+  getExecutionProfile(
+    ctx: RequestContext,
+    versionId: string,
+  ): Promise<{
+    id: string;
+    strategyVersionId: string;
+    name: string;
+    parameters: Record<string, unknown>;
+  } | null> {
+    return request(ctx, `/strategy-versions/${versionId}/execution-profile`);
+  },
+
+  saveExecutionProfile(
+    ctx: RequestContext,
+    versionId: string,
+    input: {
+      runtime: "RDSE";
+      instrumentId: string;
+      timeframe: "ONE_MINUTE";
+      tradingAccountId: string;
+      quantity: string;
+      executionMode: "PAPER_AUTO" | "SIGNAL_ONLY" | "DISABLED";
+    },
+  ) {
+    return request(ctx, `/strategy-versions/${versionId}/execution-profile`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  saveRdseV2ExecutionProfile(
+    ctx: RequestContext,
+    versionId: string,
+    input: {
+      runtime: "RDSE_V2";
+      htf: string;
+      ltf: string;
+      instrumentId: string;
+      tradingAccountId: string;
+      quantity: string;
+      risk: string;
+      executionMode: "PAPER_AUTO" | "SIGNAL_ONLY" | "DISABLED";
+    },
+  ) {
+    return request(
+      ctx,
+      `/strategy-versions/${versionId}/execution-profile/rdse-v2`,
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+    );
   },
 };
 

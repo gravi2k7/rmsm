@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { act } from "@testing-library/react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { Candle } from "../../types";
 import type { IndicatorConfig } from "../../indicators/config";
@@ -12,6 +13,11 @@ import type { DrawingState } from "../../drawings/types";
 const chartState = vi.hoisted(() => ({
   createChart: vi.fn(),
   addSeries: vi.fn(),
+  paneAddSeries: vi.fn(),
+  paneSetHeight: vi.fn(),
+  panes: vi.fn(),
+  addPane: vi.fn(),
+  removePane: vi.fn(),
   setData: vi.fn(),
   fitContent: vi.fn(),
   applyOptions: vi.fn(),
@@ -31,6 +37,10 @@ vi.mock("lightweight-charts", () => ({
   HistogramSeries: "Histogram",
   LineSeries: "Line",
   createChart: chartState.createChart,
+  createSeriesMarkers: vi.fn(() => ({
+    setMarkers: vi.fn(),
+    detach: vi.fn(),
+  })),
 }));
 
 import { RMSMCandlestickChart } from "../rmsm-candlestick-chart";
@@ -54,8 +64,43 @@ function candle(overrides: Partial<Candle> = {}): Candle {
 beforeEach(() => {
   vi.clearAllMocks();
 
+  const paneSeriesFactory = () => ({
+    setData: chartState.setData,
+    priceScale: chartState.priceScale,
+    priceToCoordinate: vi.fn(() => 100),
+    coordinateToPrice: vi.fn((y: number) => y),
+  });
+
+  const panes: Array<{
+    addSeries: typeof chartState.paneAddSeries;
+    setHeight: typeof chartState.paneSetHeight;
+  }> = [];
+
+  chartState.panes.mockImplementation(() => panes);
+
+  chartState.addPane.mockImplementation(() => {
+    const pane = {
+      addSeries: chartState.paneAddSeries,
+      setHeight: chartState.paneSetHeight,
+    };
+
+    panes.push(pane);
+    return pane;
+  });
+
+  chartState.removePane.mockImplementation((index: number) => {
+    panes.splice(index, 1);
+  });
+
+  chartState.paneAddSeries.mockImplementation(
+    paneSeriesFactory,
+  );
+
   chartState.createChart.mockReturnValue({
     addSeries: chartState.addSeries,
+    panes: chartState.panes,
+    addPane: chartState.addPane,
+    removePane: chartState.removePane,
     timeScale: () => ({
       fitContent: chartState.fitContent,
       getVisibleLogicalRange: vi.fn(() => null),
@@ -96,7 +141,7 @@ describe("RMSMCandlestickChart", () => {
     ).toBeInTheDocument();
 
     expect(chartState.createChart).toHaveBeenCalledTimes(1);
-    expect(chartState.addSeries).toHaveBeenCalledTimes(2);
+    expect(chartState.addSeries).toHaveBeenCalledTimes(1);
   });
 
   it("uses parent-controlled height when no explicit height is provided", () => {
@@ -157,7 +202,7 @@ describe("RMSMCandlestickChart", () => {
 
     const calls = chartState.setData.mock.calls;
 
-    expect(calls).toHaveLength(2);
+    expect(calls).toHaveLength(1);
 
     expect(calls[0]![0]).toEqual([
       {
@@ -174,76 +219,87 @@ describe("RMSMCandlestickChart", () => {
     expect(chartState.fitContent).toHaveBeenCalledTimes(1);
   });
 
-  it("maps decimal-string volume into histogram data", () => {
-    render(
+
+
+  it("replays only candles through the replay cursor", () => {
+    const candles = [
+      candle({
+        id: "candle-1",
+        eventTime: "2026-08-14T08:00:00.000Z",
+        open: "1",
+        high: "2",
+        low: "0.5",
+        close: "1.5",
+      }),
+      candle({
+        id: "candle-2",
+        eventTime: "2026-08-14T08:01:00.000Z",
+        open: "2",
+        high: "3",
+        low: "1.5",
+        close: "2.5",
+      }),
+      candle({
+        id: "candle-3",
+        eventTime: "2026-08-14T08:02:00.000Z",
+        open: "3",
+        high: "4",
+        low: "2.5",
+        close: "3.5",
+      }),
+      candle({
+        id: "candle-4",
+        eventTime: "2026-08-14T08:03:00.000Z",
+        open: "4",
+        high: "5",
+        low: "3.5",
+        close: "4.5",
+      }),
+    ];
+
+    const { rerender } = render(
       <RMSMCandlestickChart
-        candles={[
-          candle({
-            eventTime: "2026-08-14T08:01:00.000Z",
-            open: "100",
-            high: "110",
-            low: "90",
-            close: "105",
-            volume: "12345.670000",
-          }),
-        ]}
+        candles={candles}
+        replayEnabled
+        replayCursor={0}
       />,
     );
 
-    const calls = chartState.setData.mock.calls;
+    let calls = chartState.setData.mock.calls;
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]![0]).toHaveLength(1);
+    expect(calls[0]![0][0].open).toBe(1);
+
+    rerender(
+      <RMSMCandlestickChart
+        candles={candles}
+        replayEnabled
+        replayCursor={2}
+      />,
+    );
+
+    calls = chartState.setData.mock.calls;
 
     expect(calls).toHaveLength(2);
+    expect(calls[1]![0]).toHaveLength(3);
+    expect(calls[1]![0][2].open).toBe(3);
 
-    expect(calls[1]![0]).toEqual([
-      {
-        time: Math.floor(
-          new Date("2026-08-14T08:01:00.000Z").getTime() / 1000,
-        ),
-        value: 12345.67,
-        color: "rgba(34, 197, 94, 0.45)",
-      },
-    ]);
-  });
-
-  it("colors volume bars according to candle direction", () => {
-    render(
+    rerender(
       <RMSMCandlestickChart
-        candles={[
-          candle({
-            id: "up",
-            eventTime: "2026-08-14T08:01:00.000Z",
-            open: "100",
-            high: "110",
-            low: "90",
-            close: "105",
-            volume: "1000",
-          }),
-          candle({
-            id: "down",
-            eventTime: "2026-08-14T08:02:00.000Z",
-            open: "105",
-            high: "108",
-            low: "95",
-            close: "100",
-            volume: "2000",
-          }),
-        ]}
+        candles={candles}
+        replayEnabled
+        replayCursor={999}
       />,
     );
 
-    const calls = chartState.setData.mock.calls;
-    const volumeData = calls[1]![0];
+    calls = chartState.setData.mock.calls;
 
-    expect(volumeData).toHaveLength(2);
-    expect(volumeData[0].color).toBe(
-      "rgba(34, 197, 94, 0.45)",
-    );
-    expect(volumeData[1].color).toBe(
-      "rgba(239, 68, 68, 0.45)",
-    );
+    expect(calls).toHaveLength(3);
+    expect(calls[2]![0]).toHaveLength(4);
   });
 
-  it("sorts candles chronologically before sending candle and volume data", () => {
+  it("sorts candles chronologically before sending candle data", () => {
     render(
       <RMSMCandlestickChart
         candles={[
@@ -272,23 +328,19 @@ describe("RMSMCandlestickChart", () => {
     const calls = chartState.setData.mock.calls;
 
     const candleData = calls[0]![0];
-    const volumeData = calls[1]![0];
 
     expect(candleData).toHaveLength(2);
-    expect(volumeData).toHaveLength(2);
 
     expect(candleData[0].open).toBe(1);
     expect(candleData[1].open).toBe(2);
 
-    expect(volumeData[0].value).toBe(100);
-    expect(volumeData[1].value).toBe(200);
 
     expect(Number(candleData[0].time)).toBeLessThan(
       Number(candleData[1].time),
     );
   });
 
-  it("filters candles containing invalid OHLC or volume values", () => {
+  it("filters candles containing invalid OHLC values", () => {
     render(
       <RMSMCandlestickChart
         candles={[
@@ -323,10 +375,8 @@ describe("RMSMCandlestickChart", () => {
     const calls = chartState.setData.mock.calls;
 
     const candleData = calls[0]![0];
-    const volumeData = calls[1]![0];
 
     expect(candleData).toHaveLength(1);
-    expect(volumeData).toHaveLength(1);
 
     expect(candleData[0]).toMatchObject({
       open: 100,
@@ -335,15 +385,13 @@ describe("RMSMCandlestickChart", () => {
       close: 105,
     });
 
-    expect(volumeData[0].value).toBe(1000);
   });
 
   it("handles an empty candle dataset", () => {
     render(<RMSMCandlestickChart candles={[]} />);
 
-    expect(chartState.setData).toHaveBeenCalledTimes(2);
+    expect(chartState.setData).toHaveBeenCalledTimes(1);
     expect(chartState.setData).toHaveBeenNthCalledWith(1, []);
-    expect(chartState.setData).toHaveBeenNthCalledWith(2, []);
 
     expect(chartState.fitContent).toHaveBeenCalledTimes(1);
   });
@@ -376,8 +424,8 @@ describe("RMSMCandlestickChart", () => {
       />,
     );
 
-    expect(chartState.addSeries).toHaveBeenCalledTimes(3);
-    expect(chartState.setData).toHaveBeenCalledTimes(3);
+    expect(chartState.addSeries).toHaveBeenCalledTimes(2);
+    expect(chartState.setData).toHaveBeenCalledTimes(2);
   });
 
   it("renders EMA, WMA, and VWAP overlays", () => {
@@ -421,8 +469,99 @@ describe("RMSMCandlestickChart", () => {
       />,
     );
 
-    expect(chartState.addSeries).toHaveBeenCalledTimes(5);
-    expect(chartState.setData).toHaveBeenCalledTimes(5);
+    expect(chartState.addSeries).toHaveBeenCalledTimes(4);
+    expect(chartState.setData).toHaveBeenCalledTimes(4);
+  });
+
+  it("renders VWMA as an overlay line", () => {
+    const indicators: IndicatorConfig[] = [
+      {
+        id: "vwma-20",
+        type: "VWMA",
+        placement: "overlay",
+        period: 20,
+        visible: true,
+      },
+    ];
+
+    render(
+      <RMSMCandlestickChart
+        candles={Array.from({ length: 25 }, (_, index) =>
+          candle({
+            id: `candle-${index}`,
+            eventTime: `2026-08-14T08:${String(index).padStart(2, "0")}:00.000Z`,
+            open: String(100 + index),
+            high: String(105 + index),
+            low: String(95 + index),
+            close: String(102 + index),
+            volume: "1000",
+          }),
+        )}
+        indicators={indicators}
+      />,
+    );
+
+    expect(chartState.addSeries).toHaveBeenCalledTimes(2);
+    expect(chartState.setData).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders CCI, ROC, Williams %R, OBV, and Volume panes", () => {
+    const indicators: IndicatorConfig[] = [
+      {
+        id: "cci-20",
+        type: "CCI",
+        placement: "pane",
+        period: 20,
+        visible: true,
+      },
+      {
+        id: "roc-12",
+        type: "ROC",
+        placement: "pane",
+        period: 12,
+        visible: true,
+      },
+      {
+        id: "williams-r-14",
+        type: "WILLIAMS_R",
+        placement: "pane",
+        period: 14,
+        visible: true,
+      },
+      {
+        id: "obv",
+        type: "OBV",
+        placement: "pane",
+        visible: true,
+      },
+      {
+        id: "volume",
+        type: "VOLUME",
+        placement: "pane",
+        visible: true,
+      },
+    ];
+
+    render(
+      <RMSMCandlestickChart
+        candles={Array.from({ length: 25 }, (_, index) =>
+          candle({
+            id: `candle-${index}`,
+            eventTime: `2026-08-14T08:${String(index).padStart(2, "0")}:00.000Z`,
+            open: String(100 + index),
+            high: String(105 + index),
+            low: String(95 + index),
+            close: String(102 + index),
+            volume: String(1000 + index * 10),
+          }),
+        )}
+        indicators={indicators}
+      />,
+    );
+
+    expect(chartState.addPane).toHaveBeenCalledTimes(5);
+    expect(chartState.paneAddSeries).toHaveBeenCalledTimes(5);
+    expect(chartState.setData).toHaveBeenCalledTimes(6);
   });
 
   it("renders Bollinger Bands as three overlay lines", () => {
@@ -454,8 +593,8 @@ describe("RMSMCandlestickChart", () => {
       />,
     );
 
-    expect(chartState.addSeries).toHaveBeenCalledTimes(5);
-    expect(chartState.setData).toHaveBeenCalledTimes(5);
+    expect(chartState.addSeries).toHaveBeenCalledTimes(4);
+    expect(chartState.setData).toHaveBeenCalledTimes(4);
   });
 
   it("ignores hidden and pane indicators", () => {
@@ -493,7 +632,7 @@ describe("RMSMCandlestickChart", () => {
       />,
     );
 
-    expect(chartState.addSeries).toHaveBeenCalledTimes(2);
+    expect(chartState.addSeries).toHaveBeenCalledTimes(1);
     expect(chartState.setData).toHaveBeenCalledTimes(2);
   });
 
@@ -542,7 +681,7 @@ describe("RMSMCandlestickChart", () => {
       />,
     );
 
-    expect(chartState.addSeries).toHaveBeenCalledTimes(3);
+    expect(chartState.addSeries).toHaveBeenCalledTimes(2);
     expect(chartState.removeSeries).toHaveBeenCalledTimes(1);
     expect(chartState.remove).toHaveBeenCalledTimes(0);
   });
@@ -557,6 +696,71 @@ describe("RMSMCandlestickChart", () => {
     unmount();
 
     expect(chartState.remove).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("candle OHLC hover", () => {
+  it("shows the hovered candle OHLC values", () => {
+    render(
+      <RMSMCandlestickChart
+        candles={[
+          candle({
+            open: "29105.80",
+            high: "29118.40",
+            low: "29100.20",
+            close: "29114.40",
+          }),
+        ]}
+        pricePrecision={2}
+      />,
+    );
+
+    const chartRoot =
+      screen.getByTestId("rmsm-candlestick-chart");
+
+    const container =
+      chartRoot.firstElementChild as HTMLElement;
+
+    expect(container).toBeTruthy();
+
+    vi.spyOn(
+      container,
+      "getBoundingClientRect",
+    ).mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 800,
+      bottom: 500,
+      width: 800,
+      height: 500,
+      toJSON: () => {},
+    });
+
+    const event = new Event("pointermove", {
+      bubbles: true,
+      cancelable: true,
+    });
+
+    Object.defineProperties(event, {
+      clientX: { value: 100 },
+      clientY: { value: 100 },
+      pointerId: { value: 1 },
+    });
+
+    act(() => {
+      container.dispatchEvent(event);
+    });
+
+    const ohlc = screen.getByTestId(
+      "chart-crosshair-ohlc",
+    );
+
+    expect(ohlc).toHaveTextContent("O 29105.80");
+    expect(ohlc).toHaveTextContent("H 29118.40");
+    expect(ohlc).toHaveTextContent("L 29100.20");
+    expect(ohlc).toHaveTextContent("C 29114.40");
   });
 });
 

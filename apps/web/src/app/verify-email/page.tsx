@@ -101,7 +101,7 @@ function OnboardingProgress({ emailVerified, orgReady }: { emailVerified: StepSt
       {steps.map((step) => (
         <li key={step.label} className="flex items-center gap-2 text-sm">
           {step.state === "done" && (
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white" aria-hidden="true">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-success text-white" aria-hidden="true">
               <Check className="h-3.5 w-3.5" />
             </span>
           )}

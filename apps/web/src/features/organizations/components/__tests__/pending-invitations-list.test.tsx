@@ -3,7 +3,8 @@ import { screen, waitFor } from "@testing-library/react";
 import { renderWithQueryClient } from "@/test/render-with-query";
 import userEvent from "@testing-library/user-event";
 import { PendingInvitationsList } from "../pending-invitations-list";
-import { useSessionStore } from "@/lib/session-store";
+import { useAuthStore } from "@/lib/auth-store";
+import { useOrganizationStore } from "@/lib/organization-store";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -30,11 +31,19 @@ describe("PendingInvitationsList (WM-020E)", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
-    useSessionStore.getState().clear();
+    useAuthStore.setState({
+      accessToken: null,
+      refreshToken: null,
+      user: null,
+      rememberMe: false,
+      sessionExpired: false,
+    });
+    useOrganizationStore.getState().setActiveOrganization(null);
   });
 
   it("shows an empty state when there are no pending invitations", async () => {
-    useSessionStore.setState({ organizationId: "org-1", accessToken: "t" });
+    useAuthStore.setState({ accessToken: "t" });
+    useOrganizationStore.setState({ activeOrganization: { id: "org-1" } as never });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse([])));
 
     renderList();
@@ -43,7 +52,8 @@ describe("PendingInvitationsList (WM-020E)", () => {
   });
 
   it("lists invitations with email, role, and status", async () => {
-    useSessionStore.setState({ organizationId: "org-1", accessToken: "t" });
+    useAuthStore.setState({ accessToken: "t" });
+    useOrganizationStore.setState({ activeOrganization: { id: "org-1" } as never });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse([invitation])));
 
     renderList();
@@ -54,7 +64,8 @@ describe("PendingInvitationsList (WM-020E)", () => {
   });
 
   it("cancels a pending invitation via the org-scoped cancel endpoint", async () => {
-    useSessionStore.setState({ organizationId: "org-1", accessToken: "t" });
+    useAuthStore.setState({ accessToken: "t" });
+    useOrganizationStore.setState({ activeOrganization: { id: "org-1" } as never });
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       if (url.includes("/cancel")) return jsonResponse({ message: "Invitation cancelled." });
       return jsonResponse([invitation]);
@@ -87,7 +98,8 @@ describe("PendingInvitationsList (WM-020E)", () => {
   });
 
   it("resends an expired invitation via the org-scoped resend endpoint", async () => {
-    useSessionStore.setState({ organizationId: "org-1", accessToken: "t" });
+    useAuthStore.setState({ accessToken: "t" });
+    useOrganizationStore.setState({ activeOrganization: { id: "org-1" } as never });
     const expired = { ...invitation, expiresAt: new Date(Date.now() - 1000).toISOString() };
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       if (url.includes("/resend")) return jsonResponse({ message: "Invitation resent." });

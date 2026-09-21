@@ -6,6 +6,7 @@ import { MarketDrawingToolsMenu } from "@/features/market/components/market-draw
 import { MarketTimeframeMenu } from "@/features/market/components/market-timeframe-menu";
 import { RMSMCandlestickChart } from "@/features/market/components/rmsm-candlestick-chart";
 import type { CandleInterval } from "@/features/market/types";
+import type { TradingPosition } from "@/features/trading/types";
 import type {
   DrawingState,
   DrawingType,
@@ -38,6 +39,41 @@ type EmbedPosition = {
   stopLossPrice?: string | number | null;
   takeProfitPrice?: string | number | null;
 };
+
+function toTradingPosition(
+  position: EmbedPosition,
+  instrumentId: string,
+): TradingPosition {
+  const now = new Date().toISOString();
+
+  return {
+    id: position.positionId,
+    accountId: "embed",
+    instrumentId,
+    side: position.side,
+    quantity:
+      position.quantity == null
+        ? "0"
+        : String(position.quantity),
+    averageEntryPrice:
+      position.averageEntryPrice == null
+        ? "0"
+        : String(position.averageEntryPrice),
+    stopLossPrice:
+      position.stopLossPrice == null
+        ? null
+        : String(position.stopLossPrice),
+    takeProfitPrice:
+      position.takeProfitPrice == null
+        ? null
+        : String(position.takeProfitPrice),
+    status: "OPEN",
+    openedAt: now,
+    closedAt: null,
+    averageExitPrice: null,
+    realizedPnl: null,
+  };
+}
 
 type EmbedPendingOrder = {
   orderId: string;
@@ -162,6 +198,10 @@ export default function ChartEmbedPage({
   const [quote, setQuote] = useState<EmbedQuote | null>(null);
   const [positions, setPositions] =
     useState<EmbedPosition[]>([]);
+
+  const chartPositions = positions.map((position) =>
+    toTradingPosition(position, params.instrumentId),
+  );
   const [pendingOrders, setPendingOrders] =
     useState<EmbedPendingOrder[]>([]);
   const [ready, setReady] = useState(false);
@@ -527,7 +567,7 @@ export default function ChartEmbedPage({
         candles={candles as never}
         interval={interval as never}
         liveQuote={liveQuote}
-        positions={positions}
+        positions={chartPositions}
         pendingOrders={pendingOrders}
         activeDrawingTool={activeDrawingTool}
         drawingState={drawingState}

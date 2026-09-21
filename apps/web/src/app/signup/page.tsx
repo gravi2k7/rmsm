@@ -85,7 +85,7 @@ function getPasswordStrength(password: string): PasswordStrength {
   return { score: clamped, label: labels[clamped] ?? "Very weak" };
 }
 
-const STRENGTH_BAR_COLORS = ["bg-destructive", "bg-destructive", "bg-amber-500", "bg-amber-500", "bg-emerald-500"];
+const STRENGTH_BAR_COLORS = ["bg-destructive", "bg-destructive", "bg-warning", "bg-warning", "bg-success"];
 
 function PasswordStrengthMeter({ password }: { password: string }) {
   const strength = useMemo(() => getPasswordStrength(password), [password]);

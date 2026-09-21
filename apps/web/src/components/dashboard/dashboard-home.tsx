@@ -19,15 +19,15 @@ import {
   BookMarked,
 } from "lucide-react";
 import { Button, Alert, AlertDescription } from "@rmsm/ui";
-import { usePortfolio, usePositions, useTrades } from "@/features/portfolio/hooks/use-portfolio";
-import { computePerformanceMetrics, computeTodaysRealizedPnl } from "@/features/portfolio/lib/performance";
-import { useOrders } from "@/features/execution/hooks/use-execution";
 import { useOpportunities } from "@/features/opportunities/hooks/use-opportunities";
 import { useDecisions } from "@/features/decisions/hooks/use-decisions";
 import { useStrategySummaries } from "@/features/strategy-summary/hooks/use-strategy-summaries";
-import { useUnrealizedPnl } from "@/features/dashboard/hooks/use-unrealized-pnl";
+import { useTradingAccounts, useTradingAccount, useTradingOrders, useTradingPositions, useTradingTrades } from "@/features/trading/hooks/use-trading-accounts";
+import { useTradingAccountUnrealizedPnl } from "@/features/dashboard/hooks/use-trading-account-unrealized-pnl";
 import { StatCard } from "@/features/dashboard/components/widget-card";
 import { useAuthStore } from "@/lib/auth-store";
+import { useUserAccount } from "@/features/profile/hooks/use-profile";
+import { useOrganizationStore } from "@/lib/organization-store";
 import { WidgetGrid } from "@/components/dashboard/widgets";
 import { DashboardWidgetZone } from "@/components/dashboard/widget-zone";
 
@@ -67,26 +67,79 @@ function isToday(isoDate: string): boolean {
  * widgets/manifest.ts` — this component does not change when that
  * happens.
  */
-export function DashboardHome() {
+export function DashboardHome({
+  excludeWidgetIds = [],
+}: {
+  excludeWidgetIds?: string[];
+}) {
   const user = useAuthStore((s) => s.user);
+  const accountQuery = useUserAccount();
+  const activeOrganization = useOrganizationStore((s) => s.activeOrganization);
   const queryClient = useQueryClient();
 
-  const portfolioQuery = usePortfolio();
-  const positionsQuery = usePositions();
-  const tradesQuery = useTrades();
-  const ordersQuery = useOrders();
+  const organizationId = activeOrganization?.id;
+  const tradingAccountsQuery = useTradingAccounts(organizationId);
+
+  const demoAccount =
+    tradingAccountsQuery.data?.find(
+      (account) => account.type === "DEMO" && account.status === "ACTIVE",
+    ) ?? tradingAccountsQuery.data?.find((account) => account.type === "DEMO");
+
+  const accountId = demoAccount?.id;
+
+  const tradingAccountQuery = useTradingAccount(
+    organizationId,
+    accountId,
+  );
+  const positionsQuery = useTradingPositions(
+    organizationId,
+    accountId,
+  );
+  const ordersQuery = useTradingOrders(
+    organizationId,
+    accountId,
+  );
+  const tradesQuery = useTradingTrades(
+    organizationId,
+    accountId,
+  );
+
+  const firstName = accountQuery.data?.profile?.firstName?.trim() ?? "";
+  const lastName = accountQuery.data?.profile?.lastName?.trim() ?? "";
+  const displayName = [firstName, lastName].filter(Boolean).join(" ");
+
   const opportunitiesQuery = useOpportunities();
   const decisionsQuery = useDecisions();
   const strategiesQuery = useStrategySummaries();
-  const unrealized = useUnrealizedPnl(positionsQuery.data?.items);
+  const unrealized = useTradingAccountUnrealizedPnl(positionsQuery.data);
 
-  const openPositions = positionsQuery.data?.items.filter((p) => p.status === "OPEN") ?? [];
-  const openOrders = ordersQuery.data?.items.filter((o) => OPEN_ORDER_STATUSES.has(o.status)) ?? [];
-  const todaysTrades = tradesQuery.data?.items.filter((t) => isToday(t.closedAt)) ?? [];
+  const openPositions = positionsQuery.data?.filter((p) => p.status === "OPEN") ?? [];
+  const openOrders = ordersQuery.data?.filter((o) => OPEN_ORDER_STATUSES.has(o.status)) ?? [];
+  const todaysTrades = tradesQuery.data?.filter((t) => isToday(t.closedAt)) ?? [];
   const todaysOpportunities = opportunitiesQuery.data?.items.filter((o) => isToday(o.createdAt)) ?? [];
   const activeStrategies = strategiesQuery.data?.items.filter((s) => s.enabled) ?? [];
-  const performance = tradesQuery.data ? computePerformanceMetrics(tradesQuery.data.items) : null;
-  const dailyPnl = tradesQuery.data ? computeTodaysRealizedPnl(tradesQuery.data.items) : undefined;
+  const realizedPnl =
+    tradesQuery.data?.reduce(
+      (sum, trade) => sum + Number(trade.realizedPnl),
+      0,
+    ) ?? 0;
+
+  const dailyPnl =
+    todaysTrades.length > 0
+      ? todaysTrades.reduce(
+          (sum, trade) => sum + Number(trade.realizedPnl),
+          0,
+        )
+      : 0;
+
+  const winningTrades =
+    tradesQuery.data?.filter((trade) => Number(trade.realizedPnl) > 0)
+      .length ?? 0;
+
+  const totalTrades = tradesQuery.data?.length ?? 0;
+
+  const winRate =
+    totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
 
   const recentDecisions = decisionsQuery.data?.items.slice(0, 20) ?? [];
   const avgRiskScore = recentDecisions.length > 0 ? recentDecisions.reduce((sum, d) => sum + d.riskScore, 0) / recentDecisions.length : undefined;
@@ -99,7 +152,9 @@ export function DashboardHome() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Welcome{user?.email ? `, ${user.email}` : ""}</h1>
+          <h1 className="text-xl font-semibold">
+            Welcome{displayName ? `, ${displayName}` : user?.email ? `, ${user.email}` : ""}
+          </h1>
           <p className="text-sm text-muted-foreground">Your trading workspace at a glance.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -133,9 +188,9 @@ export function DashboardHome() {
         <StatCard
           title="Portfolio Value"
           icon={<Wallet className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
-          value={currency(portfolioQuery.data?.equity)}
-          isLoading={portfolioQuery.isLoading}
-          isError={portfolioQuery.isError}
+          value={currency(tradingAccountQuery.data ? Number(tradingAccountQuery.data.balance) : undefined)}
+          isLoading={tradingAccountQuery.isLoading || tradingAccountsQuery.isLoading}
+          isError={tradingAccountQuery.isError || tradingAccountsQuery.isError}
         />
         <StatCard
           title="Daily P&L"
@@ -170,9 +225,9 @@ export function DashboardHome() {
         <StatCard
           title="Realized P&L (all time)"
           icon={<DollarSign className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
-          value={currency(performance?.realizedPnl)}
-          valueClassName={performance && performance.realizedPnl >= 0 ? "text-success" : "text-destructive"}
-          subtext={performance ? `${performance.winRate.toFixed(0)}% win rate over ${performance.totalTrades} trades` : undefined}
+          value={currency(tradesQuery.data ? realizedPnl : undefined)}
+          valueClassName={tradesQuery.data ? (realizedPnl >= 0 ? "text-success" : "text-destructive") : undefined}
+          subtext={tradesQuery.data ? `${winRate.toFixed(0)}% win rate over ${totalTrades} trades` : undefined}
           isLoading={tradesQuery.isLoading}
           isError={tradesQuery.isError}
         />
@@ -222,24 +277,24 @@ export function DashboardHome() {
         <StatCard
           title="Buying Power"
           icon={<Landmark className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
-          value={currency(portfolioQuery.data?.buyingPower)}
-          isLoading={portfolioQuery.isLoading}
-          isError={portfolioQuery.isError}
+          value="—"
+          isLoading={tradingAccountQuery.isLoading || tradingAccountsQuery.isLoading}
+          isError={tradingAccountQuery.isError || tradingAccountsQuery.isError}
         />
         <StatCard
           title="Margin Used"
           icon={<Percent className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
-          value={currency(portfolioQuery.data?.marginUsed)}
-          subtext={portfolioQuery.data ? `${currency(portfolioQuery.data.marginAvailable)} available` : undefined}
-          isLoading={portfolioQuery.isLoading}
-          isError={portfolioQuery.isError}
+          value="—"
+          subtext="Not provided by trading account API"
+          isLoading={tradingAccountQuery.isLoading || tradingAccountsQuery.isLoading}
+          isError={tradingAccountQuery.isError || tradingAccountsQuery.isError}
         />
         <StatCard
           title="Available Cash"
           icon={<Wallet className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
-          value={currency(portfolioQuery.data?.cashBalance)}
-          isLoading={portfolioQuery.isLoading}
-          isError={portfolioQuery.isError}
+          value={currency(tradingAccountQuery.data ? Number(tradingAccountQuery.data.balance) : undefined)}
+          isLoading={tradingAccountQuery.isLoading || tradingAccountsQuery.isLoading}
+          isError={tradingAccountQuery.isError || tradingAccountsQuery.isError}
         />
       </WidgetGrid>
 
@@ -247,9 +302,13 @@ export function DashboardHome() {
        * System Status, Quick Actions, Recent Activity, and anything a
        * future module registers) renders through the pluggable widget
        * registry; this page doesn't enumerate them. */}
-      <DashboardWidgetZone zone="home" columns={3} />
+      <DashboardWidgetZone
+        zone="home"
+        columns={3}
+        excludeWidgetIds={excludeWidgetIds}
+      />
 
-      {(portfolioQuery.isError || positionsQuery.isError || tradesQuery.isError) && (
+      {(tradingAccountQuery.isError || positionsQuery.isError || tradesQuery.isError) && (
         <Alert variant="destructive">
           <AlertDescription>Some portfolio data couldn&apos;t be loaded. Figures above may be incomplete.</AlertDescription>
         </Alert>

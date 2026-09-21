@@ -24,7 +24,9 @@ export function SearchTrigger() {
     <Button
       variant="outline"
       size="sm"
-      onClick={() => setOpen(true)}
+      onClick={() => {
+        setOpen(true);
+      }}
       className="hidden items-center gap-2 text-muted-foreground sm:flex"
       aria-label="Search"
     >

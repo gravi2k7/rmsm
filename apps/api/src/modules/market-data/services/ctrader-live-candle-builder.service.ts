@@ -234,15 +234,12 @@ export class CTraderLiveCandleBuilderService implements OnModuleInit {
      */
     if (existing.eventTime.getTime() !== bucketMs) {
       /*
-       * The only realtime DB persistence performed by this service:
+       * Completed realtime candles are persisted once when their
+       * candle bucket closes.
        *
-       * completed 1-minute candle → PostgreSQL.
-       *
-       * Higher timeframes remain memory/WebSocket only.
+       * The open candle remains memory/WebSocket only.
        */
-      if (interval === CandleInterval.ONE_MINUTE) {
-        this.persistCompletedOneMinuteCandle(existing);
-      }
+      this.persistCompletedCandle(existing);
 
       const state = this.createState(
         instrumentId,
@@ -322,7 +319,7 @@ export class CTraderLiveCandleBuilderService implements OnModuleInit {
     });
   }
 
-  private persistCompletedOneMinuteCandle(
+  private persistCompletedCandle(
     state: LiveCandleState,
   ): void {
     /*
@@ -330,7 +327,7 @@ export class CTraderLiveCandleBuilderService implements OnModuleInit {
      *
      * The quote/event loop must never wait for PostgreSQL.
      *
-     * There is only one such write per instrument per completed minute.
+     * There is only one such write per instrument per completed candle.
      */
     void this.candles
       .upsert({
@@ -351,7 +348,7 @@ export class CTraderLiveCandleBuilderService implements OnModuleInit {
           error instanceof Error ? error.message : String(error);
 
         this.logger.error(
-          `Failed to persist completed cTrader 1m candle for ` +
+          `Failed to persist completed cTrader ${state.interval} candle for ` +
             `${state.providerSymbol} @ ${state.eventTime.toISOString()}: ${message}`,
         );
       });
