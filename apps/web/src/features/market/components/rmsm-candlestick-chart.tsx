@@ -10,6 +10,7 @@ import {
   type CandlestickData,
   type HistogramData,
   type IChartApi,
+  IPriceLine,
   type ISeriesApi,
   type MouseEventParams,
   type Time,
@@ -50,6 +51,26 @@ interface RMSMCandlestickChartProps {
   height?: number;
   indicators?: IndicatorConfig[];
   liveQuote?: Quote | null;
+  positions?: Array<{
+    positionId: string;
+    side: "LONG" | "SHORT";
+    quantity?: string | number | null;
+    averageEntryPrice?: string | number | null;
+    stopLossPrice?: string | number | null;
+    takeProfitPrice?: string | number | null;
+  }>;
+  pendingOrders?: Array<{
+    orderId: string;
+    side: "BUY" | "SELL";
+    type: "LIMIT" | "STOP";
+    quantity?: string | number | null;
+    limitPrice?: string | number | null;
+    stopPrice?: string | number | null;
+    stopLossPrice?: string | number | null;
+    takeProfitPrice?: string | number | null;
+  }>;
+  takeProfitPrice?: number | null;
+  stopLossPrice?: number | null;
   interval?: CandleInterval;
   onRequestOlder?: () => void;
   activeDrawingTool?: DrawingType;
@@ -74,6 +95,9 @@ interface DrawingPointerInteraction {
   dragging: boolean;
 }
 
+const EMPTY_POSITIONS: RMSMCandlestickChartProps["positions"] = [];
+const EMPTY_PENDING_ORDERS: RMSMCandlestickChartProps["pendingOrders"] = [];
+
 export const RMSMCandlestickChart = forwardRef<
   RMSMCandlestickChartHandle,
   RMSMCandlestickChartProps
@@ -82,6 +106,10 @@ export const RMSMCandlestickChart = forwardRef<
   height,
   indicators = EMPTY_INDICATORS,
   liveQuote = null,
+  positions = EMPTY_POSITIONS,
+  pendingOrders = EMPTY_PENDING_ORDERS,
+  takeProfitPrice = null,
+  stopLossPrice = null,
   interval = "ONE_MINUTE",
   onRequestOlder,
   activeDrawingTool = "SELECT",
@@ -93,6 +121,13 @@ export const RMSMCandlestickChart = forwardRef<
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const [chartReadyRevision, setChartReadyRevision] = useState(0);
+
+  const takeProfitLineRef = useRef<IPriceLine | null>(null);
+  const stopLossLineRef = useRef<IPriceLine | null>(null);
+  const positionEntryLinesRef = useRef<IPriceLine[]>([]);
+  const positionRiskLinesRef = useRef<IPriceLine[]>([]);
+  const pendingOrderLinesRef = useRef<IPriceLine[]>([]);
   const overlaySeriesRef = useRef<OverlaySeries[]>([]);
   const onRequestOlderRef = useRef(onRequestOlder);
   const previousCandleCountRef = useRef(0);
@@ -338,6 +373,7 @@ export const RMSMCandlestickChart = forwardRef<
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
+    setChartReadyRevision((value) => value + 1);
 
     const resizeObserver = new ResizeObserver((entries) => {
       const entry = entries[0];
@@ -794,6 +830,35 @@ export const RMSMCandlestickChart = forwardRef<
       drawingPointerInteractionRef.current = null;
 
       resizeObserver.disconnect();
+      if (takeProfitLineRef.current) {
+        candleSeriesRef.current?.removePriceLine(
+          takeProfitLineRef.current,
+        );
+        takeProfitLineRef.current = null;
+      }
+
+      if (stopLossLineRef.current) {
+        candleSeriesRef.current?.removePriceLine(
+          stopLossLineRef.current,
+        );
+        stopLossLineRef.current = null;
+      }
+
+      for (const line of positionEntryLinesRef.current) {
+        candleSeriesRef.current?.removePriceLine(line);
+      }
+      positionEntryLinesRef.current = [];
+
+      for (const line of positionRiskLinesRef.current) {
+        candleSeriesRef.current?.removePriceLine(line);
+      }
+      positionRiskLinesRef.current = [];
+
+      for (const line of pendingOrderLinesRef.current) {
+        candleSeriesRef.current?.removePriceLine(line);
+      }
+      pendingOrderLinesRef.current = [];
+
       chart.remove();
 
       chartRef.current = null;
@@ -898,6 +963,211 @@ export const RMSMCandlestickChart = forwardRef<
       color: "rgba(34, 197, 94, 0.45)",
     });
   }, [liveQuote, candles, interval]);
+
+  useEffect(() => {
+    const candleSeries = candleSeriesRef.current;
+
+    console.log("[RMSM Chart Renderer] Trading overlay effect:", {
+      chartReadyRevision,
+      hasCandleSeries: Boolean(candleSeries),
+      positionCount: positions.length,
+      pendingOrderCount: pendingOrders.length,
+      positions,
+      pendingOrders,
+    });
+
+    if (!candleSeries) {
+      console.log(
+        "[RMSM Chart Renderer] SKIP: candle series is not ready",
+      );
+      return;
+    }
+
+    for (const line of positionEntryLinesRef.current) {
+      candleSeries.removePriceLine(line);
+    }
+
+    for (const line of positionRiskLinesRef.current) {
+      candleSeries.removePriceLine(line);
+    }
+
+    for (const line of pendingOrderLinesRef.current) {
+      candleSeries.removePriceLine(line);
+    }
+
+    positionEntryLinesRef.current = [];
+    positionRiskLinesRef.current = [];
+    pendingOrderLinesRef.current = [];
+
+    for (const position of positions) {
+      const entryPrice = Number(position.averageEntryPrice);
+
+      if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
+        continue;
+      }
+
+      const quantity =
+        position.quantity !== null &&
+        position.quantity !== undefined
+          ? String(position.quantity)
+          : "";
+
+      const sideLabel =
+        position.side === "LONG"
+          ? `BUY ${quantity}`.trim()
+          : `SELL ${quantity}`.trim();
+
+      console.log("[RMSM Chart Renderer] Creating position entry line:", {
+        positionId: position.positionId,
+        side: position.side,
+        quantity,
+        price: entryPrice,
+        stopLossPrice: position.stopLossPrice,
+        takeProfitPrice: position.takeProfitPrice,
+      });
+
+      positionEntryLinesRef.current.push(
+        candleSeries.createPriceLine({
+          price: entryPrice,
+          color:
+            position.side === "LONG"
+              ? "#33C08D"
+              : "#FF4D5A",
+          lineWidth: 2,
+          lineStyle: 0,
+          axisLabelVisible: true,
+          title: sideLabel,
+        }),
+      );
+
+      const takeProfit = Number(position.takeProfitPrice);
+
+      if (Number.isFinite(takeProfit) && takeProfit > 0) {
+        positionRiskLinesRef.current.push(
+          candleSeries.createPriceLine({
+            price: takeProfit,
+            color: "#33C08D",
+            lineWidth: 2,
+            lineStyle: 0,
+            axisLabelVisible: true,
+            title: "TP",
+          }),
+        );
+      }
+
+      const stopLoss = Number(position.stopLossPrice);
+
+      if (Number.isFinite(stopLoss) && stopLoss > 0) {
+        positionRiskLinesRef.current.push(
+          candleSeries.createPriceLine({
+            price: stopLoss,
+            color: "#FF4D5A",
+            lineWidth: 2,
+            lineStyle: 0,
+            axisLabelVisible: true,
+            title: "SL",
+          }),
+        );
+      }
+    }
+
+    for (const order of pendingOrders) {
+      const triggerPrice =
+        order.type === "LIMIT"
+          ? Number(order.limitPrice)
+          : Number(order.stopPrice);
+
+      if (!Number.isFinite(triggerPrice) || triggerPrice <= 0) {
+        continue;
+      }
+
+      const quantity =
+        order.quantity !== null &&
+        order.quantity !== undefined
+          ? String(order.quantity)
+          : "";
+
+      const title =
+        `${order.side} ${order.type} ${quantity}`.trim();
+
+      console.log("[RMSM Chart Renderer] Creating pending order line:", {
+        orderId: order.orderId,
+        side: order.side,
+        type: order.type,
+        quantity,
+        price: triggerPrice,
+      });
+
+      pendingOrderLinesRef.current.push(
+        candleSeries.createPriceLine({
+          price: triggerPrice,
+          color: "#F5A623",
+          lineWidth: 2,
+          lineStyle: order.type === "LIMIT" ? 2 : 3,
+          axisLabelVisible: true,
+          title,
+        }),
+      );
+    }
+
+    console.log("[RMSM Chart Renderer] Trading overlays rendered:", {
+      entryLines: positionEntryLinesRef.current.length,
+      riskLines: positionRiskLinesRef.current.length,
+      pendingOrderLines: pendingOrderLinesRef.current.length,
+    });
+  }, [positions, pendingOrders, chartReadyRevision]);
+
+  useEffect(() => {
+    const candleSeries = candleSeriesRef.current;
+
+    if (!candleSeries) {
+      return;
+    }
+
+    if (takeProfitLineRef.current) {
+      candleSeries.removePriceLine(
+        takeProfitLineRef.current,
+      );
+      takeProfitLineRef.current = null;
+    }
+
+    if (stopLossLineRef.current) {
+      candleSeries.removePriceLine(
+        stopLossLineRef.current,
+      );
+      stopLossLineRef.current = null;
+    }
+
+    if (
+      takeProfitPrice !== null &&
+      Number.isFinite(takeProfitPrice) &&
+      takeProfitPrice > 0
+    ) {
+      takeProfitLineRef.current = candleSeries.createPriceLine({
+        price: takeProfitPrice,
+        color: "#33C08D",
+        lineWidth: 2,
+        lineStyle: 0,
+        axisLabelVisible: true,
+        title: "TP",
+      });
+    }
+
+    if (
+      stopLossPrice !== null &&
+      Number.isFinite(stopLossPrice) &&
+      stopLossPrice > 0
+    ) {
+      stopLossLineRef.current = candleSeries.createPriceLine({
+        price: stopLossPrice,
+        color: "#FF4D5A",
+        lineWidth: 2,
+        lineStyle: 0,
+        axisLabelVisible: true,
+        title: "SL",
+      });
+    }
+  }, [takeProfitPrice, stopLossPrice]);
 
   useEffect(() => {
     const chart = chartRef.current;

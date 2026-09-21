@@ -187,31 +187,32 @@ export function MarketDrawingToolsMenu({
           role="menu"
           aria-label="Drawing tools"
           className={cn(
-            "absolute left-0 top-full z-50 mt-2",
-            "w-[320px] max-w-[min(320px,calc(100vw-2rem))]",
-            "rounded-lg border bg-popover p-2 shadow-xl",
+            "absolute left-0 top-full z-50 mt-1 sm:mt-2",
+            "w-[280px] max-w-[calc(100vw-1rem)]",
+            "sm:w-[320px] sm:max-w-[min(320px,calc(100vw-2rem))]",
+            "rounded-lg border bg-popover p-1.5 sm:p-2 shadow-xl",
             "origin-top-left",
           )}
         >
-          <div className="mb-2 flex items-center justify-between gap-2 border-b px-2 pb-2">
+          <div className="mb-1.5 flex items-center justify-between gap-2 border-b px-1.5 pb-1.5 sm:mb-2 sm:px-2 sm:pb-2">
             <div className="flex min-w-0 items-center gap-2">
-              <PenTool className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <PenTool className="h-3.5 w-3.5 shrink-0 text-muted-foreground sm:h-4 sm:w-4" />
               <div className="min-w-0">
-                <div className="text-sm font-semibold">
+                <div className="text-xs font-semibold sm:text-sm">
                   Drawing Tools
                 </div>
-                <div className="text-[11px] text-muted-foreground">
+                <div className="hidden text-[11px] text-muted-foreground sm:block">
                   Select a tool to draw on the chart
                 </div>
               </div>
             </div>
 
-            <span className="shrink-0 text-[10px] text-muted-foreground">
+            <span className="shrink-0 text-[9px] text-muted-foreground sm:text-[10px]">
               {activeDefinition?.label ?? "Select"}
             </span>
           </div>
 
-          <div className="max-h-[min(70vh,520px)] overflow-y-auto pr-1">
+          <div className="max-h-[min(72vh,460px)] overflow-y-auto pr-0.5 sm:max-h-[min(70vh,520px)] sm:pr-1">
             {GROUPS.map((group) => {
               const tools = group.types
                 .map(getDefinition)
@@ -231,13 +232,13 @@ export function MarketDrawingToolsMenu({
                 <section
                   key={group.label}
                   aria-label={group.label}
-                  className="mb-3 last:mb-0"
+                  className="mb-2 last:mb-0 sm:mb-3"
                 >
-                  <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <div className="px-1.5 pb-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground sm:px-2 sm:pb-1 sm:text-[10px]">
                     {group.label}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-1">
+                  <div className="grid grid-cols-2 gap-0.5 sm:gap-1">
                     {tools.map((tool) => {
                       const Icon =
                         DRAWING_TOOL_ICONS[tool.type] ?? PenTool;
@@ -252,8 +253,9 @@ export function MarketDrawingToolsMenu({
                           aria-current={active ? "true" : undefined}
                           title={tool.label}
                           className={cn(
-                            "flex min-h-9 items-center gap-2 rounded-md",
-                            "px-2 text-left text-xs transition-colors",
+                            "flex min-h-8 items-center gap-1.5 rounded-md",
+                            "px-1.5 text-left text-[11px] transition-colors",
+                            "sm:min-h-9 sm:gap-2 sm:px-2 sm:text-xs",
                             "hover:bg-accent hover:text-accent-foreground",
                             active &&
                               "bg-accent text-accent-foreground",
@@ -263,7 +265,7 @@ export function MarketDrawingToolsMenu({
                             onOpenChange(false);
                           }}
                         >
-                          <Icon className="h-4 w-4 shrink-0" />
+                          <Icon className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
                           <span className="truncate">
                             {tool.label}
                           </span>
