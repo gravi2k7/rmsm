@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -24,6 +25,7 @@ import {
 import { TradingAccountService } from "./trading.service";
 import { PaperTradingService } from "./paper-trading.service";
 import { BrokerSyncService } from "../brokers/sync/broker-sync.service";
+import { BrokerExecutionService } from "./broker-execution.service";
 import {
   AddTradingFundsDto,
   CreateTradingAccountDto,
@@ -41,6 +43,7 @@ export class TradingController {
     private readonly tradingAccountService: TradingAccountService,
     private readonly paperTradingService: PaperTradingService,
     private readonly brokerSyncService: BrokerSyncService,
+    private readonly brokerExecutionService: BrokerExecutionService,
   ) {}
 
   @Post()
@@ -302,9 +305,46 @@ export class TradingController {
     @Body() dto: PlaceOrderDto,
     @CurrentUser() user: AccessTokenPayload,
   ) {
-    return this.paperTradingService.placeOrder(
+    const account =
+      await this.tradingAccountService.getAccount(
+        organizationId,
+        user.sub,
+        accountId,
+      );
+
+    const isBrokerBound =
+      Boolean(account.brokerConnectionId) &&
+      Boolean(account.brokerAccountId);
+
+    if (!isBrokerBound) {
+      return this.paperTradingService.placeOrder(
+        organizationId,
+        user.sub,
+        accountId,
+        {
+          instrumentId: dto.instrumentId,
+          side: dto.side,
+          type: dto.type ?? "MARKET",
+          quantity: dto.quantity,
+          limitPrice: dto.limitPrice,
+          stopPrice: dto.stopPrice,
+          stopLossPrice: dto.stopLossPrice,
+          takeProfitPrice: dto.takeProfitPrice,
+        },
+      );
+    }
+
+    if (
+      dto.stopLossPrice !== undefined ||
+      dto.takeProfitPrice !== undefined
+    ) {
+      throw new BadRequestException(
+        "Broker orders do not yet support stop-loss or take-profit attachment.",
+      );
+    }
+
+    return this.brokerExecutionService.placeOrder(
       organizationId,
-      user.sub,
       accountId,
       {
         instrumentId: dto.instrumentId,
@@ -313,8 +353,6 @@ export class TradingController {
         quantity: dto.quantity,
         limitPrice: dto.limitPrice,
         stopPrice: dto.stopPrice,
-        stopLossPrice: dto.stopLossPrice,
-        takeProfitPrice: dto.takeProfitPrice,
       },
     );
   }
