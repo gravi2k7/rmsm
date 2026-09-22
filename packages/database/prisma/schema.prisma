@@ -10,7 +10,7 @@
 // - UserRole carries a nullable tenantId now so multi-tenancy (explicitly
 //   scoped as a future requirement) doesn't require a breaking schema
 //   migration later — it's simply unused (always null) until a Tenant
-//   model is introduced.
+  // enum is introduced.
 
 generator client {
   provider = "prisma-client-js"
@@ -578,7 +578,10 @@ model Organization {
   @@index([slug])
   @@map("organizations")
   tradingAccounts          TradingAccount[]
+  copyGroups               CopyGroup[]
+  brokerConnections      BrokerConnection[]
 }
+
 
 model OrganizationMembership {
   id             String           @id @default(uuid())
@@ -1984,6 +1987,7 @@ model Instrument {
 
   exchange   Exchange?           @relation(fields: [exchangeId], references: [id], onDelete: Restrict)
   aliases    InstrumentAlias[]
+  brokerInstrumentMappings BrokerInstrumentMapping[]
   candles    MarketCandle[]
   quotes     MarketQuote[]
   ticks      MarketTick[]
@@ -3115,6 +3119,165 @@ enum TradingPositionStatus {
   CLOSED
 }
 
+enum CopyGroupStatus {
+  ACTIVE
+  PAUSED
+  DISABLED
+}
+
+enum CopyMemberRole {
+  MASTER
+  FOLLOWER
+}
+
+enum CopyExecutionStatus {
+  PENDING
+  SENT
+  ACCEPTED
+  REJECTED
+  FAILED
+  CANCELLED
+}
+
+enum BrokerProvider {
+  PROJECTX
+  CTRADER
+  MT5
+}
+
+enum BrokerConnectionStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+}
+
+
+model CopyGroup {
+  id              String          @id @default(uuid())
+  organizationId  String
+  name            String
+  status          CopyGroupStatus @default(ACTIVE)
+  masterAccountId String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  masterAccount TradingAccount @relation("CopyGroupMasterAccount", fields: [masterAccountId], references: [id], onDelete: Restrict)
+  members      CopyGroupMember[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([masterAccountId])
+  @@map("copy_groups")
+}
+
+model CopyGroupMember {
+  id                  String         @id @default(uuid())
+  copyGroupId         String
+  tradingAccountId    String
+  role                CopyMemberRole
+  quantityMultiplier  Decimal        @default(1) @db.Decimal(12, 4)
+  fixedQuantity       Decimal?       @db.Decimal(30, 10)
+  maxQuantity         Decimal?       @db.Decimal(30, 10)
+  enabled             Boolean        @default(true)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  copyGroup      CopyGroup      @relation(fields: [copyGroupId], references: [id], onDelete: Cascade)
+  tradingAccount TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+  rule           CopyRule?
+  executions     CopyExecution[]
+
+  @@unique([copyGroupId, tradingAccountId])
+  @@index([copyGroupId, role])
+  @@index([tradingAccountId])
+  @@map("copy_group_members")
+}
+
+model CopyRule {
+  id                    String   @id @default(uuid())
+  copyGroupMemberId     String   @unique
+  copyEntries           Boolean  @default(true)
+  copyExits             Boolean  @default(true)
+  copyStopLoss          Boolean  @default(true)
+  copyTakeProfit        Boolean  @default(true)
+  copyLimitOrders       Boolean  @default(true)
+  copyStopOrders        Boolean  @default(true)
+  maxPositionQuantity   Decimal? @db.Decimal(30, 10)
+  dailyLossLimit        Decimal? @db.Decimal(24, 8)
+  enabled               Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  member CopyGroupMember @relation(fields: [copyGroupMemberId], references: [id], onDelete: Cascade)
+
+  @@map("copy_rules")
+}
+
+model CopyExecution {
+  id                String              @id @default(uuid())
+  copyGroupMemberId String
+  sourceOrderId     String
+  followerOrderId   String?
+  status            CopyExecutionStatus @default(PENDING)
+  requestedQuantity Decimal             @db.Decimal(30, 10)
+  executedQuantity  Decimal?            @db.Decimal(30, 10)
+  errorMessage      String?
+  createdAt         DateTime            @default(now())
+  sentAt            DateTime?
+  completedAt       DateTime?
+
+  member       CopyGroupMember @relation(fields: [copyGroupMemberId], references: [id], onDelete: Cascade)
+  sourceOrder  TradingOrder    @relation("CopyExecutionSource", fields: [sourceOrderId], references: [id], onDelete: Cascade)
+  followerOrder TradingOrder? @relation("CopyExecutionFollower", fields: [followerOrderId], references: [id], onDelete: SetNull)
+
+  @@unique([copyGroupMemberId, sourceOrderId])
+  @@index([sourceOrderId])
+  @@index([followerOrderId])
+  @@index([copyGroupMemberId, status])
+  @@map("copy_executions")
+}
+
+model BrokerConnection {
+  id                      String                  @id @default(uuid())
+  organizationId          String
+  provider                BrokerProvider
+  name                    String
+  credentialsEnc          String
+  status                  BrokerConnectionStatus @default(INACTIVE)
+  lastConnectionTestAt    DateTime?
+  lastConnectionTestStatus String?
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tradingAccounts TradingAccount[]
+  instrumentMappings BrokerInstrumentMapping[]
+
+  @@index([organizationId])
+  @@index([organizationId, provider])
+  @@index([status])
+  @@map("broker_connections")
+}
+
+model BrokerInstrumentMapping {
+  id                 String   @id @default(uuid())
+  brokerConnectionId String
+  instrumentId       String
+  brokerSymbol       String
+  brokerInstrumentId String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  brokerConnection BrokerConnection @relation(fields: [brokerConnectionId], references: [id], onDelete: Cascade)
+  instrument       Instrument       @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@unique([brokerConnectionId, instrumentId])
+  @@unique([brokerConnectionId, brokerInstrumentId])
+  @@index([instrumentId])
+  @@map("broker_instrument_mappings")
+}
+
 model TradingAccount {
   id              String               @id @default(uuid())
   organizationId  String
@@ -3137,10 +3300,13 @@ model TradingAccount {
 
   organization  Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   owner         User                 @relation("TradingAccountOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  brokerConnection BrokerConnection? @relation(fields: [brokerConnectionId], references: [id], onDelete: SetNull)
   ledgerEntries TradingLedgerEntry[]
   orders        TradingOrder[]
   positions     TradingPosition[]
   trades        TradingTrade[]
+  copyGroupMemberships CopyGroupMember[]
+  copyGroupsAsMaster CopyGroup[] @relation("CopyGroupMasterAccount")
 
   @@index([organizationId])
   @@index([ownerUserId])
@@ -3177,6 +3343,7 @@ model TradingOrder {
   limitPrice      Decimal?           @db.Decimal(24, 10)
   stopPrice       Decimal?           @db.Decimal(24, 10)
   status          TradingOrderStatus @default(PENDING)
+  brokerOrderId   String?
   requestedPrice  Decimal?           @db.Decimal(24, 10)
   executedPrice   Decimal?           @db.Decimal(24, 10)
   rejectionReason String?
@@ -3187,24 +3354,29 @@ model TradingOrder {
   account    TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
   instrument Instrument     @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
   fills      TradingFill[]
+  copyExecutionsAsSource   CopyExecution[] @relation("CopyExecutionSource")
+  copyExecutionsAsFollower CopyExecution[] @relation("CopyExecutionFollower")
 
   @@index([accountId, createdAt])
   @@index([accountId, status])
+  @@index([brokerOrderId])
   @@index([instrumentId, createdAt])
   @@map("trading_orders")
 }
 
 model TradingFill {
-  id         String   @id @default(uuid())
-  orderId    String
-  price      Decimal  @db.Decimal(24, 10)
-  quantity   Decimal  @db.Decimal(30, 10)
-  commission Decimal  @default(0) @db.Decimal(24, 8)
-  filledAt   DateTime @default(now())
+  id            String   @id @default(uuid())
+  orderId       String
+  brokerTradeId String?
+  price         Decimal  @db.Decimal(24, 10)
+  quantity      Decimal  @db.Decimal(30, 10)
+  commission    Decimal  @default(0) @db.Decimal(24, 8)
+  filledAt      DateTime @default(now())
 
   order TradingOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId, filledAt])
+  @@unique([brokerTradeId])
   @@map("trading_fills")
 }
 

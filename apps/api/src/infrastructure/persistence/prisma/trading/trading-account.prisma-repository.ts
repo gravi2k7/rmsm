@@ -54,6 +54,19 @@ export class PrismaTradingAccountRepository
     });
   }
 
+  async findByAccountId(
+    organizationId: string,
+    accountId: string,
+    client: DbClient = prisma,
+  ): Promise<TradingAccount | null> {
+    return client.tradingAccount.findFirst({
+      where: {
+        id: accountId,
+        organizationId,
+      },
+    });
+  }
+
   async findMany(
     organizationId: string,
     ownerUserId: string,
@@ -66,6 +79,40 @@ export class PrismaTradingAccountRepository
       },
       orderBy: {
         createdAt: "desc",
+      },
+    });
+  }
+
+  async bindBroker(
+    organizationId: string,
+    ownerUserId: string,
+    accountId: string,
+    brokerConnectionId: string,
+    brokerAccountId: string,
+    client: DbClient = prisma,
+  ): Promise<TradingAccount> {
+    const account = await client.tradingAccount.findFirst({
+      where: {
+        id: accountId,
+        organizationId,
+        ownerUserId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!account) {
+      throw new Error("Trading account not found");
+    }
+
+    return client.tradingAccount.update({
+      where: {
+        id: account.id,
+      },
+      data: {
+        brokerConnectionId,
+        brokerAccountId,
       },
     });
   }

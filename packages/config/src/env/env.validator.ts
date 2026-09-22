@@ -52,6 +52,9 @@ const platformIntegrationsSchema = z.object({
   // Module 005: Notifications
   NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: z.string().min(32).default("1".repeat(64)),
 
+  // Broker Connectivity
+  BROKER_CREDENTIALS_ENCRYPTION_KEY: z.string().min(32).default("2".repeat(64)),
+
   // AI-103 Milestone 4: Strategy Engine outbox publisher — centralized,
   // validated config so the outbox publisher itself hardcodes nothing.
   STRATEGY_OUTBOX_PUBLISHER_ENABLED: booleanFromString(true),
@@ -100,6 +103,11 @@ const INSECURE_PRODUCTION_DEFAULTS: readonly { field: keyof z.infer<typeof merge
   {
     field: "NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY",
     value: "1".repeat(64),
+    hint: "Generate a real 32-byte hex key (e.g. `openssl rand -hex 32`).",
+  },
+  {
+    field: "BROKER_CREDENTIALS_ENCRYPTION_KEY",
+    value: "2".repeat(64),
     hint: "Generate a real 32-byte hex key (e.g. `openssl rand -hex 32`).",
   },
   { field: "MOCK_WEBHOOK_SECRET", value: "mock-webhook-secret-dev-only", hint: "The mock payment provider is for local dev only — set a real value or leave the provider disabled." },

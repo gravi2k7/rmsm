@@ -97,6 +97,7 @@ export class PrismaPaperTradingRepository
   async createFill(
     data: {
       orderId: string;
+      brokerTradeId?: string;
       price: string;
       quantity: string;
       commission: string;
@@ -107,10 +108,22 @@ export class PrismaPaperTradingRepository
     return client.tradingFill.create({
       data: {
         orderId: data.orderId,
+        brokerTradeId: data.brokerTradeId,
         price: data.price,
         quantity: data.quantity,
         commission: data.commission,
         filledAt: data.filledAt,
+      },
+    });
+  }
+
+  async findFillByBrokerTradeId(
+    brokerTradeId: string,
+    client: DbClient = prisma,
+  ): Promise<TradingFill | null> {
+    return client.tradingFill.findUnique({
+      where: {
+        brokerTradeId,
       },
     });
   }
@@ -279,10 +292,24 @@ export class PrismaPaperTradingRepository
   }
 
 
+  async findOrderByBrokerOrderId(
+    accountId: string,
+    brokerOrderId: string,
+    client: DbClient = prisma,
+  ): Promise<TradingOrder | null> {
+    return client.tradingOrder.findFirst({
+      where: {
+        accountId,
+        brokerOrderId,
+      },
+    });
+  }
+
   async updateOrder(
     orderId: string,
     data: {
       status?: TradingOrderStatus;
+      brokerOrderId?: string | null;
       triggeredAt?: Date | null;
       executedPrice?: string | null;
       filledAt?: Date | null;
@@ -298,6 +325,7 @@ export class PrismaPaperTradingRepository
       },
       data: {
         status: data.status,
+        brokerOrderId: data.brokerOrderId,
         triggeredAt: data.triggeredAt,
         executedPrice: data.executedPrice,
         filledAt: data.filledAt,

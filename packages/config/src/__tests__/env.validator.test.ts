@@ -37,6 +37,7 @@ describe("envSchema — valid configuration", () => {
       COOKIE_SECRET: "a".repeat(32),
       TWO_FACTOR_ENCRYPTION_KEY: "b".repeat(64),
       NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "c".repeat(64),
+      BROKER_CREDENTIALS_ENCRYPTION_KEY: "e".repeat(64),
       MOCK_WEBHOOK_SECRET: "d".repeat(32),
     });
     expect(result.success).toBe(true);
@@ -159,6 +160,7 @@ describe("envSchema — cTrader production/staging credential boundary", () => {
     COOKIE_SECRET: "a".repeat(32),
     TWO_FACTOR_ENCRYPTION_KEY: "b".repeat(64),
     NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "c".repeat(64),
+    BROKER_CREDENTIALS_ENCRYPTION_KEY: "e".repeat(64),
     MOCK_WEBHOOK_SECRET: "d".repeat(32),
   };
 
@@ -322,6 +324,7 @@ describe("envSchema — production/staging insecure-default guard", () => {
       COOKIE_SECRET: "a".repeat(32),
       TWO_FACTOR_ENCRYPTION_KEY: "b".repeat(64),
       NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "c".repeat(64),
+      BROKER_CREDENTIALS_ENCRYPTION_KEY: "e".repeat(64),
       MOCK_WEBHOOK_SECRET: "d".repeat(32),
     });
     expect(result.success).toBe(true);
@@ -356,6 +359,7 @@ describe("envSchema — production/staging insecure-default guard", () => {
       COOKIE_SECRET: "a".repeat(32),
       TWO_FACTOR_ENCRYPTION_KEY: "b".repeat(64),
       NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "c".repeat(64),
+      BROKER_CREDENTIALS_ENCRYPTION_KEY: "e".repeat(64),
       MOCK_WEBHOOK_SECRET: "d".repeat(32),
       CORS_ALLOWED_ORIGINS: "*",
     });
@@ -373,6 +377,7 @@ describe("envSchema — production/staging insecure-default guard", () => {
       COOKIE_SECRET: "a".repeat(32),
       TWO_FACTOR_ENCRYPTION_KEY: "b".repeat(64),
       NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "c".repeat(64),
+      BROKER_CREDENTIALS_ENCRYPTION_KEY: "e".repeat(64),
       MOCK_WEBHOOK_SECRET: "d".repeat(32),
       CORS_ALLOWED_ORIGINS: "https://app.example.com,*",
     });
@@ -390,6 +395,7 @@ describe("envSchema — production/staging insecure-default guard", () => {
       COOKIE_SECRET: "a".repeat(32),
       TWO_FACTOR_ENCRYPTION_KEY: "b".repeat(64),
       NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "c".repeat(64),
+      BROKER_CREDENTIALS_ENCRYPTION_KEY: "e".repeat(64),
       MOCK_WEBHOOK_SECRET: "d".repeat(32),
       CORS_ALLOWED_ORIGINS: "https://app.example.com,https://admin.example.com",
     });
@@ -407,6 +413,7 @@ describe("envSchema — production/staging insecure-default guard", () => {
       COOKIE_SECRET: "a".repeat(32),
       TWO_FACTOR_ENCRYPTION_KEY: "b".repeat(64),
       NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: "c".repeat(64),
+      BROKER_CREDENTIALS_ENCRYPTION_KEY: "e".repeat(64),
       MOCK_WEBHOOK_SECRET: "d".repeat(32),
     });
     expect(result.success).toBe(true);

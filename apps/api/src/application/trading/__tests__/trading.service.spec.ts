@@ -69,6 +69,7 @@ describe("TradingAccountService", () => {
       create: jest.fn(),
       findById: jest.fn(),
       findMany: jest.fn(),
+      bindBroker: jest.fn(),
       updateBalance: jest.fn(),
       addLedgerEntry: jest.fn(),
       listLedger: jest.fn(),

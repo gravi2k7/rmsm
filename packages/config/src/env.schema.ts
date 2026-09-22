@@ -95,6 +95,10 @@ export const envSchema = z.object({
   // --- Module 005: Notifications ---
   NOTIFICATION_CREDENTIALS_ENCRYPTION_KEY: z.string().min(32).default("1".repeat(64)),
 
+  // --- Broker Connectivity ---
+  // Dedicated AES-256-GCM key for encrypted broker connection credentials.
+  BROKER_CREDENTIALS_ENCRYPTION_KEY: z.string().min(32).default("2".repeat(64)),
+
   // --- Module 005 Phase 5: OpenTelemetry ---
   // Read directly via process.env in tracing.ts, NOT via loadConfig() —
   // tracing.ts must execute before any other import (including this

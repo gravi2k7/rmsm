@@ -10,9 +10,15 @@ import { PrismaTradingAccountRepository } from "../../infrastructure/persistence
 import { PrismaPaperTradingRepository } from "../../infrastructure/persistence/prisma/trading/paper-trading.prisma-repository";
 import { PAPER_TRADING_REPOSITORY } from "./trading.tokens";
 import { PaperTradingRiskMonitorService } from "./paper-trading-risk-monitor.service";
+import { BrokerExecutionService } from "./broker-execution.service";
+import { BrokerConnectionModule } from "../brokers/broker-connection.module";
+import { BrokerSyncService } from "../brokers/sync/broker-sync.service";
+import { BrokerInstrumentMappingPrismaRepository } from "../../infrastructure/persistence/prisma/broker/broker-instrument-mapping.prisma-repository";
+import { BROKER_INSTRUMENT_MAPPING_REPOSITORY } from "./trading.tokens";
+
 
 @Module({
-  imports: [MarketDataModule],
+  imports: [MarketDataModule, BrokerConnectionModule],
   controllers: [TradingController],
   providers: [
     PermissionsGuard,
@@ -31,7 +37,19 @@ import { PaperTradingRiskMonitorService } from "./paper-trading-risk-monitor.ser
     TradingAccountService,
     PaperTradingService,
     PaperTradingRiskMonitorService,
+    BrokerExecutionService,
+    BrokerSyncService,
+    {
+      provide: BROKER_INSTRUMENT_MAPPING_REPOSITORY,
+      useClass: BrokerInstrumentMappingPrismaRepository,
+    },
   ],
-  exports: [TradingAccountService, PaperTradingService, PAPER_TRADING_REPOSITORY],
+  exports: [
+    TradingAccountService,
+    PaperTradingService,
+    BrokerExecutionService,
+    BrokerSyncService,
+    PAPER_TRADING_REPOSITORY,
+  ],
 })
 export class TradingApplicationModule {}

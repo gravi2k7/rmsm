@@ -28,11 +28,26 @@ export interface TradingAccountRepository {
     client?: DbClient,
   ): Promise<TradingAccount | null>;
 
+  findByAccountId(
+    organizationId: string,
+    accountId: string,
+    client?: DbClient,
+  ): Promise<TradingAccount | null>;
+
   findMany(
     organizationId: string,
     ownerUserId: string,
     client?: DbClient,
   ): Promise<TradingAccount[]>;
+
+  bindBroker(
+    organizationId: string,
+    ownerUserId: string,
+    accountId: string,
+    brokerConnectionId: string,
+    brokerAccountId: string,
+    client?: DbClient,
+  ): Promise<TradingAccount>;
 
   updateBalance(
     organizationId: string,

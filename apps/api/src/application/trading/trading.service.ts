@@ -92,6 +92,22 @@ export class TradingAccountService {
     return account;
   }
 
+  async bindBrokerAccount(
+    organizationId: string,
+    ownerUserId: string,
+    accountId: string,
+    brokerConnectionId: string,
+    brokerAccountId: string,
+  ): Promise<TradingAccount> {
+    return this.repository.bindBroker(
+      organizationId,
+      ownerUserId,
+      accountId,
+      brokerConnectionId,
+      brokerAccountId,
+    );
+  }
+
   async addVirtualFunds(
     organizationId: string,
     ownerUserId: string,

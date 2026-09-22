@@ -23,6 +23,7 @@ import {
 } from "./trading.mapper";
 import { TradingAccountService } from "./trading.service";
 import { PaperTradingService } from "./paper-trading.service";
+import { BrokerSyncService } from "../brokers/sync/broker-sync.service";
 import {
   AddTradingFundsDto,
   CreateTradingAccountDto,
@@ -39,6 +40,7 @@ export class TradingController {
   constructor(
     private readonly tradingAccountService: TradingAccountService,
     private readonly paperTradingService: PaperTradingService,
+    private readonly brokerSyncService: BrokerSyncService,
   ) {}
 
   @Post()
@@ -76,6 +78,21 @@ export class TradingController {
       );
 
     return accounts.map(mapTradingAccount);
+  }
+
+  @Post(":id/broker/sync")
+  @RequirePermissions("executions.write")
+  async syncBrokerAccount(
+    @Param("organizationId", ParseUUIDPipe)
+    organizationId: string,
+    @Param("id", ParseUUIDPipe)
+    accountId: string,
+    @CurrentUser() _user: AccessTokenPayload,
+  ) {
+    return this.brokerSyncService.syncAccount(
+      organizationId,
+      accountId,
+    );
   }
 
   @Get(":id/orders")

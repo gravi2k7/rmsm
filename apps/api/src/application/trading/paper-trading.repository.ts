@@ -51,6 +51,7 @@ export interface PaperTradingRepository {
   createFill(
     data: {
       orderId: string;
+      brokerTradeId?: string;
       price: string;
       quantity: string;
       commission: string;
@@ -58,6 +59,11 @@ export interface PaperTradingRepository {
     },
     client?: DbClient,
   ): Promise<TradingFill>;
+
+  findFillByBrokerTradeId(
+    brokerTradeId: string,
+    client?: DbClient,
+  ): Promise<TradingFill | null>;
 
   findOpenPosition(
     accountId: string,
@@ -134,10 +140,17 @@ export interface PaperTradingRepository {
     client?: DbClient,
   ): Promise<TradingOrder | null>;
 
+  findOrderByBrokerOrderId(
+    accountId: string,
+    brokerOrderId: string,
+    client?: DbClient,
+  ): Promise<TradingOrder | null>;
+
   updateOrder(
     orderId: string,
     data: {
       status?: TradingOrderStatus;
+      brokerOrderId?: string | null;
       triggeredAt?: Date | null;
       executedPrice?: string | null;
       filledAt?: Date | null;

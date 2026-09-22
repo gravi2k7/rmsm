@@ -29,6 +29,7 @@ import { LicensingModule } from "./modules/licensing/licensing.module";
 import { JwtAuthGuard } from "./modules/auth/guards/jwt-auth.guard";
 import { OnboardingModule } from "./modules/onboarding/onboarding.module";
 import { TradingApplicationModule } from "./application/trading/trading.module";
+import { BrokerConnectionModule } from "./application/brokers/broker-connection.module";
 
 const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
 
@@ -66,6 +67,7 @@ const { RATE_LIMIT_TTL_MS, RATE_LIMIT_MAX } = loadConfig();
     LicensingModule,
     AdminModule,
     TradingApplicationModule,
+    BrokerConnectionModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
