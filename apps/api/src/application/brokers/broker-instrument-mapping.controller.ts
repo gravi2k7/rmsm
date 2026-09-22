@@ -20,7 +20,7 @@ import { CurrentUser } from "../../modules/auth/decorators/current-user.decorato
 import type { AccessTokenPayload } from "../../modules/auth/services/token.service";
 
 @Controller(
-  "organizations/:organizationId/broker-connections/:connectionId/instrument-mappings",
+  "organizations/:organizationId/broker-connections/:connectionId",
 )
 @UseGuards(PermissionsGuard, OrganizationRoleGuard)
 export class BrokerInstrumentMappingController {
@@ -28,7 +28,7 @@ export class BrokerInstrumentMappingController {
     private readonly service: BrokerInstrumentMappingService,
   ) {}
 
-  @Get()
+  @Get("instrument-mappings")
   @RequirePermissions("organization.settings.update")
   @RequireOrgRole(...ADMIN_ORG_ROLES)
   list(
@@ -39,7 +39,7 @@ export class BrokerInstrumentMappingController {
     return this.service.list(organizationId, connectionId);
   }
 
-  @Post()
+  @Post("instrument-mappings")
   @RequirePermissions("organization.settings.update")
   @RequireOrgRole(...ADMIN_ORG_ROLES)
   create(
@@ -55,7 +55,7 @@ export class BrokerInstrumentMappingController {
     );
   }
 
-  @Delete(":id")
+  @Delete("instrument-mappings/:id")
   @RequirePermissions("organization.settings.update")
   @RequireOrgRole(...ADMIN_ORG_ROLES)
   remove(
@@ -71,7 +71,7 @@ export class BrokerInstrumentMappingController {
     );
   }
 
-  @Get("../contracts")
+  @Get("contracts")
   @RequirePermissions("organization.settings.update")
   @RequireOrgRole(...ADMIN_ORG_ROLES)
   discoverContracts(

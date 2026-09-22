@@ -14,7 +14,7 @@ import type { CreateBrokerInstrumentMappingDto } from "./dto/create-broker-instr
 import type { BrokerInstrumentMappingRepository } from "./contracts/broker-instrument-mapping.repository";
 import type { BrokerConnectionRepository } from "./contracts/broker-connection.repository";
 import { BROKER_CONNECTION_REPOSITORY } from "./broker-connection.tokens";
-import { BROKER_INSTRUMENT_MAPPING_REPOSITORY } from "./broker-connection.tokens";
+import { BROKER_INSTRUMENT_MAPPING_REPOSITORY } from "../trading/trading.tokens";
 import { BrokerCredentialsEncryptionService } from "./security/broker-credentials-encryption.service";
 import { ProjectXClient } from "../../infrastructure/brokers/projectx/projectx.client";
 import type { ProjectXContract } from "../../infrastructure/brokers/projectx/projectx.types";
