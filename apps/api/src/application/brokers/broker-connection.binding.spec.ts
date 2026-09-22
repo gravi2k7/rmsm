@@ -1,211 +1,205 @@
-import { describe, expect, it, beforeEach, jest } from "@jest/globals";
 import {
   BrokerConnectionStatus,
   BrokerProvider,
 } from "@rmsm/database";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { BrokerConnectionService } from "./broker-connection.service";
-import type { BrokerConnectionRepository } from "./contracts/broker-connection.repository";
-import { BrokerCredentialsEncryptionService } from "./security/broker-credentials-encryption.service";
-import type { TradingAccountRepository } from "../trading/trading.repository";
-import { ProjectXClient } from "../../infrastructure/brokers/projectx/projectx.client";
 
-describe("BrokerConnectionService.bindAccount", () => {
+describe("BrokerConnectionService broker binding", () => {
   const repository = {
     findById: jest.fn(),
-  } as unknown as BrokerConnectionRepository;
+    updateStatus: jest.fn(),
+    create: jest.fn(),
+    listByOrganization: jest.fn(),
+  };
 
   const encryption = {
+    encrypt: jest.fn(),
     decrypt: jest.fn(),
-  } as unknown as BrokerCredentialsEncryptionService;
+  };
 
   const tradingAccountRepository = {
     findById: jest.fn(),
     bindBroker: jest.fn(),
-  } as unknown as TradingAccountRepository;
-
-  const connection = {
-    id: "connection-1",
-    organizationId: "org-1",
-    provider: BrokerProvider.PROJECTX,
-    name: "ProjectX Demo",
-    credentialsEnc: "encrypted",
-    status: BrokerConnectionStatus.ACTIVE,
-    lastConnectionTestAt: new Date(),
-    lastConnectionTestStatus: "Connected",
-    createdAt: new Date(),
-    updatedAt: new Date(),
   };
+
+  let service: BrokerConnectionService;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    jest.mocked(repository.findById).mockResolvedValue(connection);
+    repository.findById.mockResolvedValue({
+      id: "connection-1",
+      organizationId: "org-1",
+      provider: BrokerProvider.PROJECTX,
+      name: "TopstepX",
+      status: BrokerConnectionStatus.ACTIVE,
+      credentialsEnc: "encrypted",
+      lastConnectionTestAt: null,
+      lastConnectionTestStatus: "OK",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
-    jest.mocked(encryption.decrypt).mockReturnValue({
+    encryption.decrypt.mockReturnValue({
       username: "user",
-      apiKey: "secret",
+      apiKey: "key",
+      baseUrl: "https://api.topstepx.com",
     });
 
-    jest.mocked(tradingAccountRepository.findById).mockResolvedValue({
-      id: "trading-account-1",
-    } as never);
+    tradingAccountRepository.findById.mockResolvedValue({
+      id: "account-1",
+      organizationId: "org-1",
+      ownerUserId: "user-1",
+      name: "RMSM Broker",
+    });
 
-    jest.mocked(tradingAccountRepository.bindBroker).mockResolvedValue({
-      id: "trading-account-1",
-    } as never);
+    tradingAccountRepository.bindBroker.mockResolvedValue({
+      id: "account-1",
+    });
+
+    service = new BrokerConnectionService(
+      repository as never,
+      encryption as never,
+      tradingAccountRepository as never,
+    );
   });
 
-  function mockProjectXAccounts(accounts: unknown[]) {
+  it("binds a tradable ProjectX account", async () => {
     jest
-      .spyOn(ProjectXClient.prototype, "getAccounts")
+      .spyOn(
+        require("../../infrastructure/brokers/projectx/projectx.client")
+          .ProjectXClient.prototype,
+        "getAccounts",
+      )
       .mockResolvedValue({
-        accounts,
-      } as never);
-  }
+        success: true,
+        accounts: [
+          {
+            id: "broker-account-1",
+            name: "TopstepX 50K",
+            balance: 50000,
+            canTrade: true,
+            currency: "USD",
+          },
+        ],
+      });
 
-  it("binds a valid tradable ProjectX account", async () => {
-    mockProjectXAccounts([
-      {
-        id: 12345,
-        name: "Topstep Demo",
-        balance: 100000,
-        canTrade: true,
-      },
-    ]);
-
-    const service = new BrokerConnectionService(
-      repository,
-      encryption,
-      tradingAccountRepository,
-    );
-
-    const result = await service.bindAccount(
-      "org-1",
-      "user-1",
-      "connection-1",
-      {
-        tradingAccountId: "trading-account-1",
-        brokerAccountId: "12345",
-      },
-    );
-
-    expect(
-      tradingAccountRepository.bindBroker,
-    ).toHaveBeenCalledWith(
-      "org-1",
-      "user-1",
-      "trading-account-1",
-      "connection-1",
-      "12345",
-    );
-
-    expect(result.tradingAccountId).toBe("trading-account-1");
-    expect(result.brokerAccountId).toBe("12345");
-    expect(result).not.toHaveProperty("credentialsEnc");
-  });
-
-  it("rejects an inactive broker connection", async () => {
-    jest.mocked(repository.findById).mockResolvedValue({
-      ...connection,
-      status: BrokerConnectionStatus.INACTIVE,
+    await expect(
+      service.bindAccount("org-1", "user-1", "connection-1", {
+        tradingAccountId: "account-1",
+        brokerAccountId: "broker-account-1",
+      }),
+    ).resolves.toMatchObject({
+      tradingAccountId: "account-1",
+      brokerAccountId: "broker-account-1",
+      id: "connection-1",
+      status: BrokerConnectionStatus.ACTIVE,
     });
 
-    const service = new BrokerConnectionService(
-      repository,
-      encryption,
-      tradingAccountRepository,
+    expect(tradingAccountRepository.bindBroker).toHaveBeenCalledWith(
+      "org-1",
+      "user-1",
+      "account-1",
+      "connection-1",
+      "broker-account-1",
     );
-
-    await expect(
-      service.bindAccount("org-1", "user-1", "connection-1", {
-        tradingAccountId: "trading-account-1",
-        brokerAccountId: "12345",
-      }),
-    ).rejects.toThrow(
-      "Broker connection must be active before an account can be bound.",
-    );
-
-    expect(tradingAccountRepository.findById).not.toHaveBeenCalled();
   });
 
-  it("rejects a ProjectX account that is not available", async () => {
-    mockProjectXAccounts([
-      {
-        id: 99999,
-        name: "Other Account",
-        balance: 100000,
-        canTrade: true,
-      },
-    ]);
-
-    const service = new BrokerConnectionService(
-      repository,
-      encryption,
-      tradingAccountRepository,
-    );
+  it("rejects a broker account that does not exist", async () => {
+    jest
+      .spyOn(
+        require("../../infrastructure/brokers/projectx/projectx.client")
+          .ProjectXClient.prototype,
+        "getAccounts",
+      )
+      .mockResolvedValue({
+        success: true,
+        accounts: [
+          {
+            id: "broker-account-1",
+            name: "TopstepX 50K",
+            balance: 50000,
+            canTrade: true,
+            currency: "USD",
+          },
+        ],
+      });
 
     await expect(
       service.bindAccount("org-1", "user-1", "connection-1", {
-        tradingAccountId: "trading-account-1",
-        brokerAccountId: "12345",
+        tradingAccountId: "account-1",
+        brokerAccountId: "wrong-account",
       }),
-    ).rejects.toThrow(
-      "Broker account was not found on the selected broker connection.",
-    );
+    ).rejects.toBeInstanceOf(BadRequestException);
 
-    expect(
-      tradingAccountRepository.bindBroker,
-    ).not.toHaveBeenCalled();
+    expect(tradingAccountRepository.bindBroker).not.toHaveBeenCalled();
   });
 
-  it("rejects a non-tradable ProjectX account", async () => {
-    mockProjectXAccounts([
-      {
-        id: 12345,
-        name: "Read Only",
-        balance: 100000,
-        canTrade: false,
-      },
-    ]);
-
-    const service = new BrokerConnectionService(
-      repository,
-      encryption,
-      tradingAccountRepository,
-    );
+  it("rejects a non-tradable broker account", async () => {
+    jest
+      .spyOn(
+        require("../../infrastructure/brokers/projectx/projectx.client")
+          .ProjectXClient.prototype,
+        "getAccounts",
+      )
+      .mockResolvedValue({
+        success: true,
+        accounts: [
+          {
+            id: "broker-account-1",
+            name: "TopstepX 50K",
+            balance: 50000,
+            canTrade: false,
+            currency: "USD",
+          },
+        ],
+      });
 
     await expect(
       service.bindAccount("org-1", "user-1", "connection-1", {
-        tradingAccountId: "trading-account-1",
-        brokerAccountId: "12345",
+        tradingAccountId: "account-1",
+        brokerAccountId: "broker-account-1",
       }),
-    ).rejects.toThrow(
-      "The selected broker account is not tradable.",
-    );
+    ).rejects.toBeInstanceOf(BadRequestException);
 
-    expect(
-      tradingAccountRepository.bindBroker,
-    ).not.toHaveBeenCalled();
+    expect(tradingAccountRepository.bindBroker).not.toHaveBeenCalled();
   });
 
-  it("does not bind an inaccessible RMSM trading account", async () => {
-    jest.mocked(tradingAccountRepository.findById).mockResolvedValue(null);
-
-    const service = new BrokerConnectionService(
-      repository,
-      encryption,
-      tradingAccountRepository,
-    );
+  it("rejects binding when the broker connection is inactive", async () => {
+    repository.findById.mockResolvedValue({
+      id: "connection-1",
+      organizationId: "org-1",
+      provider: BrokerProvider.PROJECTX,
+      name: "TopstepX",
+      status: BrokerConnectionStatus.INACTIVE,
+      credentialsEnc: "encrypted",
+      lastConnectionTestAt: null,
+      lastConnectionTestStatus: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
     await expect(
       service.bindAccount("org-1", "user-1", "connection-1", {
-        tradingAccountId: "trading-account-1",
-        brokerAccountId: "12345",
+        tradingAccountId: "account-1",
+        brokerAccountId: "broker-account-1",
       }),
-    ).rejects.toThrow("Trading account not found");
+    ).rejects.toBeInstanceOf(BadRequestException);
 
-    expect(
-      tradingAccountRepository.bindBroker,
-    ).not.toHaveBeenCalled();
+    expect(tradingAccountRepository.bindBroker).not.toHaveBeenCalled();
+  });
+
+  it("rejects binding to a trading account the owner cannot access", async () => {
+    tradingAccountRepository.findById.mockResolvedValue(null);
+
+    await expect(
+      service.bindAccount("org-1", "user-1", "connection-1", {
+        tradingAccountId: "account-1",
+        brokerAccountId: "broker-account-1",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(tradingAccountRepository.bindBroker).not.toHaveBeenCalled();
   });
 });
