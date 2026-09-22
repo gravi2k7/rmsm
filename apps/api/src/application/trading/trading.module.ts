@@ -13,8 +13,6 @@ import { PaperTradingRiskMonitorService } from "./paper-trading-risk-monitor.ser
 import { BrokerExecutionService } from "./broker-execution.service";
 import { BrokerConnectionModule } from "../brokers/broker-connection.module";
 import { BrokerSyncService } from "../brokers/sync/broker-sync.service";
-import { BrokerInstrumentMappingPrismaRepository } from "../../infrastructure/persistence/prisma/broker/broker-instrument-mapping.prisma-repository";
-import { BROKER_INSTRUMENT_MAPPING_REPOSITORY } from "./trading.tokens";
 
 
 @Module({
@@ -39,10 +37,6 @@ import { BROKER_INSTRUMENT_MAPPING_REPOSITORY } from "./trading.tokens";
     PaperTradingRiskMonitorService,
     BrokerExecutionService,
     BrokerSyncService,
-    {
-      provide: BROKER_INSTRUMENT_MAPPING_REPOSITORY,
-      useClass: BrokerInstrumentMappingPrismaRepository,
-    },
   ],
   exports: [
     TradingAccountService,
