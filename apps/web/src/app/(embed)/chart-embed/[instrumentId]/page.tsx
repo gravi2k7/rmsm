@@ -571,6 +571,7 @@ export default function ChartEmbedPage({
         pendingOrders={pendingOrders}
         activeDrawingTool={activeDrawingTool}
         drawingState={drawingState}
+        hideInternalDrawingTools
         onDrawingStateChange={(state) => {
           setDrawingState(state);
           postToNative({

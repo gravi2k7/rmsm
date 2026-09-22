@@ -41,7 +41,7 @@ export function MarketTimeframeMenu<T extends string>({
           size="sm"
           variant="outline"
           aria-label="Chart timeframe"
-          className="min-w-[76px] justify-between gap-2"
+          className="min-w-[76px] justify-between gap-2 border-slate-700 bg-[#0b1220] text-slate-100 hover:bg-[#111a2b] hover:text-white"
         >
           <span>{selected?.label ?? "Timeframe"}</span>
           <ChevronDown
@@ -53,14 +53,16 @@ export function MarketTimeframeMenu<T extends string>({
 
       <DropdownMenuContent
         align="start"
-        sideOffset={6}
-        className="min-w-[140px]"
+        side="bottom"
+        sideOffset={8}
+        collisionPadding={{ left: 8, right: 96, top: 8, bottom: 8 }}
+        className="z-[1000] min-w-[128px] rounded-xl border border-slate-700 bg-[#0b1220] p-1 text-slate-100 shadow-2xl"
       >
         {options.map((option) => (
           <DropdownMenuItem
             key={option.value}
             onSelect={() => onChange(option.value)}
-            className="flex items-center justify-between gap-3"
+            className="flex min-h-[40px] items-center justify-between gap-3 rounded-lg px-3 text-sm text-slate-100 focus:bg-cyan-500/15 focus:text-white data-[highlighted]:bg-cyan-500/15 data-[highlighted]:text-white"
           >
             <span>{option.label}</span>
 

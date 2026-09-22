@@ -183,6 +183,7 @@ interface RMSMCandlestickChartProps {
   chartSettings?: MarketChartSettings;
   activeDrawingTool?: DrawingType;
   drawingState?: DrawingState;
+  hideInternalDrawingTools?: boolean;
   onDrawingStateChange?: (state: DrawingState) => void;
   onChartLimitOrder?: (
     type: "LIMIT" | "STOP",
@@ -827,6 +828,7 @@ export const RMSMCandlestickChart = forwardRef<
   chartSettings = DEFAULT_MARKET_CHART_SETTINGS,
   activeDrawingTool = "SELECT",
   drawingState: controlledDrawingState,
+  hideInternalDrawingTools = false,
   onDrawingStateChange,
   onPendingOrderCancel,
   onPendingOrderPriceChange,
@@ -4762,9 +4764,10 @@ const [positionPnl, setPositionPnl] = useState<{
         </div>
       )}
 
-      <MarketFavoriteToolsToolbar
-        activeDrawingTool={activeDrawingTool}
-        onSelectTool={(tool) => {
+      {!hideInternalDrawingTools && (
+        <MarketFavoriteToolsToolbar
+          activeDrawingTool={activeDrawingTool}
+          onSelectTool={(tool) => {
           const nextState: DrawingState = {
             ...drawingStateRef.current,
             activeTool: tool,
@@ -4782,10 +4785,12 @@ const [positionPnl, setPositionPnl] = useState<{
 
           onDrawingStateChangeRef.current?.(nextState);
         }}
-      />
+        />
+      )}
 
-      <DrawingToolbox
-        activeTool={activeDrawingTool}
+      {!hideInternalDrawingTools && (
+        <DrawingToolbox
+          activeTool={activeDrawingTool}
         selectedTemplate={selectedDrawingTemplate}
         onSelectTemplate={setSelectedDrawingTemplate}
         templatesOpen={templatesOpen}
@@ -4808,7 +4813,8 @@ const [positionPnl, setPositionPnl] = useState<{
 
           onDrawingStateChangeRef.current?.(nextState);
         }}
-      />
+        />
+      )}
 
       {drawingContextMenu && contextDrawing && (
         <div
