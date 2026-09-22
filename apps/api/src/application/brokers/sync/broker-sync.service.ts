@@ -96,11 +96,13 @@ export class BrokerSyncService {
       );
     }
 
+    const brokerBalance = brokerAccount.balance;
+
     const result = {
       ordersProcessed: 0,
       fillsCreated: 0,
       positionsReconciled: 0,
-      balance: String(brokerAccount.balance),
+      balance: String(brokerBalance),
     };
 
     await this.transactionManager.run(async (client) => {
@@ -320,7 +322,7 @@ export class BrokerSyncService {
         organizationId,
         account.ownerUserId,
         accountId,
-        brokerAccount.balance,
+        brokerBalance,
         undefined,
         client,
       );

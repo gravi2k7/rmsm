@@ -3,7 +3,7 @@ import { prisma, type BrokerInstrumentMapping, type DbClient } from "@rmsm/datab
 import type {
   BrokerInstrumentMappingRepository,
   CreateBrokerInstrumentMappingInput,
-} from "../../../application/brokers/contracts/broker-instrument-mapping.repository";
+} from "../../../../application/brokers/contracts/broker-instrument-mapping.repository";
 
 @Injectable()
 export class BrokerInstrumentMappingPrismaRepository
