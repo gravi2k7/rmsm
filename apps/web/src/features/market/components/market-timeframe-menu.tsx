@@ -62,7 +62,9 @@ export function MarketTimeframeMenu<T extends string>({
           <DropdownMenuItem
             key={option.value}
             onSelect={() => onChange(option.value)}
-            className="flex min-h-[40px] items-center justify-between gap-3 rounded-lg px-3 text-sm text-slate-100 focus:bg-cyan-500/15 focus:text-white data-[highlighted]:bg-cyan-500/15 data-[highlighted]:text-white"
+            className={`flex min-h-[40px] items-center justify-between gap-3 rounded-lg px-3 text-sm text-slate-100 focus:bg-cyan-500/15 focus:text-white data-[highlighted]:bg-cyan-500/15 data-[highlighted]:text-white ${
+              option.value === value ? "bg-[#123d43] text-white" : ""
+            }`}
           >
             <span>{option.label}</span>
 

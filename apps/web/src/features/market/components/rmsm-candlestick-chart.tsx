@@ -135,6 +135,7 @@ export interface RMSMCandlestickChartHandle {
 }
 
 interface RMSMCandlestickChartProps {
+  embedControls?: boolean;
   candles: Candle[];
   height?: number;
   replayCursor?: number | null;
@@ -825,6 +826,7 @@ export const RMSMCandlestickChart = forwardRef<
   pricePrecision = 2,
   priceMinMove = 0.01,
   onRequestOlder,
+  embedControls,
   chartSettings = DEFAULT_MARKET_CHART_SETTINGS,
   activeDrawingTool = "SELECT",
   drawingState: controlledDrawingState,
@@ -5507,6 +5509,7 @@ const [positionPnl, setPositionPnl] = useState<{
           onScrollRight={scrollRight}
           onResetView={resetView}
           hidden={!navigationControlsVisible}
+          dark={embedControls}
         />
       </div>
     </div>

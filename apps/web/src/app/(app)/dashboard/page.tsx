@@ -10,7 +10,7 @@ function normalizeSymbol(symbol: string): string {
   return symbol.trim().toUpperCase().replace("/", "");
 }
 
-export default function DashboardPage() {
+export default function DashboardPage(): JSX.Element {
   const router = useRouter();
 
   const instrumentsQuery = useInstruments({

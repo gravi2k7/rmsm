@@ -4,6 +4,7 @@ import { useEffect, useState, type ComponentType, type CSSProperties } from "rea
 
 import {
   ArrowUpRight,
+  ChevronDown,
   ChartNoAxesCombined,
   CircleDot,
   Crosshair,
@@ -296,36 +297,37 @@ export function MarketDrawingToolsMenu({
         <DropdownMenuTrigger asChild>
           <Button
             type="button"
-            size="icon"
-            variant={
-              activeDrawingTool !== "SELECT" ? "default" : "ghost"
-            }
-            aria-label={
-              activeDrawingTool === "SELECT"
-                ? "Drawing tools"
-                : activeDefinition?.label ?? "Drawing tools"
-            }
+            size="sm"
+            variant="outline"
+            aria-label="Drawing tools"
             title={
               activeDrawingTool === "SELECT"
                 ? "Drawing tools"
                 : activeDefinition?.label ?? "Drawing tools"
             }
             className={cn(
-              "h-8 w-8 shrink-0 rounded-md",
-              open && "bg-accent text-accent-foreground",
+              "h-8 min-w-[100px] justify-between gap-2 rounded-md border-slate-700 bg-[#0b1220] px-3 text-slate-100 hover:bg-[#111a2b] hover:text-white",
+              open && "border-cyan-400 bg-[#123d43] text-white",
             )}
           >
-            <ActiveIcon
-              className="h-4 w-4"
-              style={{
-                color: drawingToolPalette(activeDrawingTool).color,
-              }}
+            <span className="flex items-center gap-2">
+              <ActiveIcon
+                className="h-4 w-4 shrink-0"
+                style={{
+                  color: drawingToolPalette(activeDrawingTool).color,
+                }}
+              />
+              <span>Drawing</span>
+            </span>
+            <ChevronDown
+              className="h-3.5 w-3.5 opacity-70"
+              aria-hidden="true"
             />
           </Button>
         </DropdownMenuTrigger>
 
         <DropdownMenuContent
-          align="start"
+          align="end"
           side="bottom"
           sideOffset={8}
           collisionPadding={{
@@ -334,7 +336,7 @@ export function MarketDrawingToolsMenu({
             top: 8,
             bottom: 8,
           }}
-          className="z-[100] w-[min(320px,calc(100vw-72px))] max-w-[calc(100vw-72px)] max-h-[min(70vh,560px)] overflow-y-auto rounded-xl border border-slate-700 bg-[#0b1220] p-1.5 text-slate-100 shadow-2xl"
+          className="z-[1000] w-72 max-w-[calc(100vw-104px)] max-h-[min(68vh,560px)] overflow-y-auto rounded-xl border border-slate-700 bg-[#0b1220] p-1.5 text-slate-100 shadow-2xl"
         >
           <DropdownMenuLabel className="px-2 py-1.5 text-xs font-semibold text-slate-200">
             Drawing Tools

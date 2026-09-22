@@ -5,6 +5,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarketDrawingToolsMenu } from "@/features/market/components/market-drawing-tools-menu";
 import { MarketTimeframeMenu } from "@/features/market/components/market-timeframe-menu";
 import { RMSMCandlestickChart } from "@/features/market/components/rmsm-candlestick-chart";
+import { MarketChartSettings } from "@/features/market/components/market-chart-settings";
+import {
+  cloneMarketChartSettings,
+  DEFAULT_MARKET_CHART_SETTINGS,
+  type MarketChartSettings as MarketChartSettingsValue,
+} from "@/features/market/chart-settings";
 import type { CandleInterval } from "@/features/market/types";
 import type { TradingPosition } from "@/features/trading/types";
 import type {
@@ -211,6 +217,42 @@ export default function ChartEmbedPage({
 
   const [drawingMenuOpen, setDrawingMenuOpen] = useState(false);
   const [chartMenuOpen, setChartMenuOpen] = useState(false);
+  const [chartSettingsOpen, setChartSettingsOpen] = useState(false);
+  const [chartSettings, setChartSettings] =
+    useState<MarketChartSettingsValue>(() =>
+      cloneMarketChartSettings(DEFAULT_MARKET_CHART_SETTINGS),
+    );
+
+  useEffect(() => {
+    if (!chartSettingsOpen && !chartMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      if (
+        target.closest("#mobile-chart-settings") ||
+        target.closest("#mobile-chart-menu")
+      ) {
+        return;
+      }
+
+      setChartSettingsOpen(false);
+      setChartMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [chartSettingsOpen, chartMenuOpen]);
+
 
   const [drawingState, setDrawingState] =
     useState<DrawingState>(() => createDrawingState());
@@ -437,6 +479,9 @@ export default function ChartEmbedPage({
             options={TIMEFRAMES}
             onChange={(nextInterval) => {
               setInterval(nextInterval);
+              setDrawingMenuOpen(false);
+              setChartMenuOpen(false);
+              setChartSettingsOpen(false);
               postToNative({
                 type: "rmsm:timeframe-change",
                 interval: nextInterval,
@@ -452,6 +497,7 @@ export default function ChartEmbedPage({
 
               if (open) {
                 setChartMenuOpen(false);
+                setChartSettingsOpen(false);
               }
             }}
             onSelectTool={(tool) => {
@@ -466,6 +512,7 @@ export default function ChartEmbedPage({
 
         {/* Chart menu */}
         <div
+          id="mobile-chart-menu"
           style={{
             position: "relative",
             flex: "0 0 auto",
@@ -478,6 +525,7 @@ export default function ChartEmbedPage({
             onClick={() => {
               setChartMenuOpen((open) => !open);
               setDrawingMenuOpen(false);
+              setChartSettingsOpen(false);
             }}
             style={{
               width: 34,
@@ -502,7 +550,7 @@ export default function ChartEmbedPage({
               style={{
                 position: "absolute",
                 top: 38,
-                right: 0,
+                right: 96,
                 width: 190,
                 padding: 6,
                 border: `1px solid ${borderColor}`,
@@ -518,47 +566,111 @@ export default function ChartEmbedPage({
                 ["Chart settings", "⚙"],
                 ["Reset chart", "↺"],
                 ["Fullscreen", "⛶"],
-              ].map(([label, icon]) => (
-                <button
-                  key={label}
-                  type="button"
-                  role="menuitem"
-                  disabled
-                  title={`${label} is available from the chart workstation`}
-                  style={{
-                    width: "100%",
-                    height: 38,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "0 10px",
-                    border: 0,
-                    borderRadius: 8,
-                    background: "transparent",
-                    color: mutedColor,
-                    fontSize: 12,
-                    textAlign: "left",
-                    cursor: "default",
-                    opacity: 0.8,
-                  }}
-                >
-                  <span
+              ].map(([label, icon]) => {
+                const isChartSettings = label === "Chart settings";
+
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    role="menuitem"
+                    disabled={!isChartSettings}
+                    onClick={() => {
+                      if (!isChartSettings) {
+                        return;
+                      }
+
+                      setChartMenuOpen(false);
+                      setChartSettingsOpen(true);
+                    }}
+                    title={
+                      isChartSettings
+                        ? "Chart settings"
+                        : `${label} is available from the chart workstation`
+                    }
                     style={{
-                      width: 20,
-                      textAlign: "center",
-                      color: textColor,
-                      fontSize: 15,
+                      width: "100%",
+                      height: 38,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "0 10px",
+                      border: 0,
+                      borderRadius: 8,
+                      background: "transparent",
+                      color: isChartSettings
+                        ? textColor
+                        : mutedColor,
+                      fontSize: 12,
+                      textAlign: "left",
+                      cursor: isChartSettings
+                        ? "pointer"
+                        : "default",
+                      opacity: isChartSettings ? 1 : 0.8,
                     }}
                   >
-                    {icon}
-                  </span>
-                  {label}
-                </button>
-              ))}
+                    <span
+                      style={{
+                        width: 20,
+                        textAlign: "center",
+                        color: textColor,
+                        fontSize: 15,
+                      }}
+                    >
+                      {icon}
+                    </span>
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
+
+      {chartSettingsOpen && (
+        <div
+          id="mobile-chart-settings"
+          style={{
+            position: "absolute",
+            top: 58,
+            left: 8,
+            zIndex: 110,
+            maxWidth: "calc(100vw - 104px)",
+            "--background": "222 47% 11%",
+            "--foreground": "213 31% 91%",
+            "--card": "222 47% 11%",
+            "--card-foreground": "213 31% 91%",
+            "--popover": "222 47% 11%",
+            "--popover-foreground": "213 31% 91%",
+            "--primary": "187 85% 38%",
+            "--primary-foreground": "222 47% 11%",
+            "--secondary": "217 33% 17%",
+            "--secondary-foreground": "213 31% 91%",
+            "--muted": "217 33% 17%",
+            "--muted-foreground": "215 20% 65%",
+            "--accent": "187 85% 25%",
+            "--accent-foreground": "213 31% 91%",
+            "--border": "215 28% 22%",
+            "--input": "215 28% 22%",
+            "--ring": "187 85% 53%",
+            backgroundColor: "hsl(222 47% 11%)",
+            color: "hsl(213 31% 91%)",
+          } as React.CSSProperties}
+        >
+          <MarketChartSettings
+            value={chartSettings}
+            onChange={setChartSettings}
+            onReset={() =>
+              setChartSettings(
+                cloneMarketChartSettings(
+                  DEFAULT_MARKET_CHART_SETTINGS,
+                ),
+              )
+            }
+          />
+        </div>
+      )}
 
       {/* ---------------------------------------------------
           CHART
@@ -571,6 +683,11 @@ export default function ChartEmbedPage({
         pendingOrders={pendingOrders}
         activeDrawingTool={activeDrawingTool}
         drawingState={drawingState}
+        chartSettings={chartSettings}
+        embedControls
+        onChartSettingsOpen={() => {
+          setChartSettingsOpen(true);
+        }}
         hideInternalDrawingTools
         onDrawingStateChange={(state) => {
           setDrawingState(state);
