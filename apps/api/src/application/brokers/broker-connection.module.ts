@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { OrganizationsModule } from "../../modules/organizations/organizations.module";
 import {
   TRADING_ACCOUNT_REPOSITORY,
   BROKER_INSTRUMENT_MAPPING_REPOSITORY,
@@ -14,7 +15,7 @@ import { BROKER_CONNECTION_REPOSITORY } from "./broker-connection.tokens";
 import { BrokerInstrumentMappingPrismaRepository } from "../../infrastructure/persistence/prisma/broker/broker-instrument-mapping.prisma-repository";
 
 @Module({
-  imports: [],
+  imports: [OrganizationsModule],
   controllers: [BrokerConnectionController, BrokerInstrumentMappingController],
   providers: [
     BrokerConnectionService,

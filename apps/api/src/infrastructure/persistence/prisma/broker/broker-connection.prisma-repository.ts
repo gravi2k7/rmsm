@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import {
   BrokerConnectionStatus,
   type BrokerConnection,
-  type DbClient,
   Prisma,
 } from "@rmsm/database";
 import { prisma } from "@rmsm/database";
@@ -15,10 +14,8 @@ import type {
 export class BrokerConnectionPrismaRepository
   implements BrokerConnectionRepository
 {
-  constructor(private readonly prismaClient: DbClient = prisma) {}
-
   create(input: CreateBrokerConnectionInput): Promise<BrokerConnection> {
-    return this.prismaClient.brokerConnection.create({
+    return prisma.brokerConnection.create({
       data: {
         organizationId: input.organizationId,
         provider: input.provider,
@@ -29,7 +26,7 @@ export class BrokerConnectionPrismaRepository
   }
 
   listByOrganization(organizationId: string): Promise<BrokerConnection[]> {
-    return this.prismaClient.brokerConnection.findMany({
+    return prisma.brokerConnection.findMany({
       where: { organizationId },
       orderBy: { createdAt: "desc" },
     });
@@ -39,7 +36,7 @@ export class BrokerConnectionPrismaRepository
     organizationId: string,
     id: string,
   ): Promise<BrokerConnection | null> {
-    return this.prismaClient.brokerConnection.findFirst({
+    return prisma.brokerConnection.findFirst({
       where: {
         id,
         organizationId,
@@ -54,7 +51,7 @@ export class BrokerConnectionPrismaRepository
     lastConnectionTestAt: Date,
     lastConnectionTestStatus: string,
   ): Promise<BrokerConnection> {
-    return this.prismaClient.brokerConnection.update({
+    return prisma.brokerConnection.update({
       where: { id },
       data: {
         status,
