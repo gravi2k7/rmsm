@@ -1,4 +1,6 @@
 import { DASHBOARD_NAV_SECTION } from "./sections/dashboard.section";
+import { AUTOMATION_NAV_SECTION } from "./sections/automation.section";
+import { INTEGRATIONS_NAV_SECTION } from "./sections/integrations.section";
 import { TRADING_NAV_SECTION } from "./sections/trading.section";
 import { ANALYTICS_NAV_SECTION } from "./sections/analytics.section";
 import { NOTIFICATIONS_NAV_SECTION } from "./sections/notifications.section";
@@ -21,6 +23,8 @@ import type { NavigationItem } from "./types";
 export const NAVIGATION_REGISTRY: NavigationItem[] = [
   ...DASHBOARD_NAV_SECTION,
   ...TRADING_NAV_SECTION,
+  ...AUTOMATION_NAV_SECTION,
+  ...INTEGRATIONS_NAV_SECTION,
   ...ANALYTICS_NAV_SECTION,
   ...NOTIFICATIONS_NAV_SECTION,
   ...ORGANIZATION_NAV_SECTION,
