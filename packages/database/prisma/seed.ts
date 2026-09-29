@@ -115,6 +115,7 @@ const DEFAULT_PERMISSIONS: { key: string; group: string; description: string }[]
   { key: "admin.license.manage", group: "admin", description: "Issue, assign, and revoke platform licenses." },
   { key: "admin.announcement.manage", group: "admin", description: "Create/update/delete system announcements." },
   { key: "admin.maintenance.manage", group: "admin", description: "Enable/disable platform maintenance mode." },
+  { key: "admin.mt5-workers.manage", group: "admin", description: "Provision, rotate, monitor, and control MT5 workers." },
 
   // ── Module 005, Domain 2: Billing & Subscription (additions) ───────
   { key: "billing.coupon.manage", group: "billing", description: "Create and deactivate coupons (platform-wide coupon management)." },
@@ -229,6 +230,7 @@ const ROLE_GRANTS: Record<string, string[]> = {
     "admin.license.manage",
     "admin.announcement.manage",
     "admin.maintenance.manage",
+    "admin.mt5-workers.manage",
   ],
   SUPPORT: ["users.read", "sessions.read", "sessions.revoke"],
   ANALYST: ["users.read", "audit.read", ...ORGANIZATION_BASIC_PERMISSIONS, ...BILLING_READ_PERMISSIONS, "notification.read", "market-data.read", "indicator-engine.read", "indicator-engine.execute", "strategy-engine.read", "strategy-engine.write", "ai-gateway.use"],

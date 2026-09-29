@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LineChart, ExternalLink } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, cn } from "@rmsm/ui";
-import { getNavigationItems } from "@/lib/navigation";
+import { getNavigationSections } from "@/lib/navigation";
 import type { NavigationItem } from "@/lib/navigation";
 import { useAuthStore } from "@/lib/auth-store";
 
@@ -96,7 +96,7 @@ export function MobileNav({
 }) {
   const pathname = usePathname();
   const hasPermission = useAuthStore((s) => s.hasPermission);
-  const items = getNavigationItems({ hasPermission });
+  const sections = getNavigationSections({ hasPermission });
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -113,14 +113,21 @@ export function MobileNav({
           </SheetTitle>
         </SheetHeader>
         <nav aria-label="Main navigation" className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {items.map((item) => (
-            <NavLink
-              key={item.id}
-              item={item}
-              pathname={pathname}
-              depth={0}
-              onNavigate={() => onOpenChange(false)}
-            />
+          {sections.map((section) => (
+            <div key={section.id} className="space-y-1">
+              <div className="px-2 pb-1 pt-3 text-[10px] font-semibold tracking-[0.08em] text-slate-500">
+                {section.title}
+              </div>
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.id}
+                  item={item}
+                  pathname={pathname}
+                  depth={0}
+                  onNavigate={() => onOpenChange(false)}
+                />
+              ))}
+            </div>
           ))}
         </nav>
       </SheetContent>

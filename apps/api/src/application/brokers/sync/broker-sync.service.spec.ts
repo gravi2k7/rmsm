@@ -6,6 +6,7 @@ import {
 
 import { BrokerSyncService } from "./broker-sync.service";
 import type { BrokerConnectionService } from "../broker-connection.service";
+import type { BrokerExecutionService } from "../../trading/broker-execution.service";
 import type { BrokerInstrumentMappingRepository } from "../contracts/broker-instrument-mapping.repository";
 import type { PaperTradingRepository } from "../../trading/paper-trading.repository";
 import type { TradingAccountRepository } from "../../trading/trading.repository";
@@ -15,6 +16,10 @@ describe("BrokerSyncService", () => {
   const brokerConnectionService = {
     getAdapterForExecution: jest.fn(),
   } as unknown as BrokerConnectionService;
+
+  const brokerExecutionService = {
+    reconcileBrokerOrder: jest.fn(),
+  } as unknown as BrokerExecutionService;
 
   const tradingAccountRepository = {
     findByAccountId: jest.fn(),
@@ -145,6 +150,7 @@ describe("BrokerSyncService", () => {
 
     const service = new BrokerSyncService(
       brokerConnectionService,
+      brokerExecutionService,
       tradingAccountRepository,
       mappingRepository,
       tradingRepository,
@@ -194,6 +200,7 @@ describe("BrokerSyncService", () => {
 
     const service = new BrokerSyncService(
       brokerConnectionService,
+      brokerExecutionService,
       tradingAccountRepository,
       mappingRepository,
       tradingRepository,
@@ -232,6 +239,7 @@ describe("BrokerSyncService", () => {
 
     const service = new BrokerSyncService(
       brokerConnectionService,
+      brokerExecutionService,
       tradingAccountRepository,
       mappingRepository,
       tradingRepository,

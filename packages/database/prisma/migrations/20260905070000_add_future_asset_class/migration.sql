@@ -1,0 +1,1 @@
+ALTER TYPE "AssetClass" ADD VALUE 'FUTURE';

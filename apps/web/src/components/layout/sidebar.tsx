@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LineChart, ExternalLink } from "lucide-react";
 import { cn } from "@rmsm/ui";
-import { getNavigationItems } from "@/lib/navigation";
+import { getNavigationSections } from "@/lib/navigation";
 import type { NavigationItem } from "@/lib/navigation";
 import { useAuthStore } from "@/lib/auth-store";
 import { useUiStore } from "@/store/use-ui-store";
@@ -121,7 +121,7 @@ export function Sidebar() {
 
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
 
-  const items = getNavigationItems({ hasPermission });
+  const sections = getNavigationSections({ hasPermission });
 
   return (
     <aside
@@ -167,14 +167,23 @@ export function Sidebar() {
           sidebarOpen ? "space-y-1 px-3" : "space-y-1 px-2",
         )}
       >
-        {items.map((item) => (
-          <NavLink
-            key={item.id}
-            item={item}
-            pathname={pathname}
-            depth={0}
-            collapsed={!sidebarOpen}
-          />
+        {sections.map((section) => (
+          <div key={section.id} className="space-y-1">
+            {sidebarOpen && (
+              <div className="px-3 pb-1 pt-3 text-[10px] font-semibold tracking-[0.08em] text-muted-foreground">
+                {section.title}
+              </div>
+            )}
+            {section.items.map((item) => (
+              <NavLink
+                key={item.id}
+                item={item}
+                pathname={pathname}
+                depth={0}
+                collapsed={!sidebarOpen}
+              />
+            ))}
+          </div>
         ))}
       </nav>
     </aside>

@@ -1,0 +1,9 @@
+ALTER TABLE "rdse_v2_runtime_states"
+ADD COLUMN "htfRefExtreme" DECIMAL,
+ADD COLUMN "htfInPullback" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "htfMustReclaim" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "htfPromoOpen" DECIMAL,
+ADD COLUMN "ltfRefExtreme" DECIMAL,
+ADD COLUMN "ltfInPullback" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "ltfMustReclaim" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "ltfPromoOpen" DECIMAL;

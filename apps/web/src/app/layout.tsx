@@ -11,6 +11,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "RMSM AI",
   description: "Institutional-grade AI trading platform",
+  icons: {
+    icon: "/favicon.png",
+  },
   // WM-015R Part 1/9 — lets every nested route's relative OpenGraph/Twitter
   // image URLs (e.g. `opengraph-image.tsx`'s file-convention output)
   // resolve against the real site origin instead of erroring/relative-

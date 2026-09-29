@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
+import { EmailModule } from "../email/email.module";
 import { OrganizationRepository } from "./repositories/organization.repository";
 import { OrganizationMembershipRepository } from "./repositories/membership.repository";
 import { OrganizationMembershipEventRepository } from "./repositories/membership-event.repository";
@@ -21,7 +22,7 @@ import { OrganizationStatisticsController } from "./statistics.controller";
  * (OrganizationRoleGuard, OrganizationStatisticsService) were added.
  */
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, EmailModule],
   controllers: [OrganizationController, MembershipController, InvitationController, OrganizationStatisticsController],
   providers: [
     OrganizationRepository,

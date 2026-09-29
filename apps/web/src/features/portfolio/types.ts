@@ -21,6 +21,10 @@ export interface Position {
   realizedPnl?: number;
   openedAt: string;
   closedAt?: string;
+  accountName?: string;
+  currentPrice?: number;
+  unrealizedPnl?: number;
+  margin?: number;
 }
 
 export interface Trade {
@@ -34,6 +38,8 @@ export interface Trade {
   isWin: boolean;
   openedAt: string;
   closedAt: string;
+  accountName?: string;
+  type?: "MARKET" | "LIMIT" | "STOP" | "STOP_LIMIT";
 }
 
 export interface Paginated<T> {

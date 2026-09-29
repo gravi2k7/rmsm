@@ -95,6 +95,7 @@ export class InstrumentOnboardingService {
           instrumentId: instrument.id,
           providerId: providerConfig.id,
           providerSymbol,
+          providerInstrumentId: request.providerInstrumentId?.trim() || undefined,
         },
         tx,
       );

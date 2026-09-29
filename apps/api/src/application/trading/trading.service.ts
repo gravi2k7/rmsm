@@ -108,6 +108,52 @@ export class TradingAccountService {
     );
   }
 
+  async updateLeverage(
+    organizationId: string,
+    ownerUserId: string,
+    accountId: string,
+    leverage: number,
+  ): Promise<TradingAccount> {
+    if (!Number.isFinite(leverage) || leverage < 1) {
+      throw new BadRequestException(
+        "Leverage must be greater than or equal to 1",
+      );
+    }
+
+    return this.transactionManager.run(async (client) => {
+      const account = await this.repository.findById(
+        organizationId,
+        ownerUserId,
+        accountId,
+        client,
+      );
+
+      if (!account) {
+        throw new NotFoundException("Trading account not found");
+      }
+
+      if (account.status !== TradingAccountStatus.ACTIVE) {
+        throw new BadRequestException(
+          "Trading account is not active",
+        );
+      }
+
+      if (account.type !== TradingAccountType.DEMO) {
+        throw new BadRequestException(
+          "Leverage can only be changed on simulation accounts",
+        );
+      }
+
+      return this.repository.updateLeverage(
+        organizationId,
+        ownerUserId,
+        accountId,
+        leverage,
+        client,
+      );
+    });
+  }
+
   async addVirtualFunds(
     organizationId: string,
     ownerUserId: string,

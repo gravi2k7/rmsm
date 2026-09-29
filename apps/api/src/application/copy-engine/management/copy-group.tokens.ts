@@ -1,0 +1,1 @@
+export const COPY_GROUP_REPOSITORY = Symbol("COPY_GROUP_REPOSITORY");

@@ -12,6 +12,7 @@ import {
 import { TransactionManager } from "@rmsm/database";
 
 import { BrokerConnectionService } from "../broker-connection.service";
+import { BrokerExecutionService } from "../../trading/broker-execution.service";
 import type { BrokerInstrumentMappingRepository } from "../contracts/broker-instrument-mapping.repository";
 import type { PaperTradingRepository } from "../../trading/paper-trading.repository";
 import type { TradingAccountRepository } from "../../trading/trading.repository";
@@ -26,6 +27,7 @@ import {
 export class BrokerSyncService {
   constructor(
     private readonly brokerConnectionService: BrokerConnectionService,
+    private readonly brokerExecutionService: BrokerExecutionService,
     @Inject(TRADING_ACCOUNT_REPOSITORY)
     private readonly tradingAccountRepository: TradingAccountRepository,
     @Inject(BROKER_INSTRUMENT_MAPPING_REPOSITORY)
@@ -105,103 +107,76 @@ export class BrokerSyncService {
       balance: String(brokerBalance),
     };
 
-    await this.transactionManager.run(async (client) => {
-      for (const brokerOrder of orders) {
-        const localOrder =
-          await this.tradingRepository.findOrderByBrokerOrderId(
-            accountId,
-            brokerOrder.id,
-            client,
-          );
-
-        if (!localOrder) {
-          continue;
-        }
-
-        const status = this.mapOrderStatus(brokerOrder.status);
-
-        await this.tradingRepository.updateOrder(
-          localOrder.id,
-          {
-            status,
-            executedPrice:
-              brokerOrder.filledPrice !== undefined
-                ? String(brokerOrder.filledPrice)
-                : undefined,
-            filledAt:
-              status === TradingOrderStatus.FILLED
-                ? brokerOrder.updatedAt ?? brokerOrder.createdAt ?? new Date()
-                : undefined,
-          },
-          client,
+    /*
+     * Reconcile broker orders through BrokerExecutionService.
+     *
+     * Do this outside the position transaction because
+     * reconcileBrokerOrder() owns its own transaction and is the
+     * canonical broker-fill -> position/P&L path.
+     *
+     * This also makes broker sync idempotent:
+     * broker trades are deduplicated by brokerTradeId inside the
+     * canonical reconciliation service.
+     */
+    for (const brokerOrder of orders) {
+      const localOrder =
+        await this.tradingRepository.findOrderByBrokerOrderId(
+          accountId,
+          brokerOrder.id,
         );
 
-        result.ordersProcessed += 1;
+      if (!localOrder) {
+        continue;
       }
 
-      for (const brokerTrade of trades) {
+      const orderTrades = trades.filter(
+        (brokerTrade) => brokerTrade.orderId === brokerOrder.id,
+      );
+
+      /*
+       * Count only genuinely new broker trades for the sync result.
+       * reconcileBrokerOrder() itself remains responsible for the
+       * actual deduplication and persistence.
+       */
+      let newFillCount = 0;
+
+      for (const brokerTrade of orderTrades) {
         const existingFill =
           await this.tradingRepository.findFillByBrokerTradeId(
             brokerTrade.id,
-            client,
           );
 
-        if (existingFill) {
-          continue;
+        if (!existingFill) {
+          newFillCount += 1;
         }
-
-        const mapping =
-          await this.mappingRepository.findByConnectionAndBrokerInstrument(
-            account.brokerConnectionId!,
-            brokerTrade.instrumentId,
-          );
-
-        if (!mapping) {
-          continue;
-        }
-
-        const localOrder =
-          brokerTrade.orderId
-            ? await this.tradingRepository.findOrderByBrokerOrderId(
-                accountId,
-                brokerTrade.orderId,
-                client,
-              )
-            : null;
-
-        if (!localOrder) {
-          continue;
-        }
-
-        if (localOrder.instrumentId !== mapping.instrumentId) {
-          continue;
-        }
-
-        await this.tradingRepository.createFill(
-          {
-            orderId: localOrder.id,
-            brokerTradeId: brokerTrade.id,
-            price: String(brokerTrade.price),
-            quantity: String(brokerTrade.quantity),
-            commission: String(brokerTrade.commission ?? 0),
-            filledAt: brokerTrade.timestamp,
-          },
-          client,
-        );
-
-        await this.tradingRepository.updateOrder(
-          localOrder.id,
-          {
-            status: TradingOrderStatus.FILLED,
-            executedPrice: String(brokerTrade.price),
-            filledAt: brokerTrade.timestamp,
-          },
-          client,
-        );
-
-        result.fillsCreated += 1;
       }
 
+      await this.brokerExecutionService.reconcileBrokerOrder(
+        organizationId,
+        accountId,
+        localOrder.id,
+        brokerOrder.id,
+        trades.map((brokerTrade) => ({
+          id: brokerTrade.id,
+          orderId: brokerTrade.orderId,
+          instrumentId: brokerTrade.instrumentId,
+          side: brokerTrade.side === "BUY" ? "BUY" : "SELL",
+          quantity: brokerTrade.quantity,
+          price: brokerTrade.price,
+          commission: brokerTrade.commission,
+          timestamp: brokerTrade.timestamp,
+        })),
+        brokerOrder.status,
+        brokerOrder.filledQuantity,
+        brokerOrder.filledPrice,
+        brokerOrder.updatedAt ?? brokerOrder.createdAt,
+      );
+
+      result.ordersProcessed += 1;
+      result.fillsCreated += newFillCount;
+    }
+
+    await this.transactionManager.run(async (client) => {
       const brokerPositionState = new Map<
         string,
         {
@@ -220,6 +195,26 @@ export class BrokerSyncService {
           );
 
         if (!mapping) {
+          continue;
+        }
+
+        if (
+          !Number.isFinite(brokerPosition.quantity) ||
+          brokerPosition.quantity <= 0 ||
+          !Number.isFinite(brokerPosition.averagePrice) ||
+          brokerPosition.averagePrice <= 0
+        ) {
+          console.error(
+            "[BrokerSyncService] Skipping broker position with invalid quantity/average price",
+            {
+              accountId,
+              brokerPositionId: brokerPosition.id,
+              instrumentId: brokerPosition.instrumentId,
+              side: brokerPosition.side,
+              quantity: brokerPosition.quantity,
+              averagePrice: brokerPosition.averagePrice,
+            },
+          );
           continue;
         }
 
@@ -329,6 +324,49 @@ export class BrokerSyncService {
     });
 
     return result;
+  }
+
+  /**
+   * Reconcile every active trading account currently bound to a broker.
+   *
+   * Used by the background broker reconciliation worker.
+   * Individual account failures are isolated so one broken broker
+   * connection cannot prevent other accounts from being reconciled.
+   */
+  async syncAllBrokerAccounts(): Promise<{
+    accountsProcessed: number;
+    accountsSucceeded: number;
+    accountsFailed: number;
+  }> {
+    const accounts =
+      await this.tradingAccountRepository.findBrokerBoundActive();
+
+    let accountsSucceeded = 0;
+    let accountsFailed = 0;
+
+    for (const account of accounts) {
+      if (!account.brokerConnectionId || !account.brokerAccountId) {
+        continue;
+      }
+
+      try {
+        await this.syncAccount(account.organizationId, account.id);
+        accountsSucceeded += 1;
+      } catch (error) {
+        accountsFailed += 1;
+
+        console.error(
+          `[BrokerSyncService] Failed to reconcile account ${account.id}`,
+          error,
+        );
+      }
+    }
+
+    return {
+      accountsProcessed: accounts.length,
+      accountsSucceeded,
+      accountsFailed,
+    };
   }
 
   private mapOrderStatus(status: string): TradingOrderStatus {

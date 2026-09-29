@@ -40,6 +40,16 @@ export interface TradingAccountRepository {
     client?: DbClient,
   ): Promise<TradingAccount[]>;
 
+  /**
+   * Returns active trading accounts that are bound to a broker account.
+   *
+   * This is intentionally organization-independent because it is used by
+   * the background broker reconciliation worker.
+   */
+  findBrokerBoundActive(
+    client?: DbClient,
+  ): Promise<TradingAccount[]>;
+
   bindBroker(
     organizationId: string,
     ownerUserId: string,
@@ -55,6 +65,14 @@ export interface TradingAccountRepository {
     accountId: string,
     balance: number,
     status?: TradingAccount["status"],
+    client?: DbClient,
+  ): Promise<TradingAccount>;
+
+  updateLeverage(
+    organizationId: string,
+    ownerUserId: string,
+    accountId: string,
+    leverage: number,
     client?: DbClient,
   ): Promise<TradingAccount>;
 

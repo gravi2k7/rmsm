@@ -1,0 +1,3 @@
+export const MT5_WORKER_REPOSITORY = Symbol(
+  "MT5_WORKER_REPOSITORY",
+);

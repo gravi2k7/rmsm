@@ -65,3 +65,14 @@ Thumbs.db
 # ==========================
 infra/docker/**/.env
 !.env.example
+# Local production/recovery artifacts
+.env.before-broker-key-*
+.env.live-ctrader-backup-*
+127.0.0.1:*
+nohup.out
+
+# Local pre-change backup snapshots
+*.before-*
+
+# Local broker client backup
+*.backup-*

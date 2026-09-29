@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Wallet, TrendingUp, TrendingDown, PieChart as PieChartIcon } from "lucide-react";
+import { Search, Wallet, TrendingUp, TrendingDown, PieChart as PieChartIcon, Gauge, ShieldCheck, Banknote } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
 import {
   Input,
@@ -28,7 +28,6 @@ import { TablePagination } from "@/components/ui-extra/table-pagination";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 import {
-  computePerformanceMetrics,
   computeTodaysRealizedPnl,
   computeWeeklyRealizedPnl,
   computeMonthlyRealizedPnl,
@@ -39,8 +38,7 @@ import type { Position, Trade } from "@/features/portfolio/types";
 import { useSessionStore } from "@/lib/session-store";
 import {
   useTradingAccounts,
-  useTradingPositions,
-  useTradingTrades,
+  useTradingPortfolioData,
 } from "@/features/trading/hooks/use-trading-accounts";
 import { useInstrumentsBatch, useQuotes } from "@/features/market/hooks/use-market-data";
 import { useCreateDemoTradingAccount } from "@/features/trading/hooks/use-create-demo-trading-account";
@@ -60,7 +58,7 @@ const CHART_COLORS = [
 ];
 
 function currency(value: number | undefined): string {
-  if (value === undefined) return "—";
+  if (value === undefined || !Number.isFinite(value)) return "—";
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 }
 
@@ -69,6 +67,7 @@ function AllocationChart({ positions }: { positions: Position[] }) {
     const bySymbol = new Map<string, number>();
     for (const p of positions) {
       const notional = Math.abs(p.quantityUnits * p.averageEntryPrice);
+      if (!Number.isFinite(notional)) continue;
       bySymbol.set(p.symbolCode, (bySymbol.get(p.symbolCode) ?? 0) + notional);
     }
     return Array.from(bySymbol.entries()).map(([name, value]) => ({ name, value }));
@@ -111,6 +110,7 @@ function CurrencyExposure({ positions }: { positions: Position[] }) {
     const byCurrency = new Map<string, number>();
     for (const p of positions) {
       const notional = Math.abs(p.quantityUnits * p.averageEntryPrice);
+      if (!Number.isFinite(notional)) continue;
       const base = /^[A-Z]{6}$/.test(p.symbolCode) ? p.symbolCode.slice(0, 3) : "Other";
       byCurrency.set(base, (byCurrency.get(base) ?? 0) + notional);
     }
@@ -147,7 +147,9 @@ function PositionsTable({
 
   const filtered = useMemo(() => {
     const q = debouncedSearch.trim().toUpperCase();
-    return positions.filter((p) => !q || p.symbolCode.toUpperCase().includes(q));
+    return positions.filter(
+      (p) => !q || p.symbolCode.toUpperCase().includes(q),
+    );
   }, [positions, debouncedSearch]);
 
   const { pageItems, meta } = paginateClientSide(filtered, page, PAGE_SIZE);
@@ -165,7 +167,7 @@ function PositionsTable({
             setSearch(e.target.value);
             setPage(1);
           }}
-          placeholder="Search symbol…"
+          placeholder="Search instrument…"
           className="pl-8"
           aria-label="Search positions"
         />
@@ -179,64 +181,196 @@ function PositionsTable({
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Symbol</TableHead>
-                <TableHead>Side</TableHead>
-                <TableHead>Quantity</TableHead>
-                <TableHead>Entry Price</TableHead>
-                {status === "CLOSED" && <TableHead>Exit Price</TableHead>}
-                {status === "CLOSED" && <TableHead>Realized P&amp;L</TableHead>}
-                <TableHead>{status === "OPEN" ? "Opened" : "Closed"}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pageItems.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.symbolCode}</TableCell>
-                  <TableCell>
-                    <Badge variant={p.side === "LONG" ? "success" : "destructive"}>{p.side}</Badge>
-                  </TableCell>
-                  <TableCell className="tabular-nums">{p.quantityUnits.toLocaleString()}</TableCell>
-                  <TableCell className="tabular-nums">{p.averageEntryPrice}</TableCell>
-                  {status === "CLOSED" && (
-                    <TableCell className="tabular-nums">{p.averageExitPrice ?? "—"}</TableCell>
-                  )}
-                  {status === "CLOSED" && (
-                    <TableCell
-                      className={`tabular-nums ${(p.realizedPnl ?? 0) >= 0 ? "text-success" : "text-destructive"}`}
-                    >
-                      {p.realizedPnl !== undefined ? currency(p.realizedPnl) : "—"}
-                    </TableCell>
-                  )}
-                  <TableCell className="text-muted-foreground text-sm">
-                    {new Date(
-                      status === "OPEN" ? p.openedAt : (p.closedAt ?? p.openedAt),
-                    ).toLocaleString()}
-                  </TableCell>
+              {status === "OPEN" ? (
+                <TableRow>
+                  <TableHead>Instrument</TableHead>
+                  <TableHead>Account</TableHead>
+                  <TableHead>BUY/SELL</TableHead>
+                  <TableHead className="text-right">Quantity</TableHead>
+                  <TableHead className="text-right">Entry</TableHead>
+                  <TableHead className="text-right">Current</TableHead>
+                  <TableHead className="text-right">
+                    Unrealized P&amp;L
+                  </TableHead>
+                  <TableHead className="text-right">Margin</TableHead>
                 </TableRow>
-              ))}
+              ) : (
+                <TableRow>
+                  <TableHead>Instrument</TableHead>
+                  <TableHead>Side</TableHead>
+                  <TableHead>Quantity</TableHead>
+                  <TableHead>Entry Price</TableHead>
+                  <TableHead>Exit Price</TableHead>
+                  <TableHead>Realized P&amp;L</TableHead>
+                  <TableHead>Closed</TableHead>
+                </TableRow>
+              )}
+            </TableHeader>
+
+            <TableBody>
+              {pageItems.map((p) => {
+                if (status === "OPEN") {
+                  return (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium">
+                        {p.symbolCode}
+                      </TableCell>
+
+                      <TableCell>
+                        {p.accountName ?? "—"}
+                      </TableCell>
+
+                      <TableCell>
+                        <Badge
+                          variant={
+                            p.side === "LONG"
+                              ? "success"
+                              : "destructive"
+                          }
+                        >
+                          {p.side === "LONG" ? "BUY" : "SELL"}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell className="text-right tabular-nums">
+                        {Number.isFinite(p.quantityUnits)
+                          ? p.quantityUnits.toLocaleString()
+                          : "—"}
+                      </TableCell>
+
+                      <TableCell className="text-right tabular-nums">
+                        {Number.isFinite(p.averageEntryPrice)
+                          ? p.averageEntryPrice
+                          : "—"}
+                      </TableCell>
+
+                      <TableCell className="text-right tabular-nums">
+                        {p.currentPrice !== undefined
+                          ? p.currentPrice
+                          : "—"}
+                      </TableCell>
+
+                      <TableCell
+                        className={`text-right tabular-nums ${
+                          (p.unrealizedPnl ?? 0) >= 0
+                            ? "text-success"
+                            : "text-destructive"
+                        }`}
+                      >
+                        {p.unrealizedPnl !== undefined
+                          ? currency(p.unrealizedPnl)
+                          : "—"}
+                      </TableCell>
+
+                      <TableCell className="text-right tabular-nums">
+                        {p.margin !== undefined
+                          ? currency(p.margin)
+                          : "—"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">
+                      {p.symbolCode}
+                    </TableCell>
+
+                    <TableCell>
+                      <Badge
+                        variant={
+                          p.side === "LONG"
+                            ? "success"
+                            : "destructive"
+                        }
+                      >
+                        {p.side}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell className="tabular-nums">
+                      {Number.isFinite(p.quantityUnits)
+                        ? p.quantityUnits.toLocaleString()
+                        : "—"}
+                    </TableCell>
+
+                    <TableCell className="tabular-nums">
+                      {Number.isFinite(p.averageEntryPrice)
+                        ? p.averageEntryPrice
+                        : "—"}
+                    </TableCell>
+
+                    <TableCell className="tabular-nums">
+                      {p.averageExitPrice ?? "—"}
+                    </TableCell>
+
+                    <TableCell
+                      className={`tabular-nums ${
+                        (p.realizedPnl ?? 0) >= 0
+                          ? "text-success"
+                          : "text-destructive"
+                      }`}
+                    >
+                      {p.realizedPnl !== undefined
+                        ? currency(p.realizedPnl)
+                        : "—"}
+                    </TableCell>
+
+                    <TableCell className="text-muted-foreground text-sm">
+                      {new Date(
+                        p.closedAt ?? p.openedAt,
+                      ).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
-          <TablePagination pagination={meta} onPageChange={setPage} />
+
+          <TablePagination
+            pagination={meta}
+            onPageChange={setPage}
+          />
         </div>
       )}
     </div>
   );
 }
 
-function TradeHistoryTable({ trades, isLoading }: { trades: Trade[]; isLoading: boolean }) {
+function TradeHistoryTable({
+  trades,
+  isLoading,
+}: {
+  trades: Trade[];
+  isLoading: boolean;
+}) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const filtered = useMemo(() => {
     const q = debouncedSearch.trim().toUpperCase();
+
     return [...trades]
-      .filter((t) => !q || t.symbolCode.toUpperCase().includes(q))
-      .sort((a, b) => new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime());
+      .filter(
+        (t) =>
+          !q ||
+          t.symbolCode.toUpperCase().includes(q) ||
+          (t.accountName ?? "").toUpperCase().includes(q),
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.closedAt).getTime() -
+          new Date(a.closedAt).getTime(),
+      );
   }, [trades, debouncedSearch]);
 
-  const { pageItems, meta } = paginateClientSide(filtered, page, PAGE_SIZE);
+  const { pageItems, meta } = paginateClientSide(
+    filtered,
+    page,
+    PAGE_SIZE,
+  );
 
   return (
     <div className="space-y-3">
@@ -251,7 +385,7 @@ function TradeHistoryTable({ trades, isLoading }: { trades: Trade[]; isLoading: 
             setSearch(e.target.value);
             setPage(1);
           }}
-          placeholder="Search symbol…"
+          placeholder="Search instrument…"
           className="pl-8"
           aria-label="Search trade history"
         />
@@ -266,42 +400,74 @@ function TradeHistoryTable({ trades, isLoading }: { trades: Trade[]; isLoading: 
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Symbol</TableHead>
-                <TableHead>Side</TableHead>
-                <TableHead>Quantity</TableHead>
-                <TableHead>Entry</TableHead>
-                <TableHead>Exit</TableHead>
-                <TableHead>Open Time</TableHead>
-                <TableHead>Realized P&amp;L</TableHead>
-                <TableHead>Closed</TableHead>
+                <TableHead>Time</TableHead>
+                <TableHead>Instrument</TableHead>
+                <TableHead>Account</TableHead>
+                <TableHead>BUY/SELL</TableHead>
+                <TableHead className="text-right">Quantity</TableHead>
+                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="text-right">P&amp;L</TableHead>
+                <TableHead>Type</TableHead>
               </TableRow>
             </TableHeader>
+
             <TableBody>
               {pageItems.map((t) => (
                 <TableRow key={t.id}>
-                  <TableCell className="font-medium">{t.symbolCode}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                    {new Date(t.closedAt).toLocaleString()}
+                  </TableCell>
+
+                  <TableCell className="font-medium">
+                    {t.symbolCode}
+                  </TableCell>
+
                   <TableCell>
-                    <Badge variant={t.side === "LONG" ? "success" : "destructive"}>{t.side}</Badge>
+                    {t.accountName ?? "—"}
                   </TableCell>
-                  <TableCell className="tabular-nums">{t.quantityUnits.toLocaleString()}</TableCell>
-                  <TableCell className="tabular-nums">{t.entryPrice}</TableCell>
-                  <TableCell className="tabular-nums">{t.exitPrice}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {new Date(t.openedAt).toLocaleString()}
+
+                  <TableCell>
+                    <Badge
+                      variant={
+                        t.side === "LONG"
+                          ? "success"
+                          : "destructive"
+                      }
+                    >
+                      {t.side === "LONG" ? "BUY" : "SELL"}
+                    </Badge>
                   </TableCell>
+
+                  <TableCell className="text-right tabular-nums">
+                    {t.quantityUnits.toLocaleString()}
+                  </TableCell>
+
+                  <TableCell className="text-right tabular-nums">
+                    {t.exitPrice}
+                  </TableCell>
+
                   <TableCell
-                    className={`tabular-nums ${t.realizedPnl >= 0 ? "text-success" : "text-destructive"}`}
+                    className={`text-right tabular-nums ${
+                      t.realizedPnl >= 0
+                        ? "text-success"
+                        : "text-destructive"
+                    }`}
                   >
                     {currency(t.realizedPnl)}
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {new Date(t.closedAt).toLocaleString()}
+
+                  <TableCell>
+                    {t.type ?? "—"}
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          <TablePagination pagination={meta} onPageChange={setPage} />
+
+          <TablePagination
+            pagination={meta}
+            onPageChange={setPage}
+          />
         </div>
       )}
     </div>
@@ -327,27 +493,45 @@ export default function PortfolioCenterPage() {
 
   const activeAccountId = selectedAccountId ?? demoTradingAccounts[0]?.id;
 
-  const tradingPositionsQuery = useTradingPositions(organizationId, activeAccountId);
-
-  const tradingTradesQuery = useTradingTrades(organizationId, activeAccountId);
-
-  const instrumentIds = useMemo(
-    () =>
-      Array.from(
-        new Set([
-          ...(tradingPositionsQuery.data ?? []).map((position) => position.instrumentId),
-          ...(tradingTradesQuery.data ?? []).map((trade) => trade.instrumentId),
-        ]),
-      ),
-    [tradingPositionsQuery.data, tradingTradesQuery.data],
+  const portfolioAccountIds = useMemo(
+    () => demoTradingAccounts.map((account) => account.id),
+    [demoTradingAccounts],
   );
 
-  const instrumentsQuery = useInstrumentsBatch(instrumentIds);
+  const portfolioTradingData = useTradingPortfolioData(
+    organizationId,
+    portfolioAccountIds,
+  );
 
-  const instrumentById = useMemo(() => {
+  const createDemoAccount = useCreateDemoTradingAccount(organizationId);
+
+  const maintenance = useTradingAccountMaintenance(organizationId, activeAccountId);
+
+  const portfolioPositions = useMemo(() => {
+    return portfolioAccountIds.flatMap((accountId, index) =>
+      (portfolioTradingData.positionQueries[index]?.data ?? []).map((position) => ({
+        ...position,
+        accountId,
+      })),
+    );
+  }, [portfolioAccountIds, portfolioTradingData.positionQueries]);
+
+  const portfolioInstrumentIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          portfolioPositions.map((position) => position.instrumentId),
+        ),
+      ),
+    [portfolioPositions],
+  );
+
+  const portfolioInstrumentsQuery = useInstrumentsBatch(portfolioInstrumentIds);
+
+  const portfolioInstrumentById = useMemo(() => {
     const map = new Map<string, { symbol: string; currency: string }>();
 
-    for (const instrument of instrumentsQuery.data ?? []) {
+    for (const instrument of portfolioInstrumentsQuery.data ?? []) {
       map.set(instrument.id, {
         symbol: instrument.symbol,
         currency: instrument.currency,
@@ -355,11 +539,11 @@ export default function PortfolioCenterPage() {
     }
 
     return map;
-  }, [instrumentsQuery.data]);
+  }, [portfolioInstrumentsQuery.data]);
 
-  const quoteQuery = useQuotes(instrumentIds);
+  const portfolioQuotesQuery = useQuotes(portfolioInstrumentIds);
 
-  const quoteByInstrumentId = useMemo(() => {
+  const portfolioQuoteByInstrumentId = useMemo(() => {
     const map = new Map<
       string,
       {
@@ -369,101 +553,273 @@ export default function PortfolioCenterPage() {
       }
     >();
 
-    (quoteQuery.data ?? []).forEach((quote) => {
+    for (const quote of portfolioQuotesQuery.data ?? []) {
       map.set(quote.instrumentId, quote);
-    });
+    }
 
     return map;
-  }, [quoteQuery.data]);
+  }, [portfolioQuotesQuery.data]);
 
-  const createDemoAccount = useCreateDemoTradingAccount(organizationId);
+  const accountMetrics = useMemo(() => {
+    return demoTradingAccounts.map((account) => {
+      const accountPositions = portfolioPositions.filter(
+        (position) =>
+          position.accountId === account.id &&
+          position.status === "OPEN",
+      );
 
-  const maintenance = useTradingAccountMaintenance(organizationId, activeAccountId);
+      const balance = Number(account.balance);
+      const leverage = Number(account.leverage);
+
+      let unrealizedPnl = 0;
+      let marginUsed = 0;
+
+      for (const position of accountPositions) {
+        const quantity = Number(position.quantity);
+        const entry = Number(position.averageEntryPrice);
+
+        if (!Number.isFinite(quantity) || !Number.isFinite(entry)) {
+          continue;
+        }
+
+        const quote = portfolioQuoteByInstrumentId.get(position.instrumentId);
+
+        const currentPrice =
+          position.side === "LONG"
+            ? Number(quote?.bidPrice ?? quote?.lastPrice)
+            : Number(quote?.askPrice ?? quote?.lastPrice);
+
+        if (Number.isFinite(currentPrice)) {
+          unrealizedPnl +=
+            position.side === "LONG"
+              ? (currentPrice - entry) * quantity
+              : (entry - currentPrice) * quantity;
+        }
+
+        if (Number.isFinite(leverage) && leverage > 0) {
+          marginUsed += Math.abs(quantity * entry) / leverage;
+        }
+      }
+
+      const equity =
+        Number.isFinite(balance) ? balance + unrealizedPnl : undefined;
+
+      const marginLevel =
+        marginUsed > 0 && equity !== undefined
+          ? (equity / marginUsed) * 100
+          : undefined;
+
+      return {
+        accountId: account.id,
+        balance: Number.isFinite(balance) ? balance : undefined,
+        equity,
+        availableCash: Number.isFinite(balance) ? balance : undefined,
+        marginUsed,
+        marginLevel,
+        leverage:
+          Number.isFinite(leverage) && leverage > 0
+            ? leverage
+            : undefined,
+        unrealizedPnl,
+      };
+    });
+  }, [
+    demoTradingAccounts,
+    portfolioPositions,
+    portfolioQuoteByInstrumentId,
+  ]);
+
+  const accountMetricsById = useMemo(
+    () =>
+      new Map(
+        accountMetrics.map((metrics) => [metrics.accountId, metrics]),
+      ),
+    [accountMetrics],
+  );
+
+  const portfolioCurrency = useMemo(() => {
+    const currencies = new Set(
+      demoTradingAccounts
+        .map((account) => account.currency)
+        .filter(Boolean),
+    );
+
+    return currencies.size === 1 ? Array.from(currencies)[0] : undefined;
+  }, [demoTradingAccounts]);
+
+  const portfolioSummary = useMemo(() => {
+    let totalBalance = 0;
+    let totalUnrealizedPnl = 0;
+    let totalMarginUsed = 0;
+    let hasBalance = false;
+
+    for (const metrics of accountMetrics) {
+      if (metrics.balance !== undefined) {
+        totalBalance += metrics.balance;
+        hasBalance = true;
+      }
+
+      totalUnrealizedPnl += metrics.unrealizedPnl;
+      totalMarginUsed += metrics.marginUsed;
+    }
+
+    const totalEquity = hasBalance
+      ? totalBalance + totalUnrealizedPnl
+      : undefined;
+
+    const availableMargin =
+      totalEquity !== undefined
+        ? Math.max(totalEquity - totalMarginUsed, 0)
+        : undefined;
+
+    return {
+      totalBalance: hasBalance ? totalBalance : undefined,
+      totalEquity,
+      totalUnrealizedPnl,
+      totalMarginUsed,
+      availableMargin,
+    };
+  }, [accountMetrics]);
+
+  const portfolioRealizedPerformance = useMemo(() => {
+    let realizedPnl = 0;
+    let winningTrades = 0;
+    let totalTrades = 0;
+
+    for (const query of portfolioTradingData.tradeQueries) {
+      for (const trade of query.data ?? []) {
+        const pnl = Number(trade.realizedPnl);
+
+        if (!Number.isFinite(pnl)) {
+          continue;
+        }
+
+        realizedPnl += pnl;
+        totalTrades += 1;
+
+        if (pnl > 0) {
+          winningTrades += 1;
+        }
+      }
+    }
+
+    return {
+      realizedPnl,
+      winRate: totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0,
+    };
+  }, [portfolioTradingData.tradeQueries]);
+
+  const accountById = useMemo(
+    () => new Map(demoTradingAccounts.map((account) => [account.id, account])),
+    [demoTradingAccounts],
+  );
 
   const positions: Position[] = useMemo(
     () =>
-      (tradingPositionsQuery.data ?? []).map((position) => ({
-        id: position.id,
-        symbolCode: instrumentById.get(position.instrumentId)?.symbol ?? "Unknown",
-        side: position.side,
-        quantityUnits: Number(position.quantity),
-        averageEntryPrice: Number(position.averageEntryPrice),
-        status: position.status,
-        openedAt: position.openedAt,
-        closedAt: position.closedAt ?? undefined,
-        averageExitPrice: position.averageExitPrice ? Number(position.averageExitPrice) : undefined,
-        realizedPnl: position.realizedPnl ? Number(position.realizedPnl) : undefined,
-      })),
-    [tradingPositionsQuery.data, instrumentById],
+      portfolioPositions.map((position) => {
+        const account = accountById.get(position.accountId);
+        const instrument = portfolioInstrumentById.get(position.instrumentId);
+        const quote = portfolioQuoteByInstrumentId.get(position.instrumentId);
+
+        const quantity = Number(position.quantity);
+        const entry = Number(position.averageEntryPrice);
+        const leverage = Number(account?.leverage);
+
+        const currentPrice =
+          position.status === "OPEN"
+            ? position.side === "LONG"
+              ? Number(quote?.bidPrice ?? quote?.lastPrice)
+              : Number(quote?.askPrice ?? quote?.lastPrice)
+            : undefined;
+
+        const unrealizedPnl =
+          position.status === "OPEN" &&
+          Number.isFinite(quantity) &&
+          Number.isFinite(entry) &&
+          currentPrice !== undefined &&
+          Number.isFinite(currentPrice)
+            ? position.side === "LONG"
+              ? (currentPrice - entry) * quantity
+              : (entry - currentPrice) * quantity
+            : undefined;
+
+        const margin =
+          Number.isFinite(quantity) &&
+          Number.isFinite(entry) &&
+          Number.isFinite(leverage) &&
+          leverage > 0
+            ? Math.abs(quantity * entry) / leverage
+            : undefined;
+
+        return {
+          id: position.id,
+          symbolCode: instrument?.symbol ?? "Unknown",
+          side: position.side,
+          quantityUnits: quantity,
+          averageEntryPrice: entry,
+          status: position.status,
+          openedAt: position.openedAt,
+          closedAt: position.closedAt ?? undefined,
+          averageExitPrice: position.averageExitPrice
+            ? Number(position.averageExitPrice)
+            : undefined,
+          realizedPnl: position.realizedPnl
+            ? Number(position.realizedPnl)
+            : undefined,
+          accountName: account?.name,
+          currentPrice,
+          unrealizedPnl,
+          margin,
+        };
+      }),
+    [
+      portfolioPositions,
+      accountById,
+      portfolioInstrumentById,
+      portfolioQuoteByInstrumentId,
+    ],
   );
 
   const openPositions = positions.filter((p) => p.status === "OPEN");
-
   const closedPositions = positions.filter((p) => p.status === "CLOSED");
+
 
   const trades: Trade[] = useMemo(
     () =>
-      (tradingTradesQuery.data ?? []).map((trade) => ({
-        id: trade.id,
-        symbolCode: instrumentById.get(trade.instrumentId)?.symbol ?? "Unknown",
-        side: trade.side,
-        quantityUnits: Number(trade.quantity),
-        entryPrice: Number(trade.entryPrice),
-        exitPrice: Number(trade.exitPrice),
-        realizedPnl: Number(trade.realizedPnl),
-        isWin: Number(trade.realizedPnl) > 0,
-        openedAt: trade.openedAt,
-        closedAt: trade.closedAt,
-      })),
-    [tradingTradesQuery.data, instrumentById],
+      portfolioTradingData.tradeQueries.flatMap(
+        (query, index) =>
+          (query.data ?? []).map((trade) => {
+            const accountId = portfolioAccountIds[index];
+            const account = accountId
+              ? accountById.get(accountId)
+              : undefined;
+            const instrument = portfolioInstrumentById.get(trade.instrumentId);
+
+            return {
+              id: trade.id,
+              symbolCode: instrument?.symbol ?? "Unknown",
+              side: trade.side,
+              quantityUnits: Number(trade.quantity),
+              entryPrice: Number(trade.entryPrice),
+              exitPrice: Number(trade.exitPrice),
+              realizedPnl: Number(trade.realizedPnl),
+              isWin: Number(trade.realizedPnl) > 0,
+              openedAt: trade.openedAt,
+              closedAt: trade.closedAt,
+              accountName: account?.name,
+              type: undefined,
+            };
+          }),
+      ),
+    [
+      portfolioTradingData.tradeQueries,
+      portfolioAccountIds,
+      accountById,
+      portfolioInstrumentById,
+    ],
   );
 
-  const activeAccount = demoTradingAccounts.find((account) => account.id === activeAccountId);
 
-  const accountBalance = activeAccount ? Number(activeAccount.balance) : undefined;
-
-  const unrealizedPnl = useMemo(() => {
-    let total = 0;
-
-    for (const position of (tradingPositionsQuery.data ?? []).filter(
-      (position) => position.status === "OPEN",
-    )) {
-      const quote = quoteByInstrumentId.get(position.instrumentId);
-
-      const quantity = Number(position.quantity);
-
-      const entry = Number(position.averageEntryPrice);
-
-      if (!quote || !Number.isFinite(quantity) || !Number.isFinite(entry)) {
-        continue;
-      }
-
-      const executablePrice =
-        position.side === "LONG"
-          ? Number(quote.bidPrice ?? quote.lastPrice)
-          : Number(quote.askPrice ?? quote.lastPrice);
-
-      if (!Number.isFinite(executablePrice)) {
-        continue;
-      }
-
-      total +=
-        position.side === "LONG"
-          ? (executablePrice - entry) * quantity
-          : (entry - executablePrice) * quantity;
-    }
-
-    return total;
-  }, [tradingPositionsQuery.data, quoteByInstrumentId]);
-
-  const accountEquity = accountBalance !== undefined ? accountBalance + unrealizedPnl : undefined;
-
-  const availableCash = accountBalance;
-  const buyingPower = accountBalance;
-  const marginUsed = 0;
-  const marginAvailable = accountBalance;
-
-  const performance = computePerformanceMetrics(trades);
   const dailyPnl = computeTodaysRealizedPnl(trades);
   const weeklyPnl = computeWeeklyRealizedPnl(trades);
   const monthlyPnl = computeMonthlyRealizedPnl(trades);
@@ -478,8 +834,7 @@ export default function PortfolioCenterPage() {
       </div>
 
       {(tradingAccountsQuery.isError ||
-        tradingPositionsQuery.isError ||
-        tradingTradesQuery.isError) && (
+        portfolioTradingData.isError) && (
         <Alert variant="destructive">
           <AlertDescription>Some trading account data couldn&apos;t be loaded.</AlertDescription>
         </Alert>
@@ -487,6 +842,7 @@ export default function PortfolioCenterPage() {
 
       <PortfolioTradingAccounts
         accounts={demoTradingAccounts}
+        accountMetrics={accountMetricsById}
         isLoading={tradingAccountsQuery.isLoading}
         errorMessage={
           tradingAccountsQuery.isError
@@ -509,6 +865,16 @@ export default function PortfolioCenterPage() {
           setSelectedAccountId(account.id);
           void maintenance.reset.mutateAsync();
         }}
+        onUpdateLeverage={async (account, leverage) => {
+          if (account.type !== "DEMO" || account.status !== "ACTIVE") {
+            return;
+          }
+
+          await maintenance.updateLeverage.mutateAsync({
+            accountId: account.id,
+            leverage,
+          });
+        }}
         isCreating={createDemoAccount.isPending}
         creatingError={
           createDemoAccount.isError
@@ -521,36 +887,88 @@ export default function PortfolioCenterPage() {
         addingFundsAccountId={activeAccountId}
         isResetting={maintenance.reset.isPending}
         resettingAccountId={activeAccountId}
+        isUpdatingLeverage={maintenance.updateLeverage.isPending}
+        updatingLeverageAccountId={
+          maintenance.updateLeverage.variables?.accountId ?? null
+        }
+        leverageError={
+          maintenance.updateLeverage.isError
+            ? maintenance.updateLeverage.error instanceof Error
+              ? maintenance.updateLeverage.error.message
+              : "Unable to update leverage."
+            : null
+        }
       />
-      <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-6">
         <StatCard
-          title="Account Equity"
+          title="Total Equity"
           icon={<Wallet className="text-muted-foreground h-4 w-4" />}
-          value={currency(accountEquity)}
+          value={currency(portfolioSummary.totalEquity)}
+          subtext={`${demoTradingAccounts.length} active account${demoTradingAccounts.length === 1 ? "" : "s"}`}
           isLoading={tradingAccountsQuery.isLoading}
           isError={tradingAccountsQuery.isError}
         />
         <StatCard
-          title="Available Cash"
-          icon={<Wallet className="text-muted-foreground h-4 w-4" />}
-          value={currency(availableCash)}
+          title="Total Balance"
+          icon={<Banknote className="text-muted-foreground h-4 w-4" />}
+          value={currency(portfolioSummary.totalBalance)}
+          subtext={portfolioCurrency ?? "Mixed currencies"}
           isLoading={tradingAccountsQuery.isLoading}
           isError={tradingAccountsQuery.isError}
         />
         <StatCard
-          title="Buying Power"
-          icon={<Wallet className="text-muted-foreground h-4 w-4" />}
-          value={currency(buyingPower)}
-          isLoading={tradingAccountsQuery.isLoading}
-          isError={tradingAccountsQuery.isError}
+          title="Unrealized P&L"
+          icon={
+            portfolioSummary.totalUnrealizedPnl >= 0 ? (
+              <TrendingUp className="text-success h-4 w-4" />
+            ) : (
+              <TrendingDown className="text-destructive h-4 w-4" />
+            )
+          }
+          value={currency(portfolioSummary.totalUnrealizedPnl)}
+          valueClassName={
+            portfolioSummary.totalUnrealizedPnl >= 0
+              ? "text-success"
+              : "text-destructive"
+          }
+          subtext="Open positions"
+          isLoading={portfolioTradingData.isLoading}
+          isError={portfolioTradingData.isError}
+        />
+        <StatCard
+          title="Realized P&L"
+          icon={
+            portfolioRealizedPerformance.realizedPnl >= 0 ? (
+              <TrendingUp className="text-success h-4 w-4" />
+            ) : (
+              <TrendingDown className="text-destructive h-4 w-4" />
+            )
+          }
+          value={currency(portfolioRealizedPerformance.realizedPnl)}
+          valueClassName={
+            portfolioRealizedPerformance.realizedPnl >= 0
+              ? "text-success"
+              : "text-destructive"
+          }
+          subtext={`${portfolioRealizedPerformance.winRate.toFixed(0)}% win rate`}
+          isLoading={portfolioTradingData.isLoading}
+          isError={portfolioTradingData.isError}
         />
         <StatCard
           title="Margin Used"
-          icon={<Wallet className="text-muted-foreground h-4 w-4" />}
-          value={currency(marginUsed)}
-          subtext={`${currency(marginAvailable)} available`}
-          isLoading={tradingAccountsQuery.isLoading}
-          isError={tradingAccountsQuery.isError}
+          icon={<ShieldCheck className="text-muted-foreground h-4 w-4" />}
+          value={currency(portfolioSummary.totalMarginUsed)}
+          subtext="Estimated"
+          isLoading={portfolioTradingData.isLoading}
+          isError={portfolioTradingData.isError}
+        />
+        <StatCard
+          title="Available Margin"
+          icon={<Gauge className="text-muted-foreground h-4 w-4" />}
+          value={currency(portfolioSummary.availableMargin)}
+          subtext="Estimated"
+          isLoading={portfolioTradingData.isLoading}
+          isError={portfolioTradingData.isError}
         />
       </div>
 
@@ -566,8 +984,8 @@ export default function PortfolioCenterPage() {
           }
           value={currency(dailyPnl)}
           valueClassName={dailyPnl >= 0 ? "text-success" : "text-destructive"}
-          isLoading={tradingTradesQuery.isLoading}
-          isError={tradingTradesQuery.isError}
+          isLoading={portfolioTradingData.isLoading}
+          isError={portfolioTradingData.isError}
         />
         <StatCard
           title="Weekly P&L"
@@ -580,8 +998,8 @@ export default function PortfolioCenterPage() {
           }
           value={currency(weeklyPnl)}
           valueClassName={weeklyPnl >= 0 ? "text-success" : "text-destructive"}
-          isLoading={tradingTradesQuery.isLoading}
-          isError={tradingTradesQuery.isError}
+          isLoading={portfolioTradingData.isLoading}
+          isError={portfolioTradingData.isError}
         />
         <StatCard
           title="Monthly P&L"
@@ -594,17 +1012,8 @@ export default function PortfolioCenterPage() {
           }
           value={currency(monthlyPnl)}
           valueClassName={monthlyPnl >= 0 ? "text-success" : "text-destructive"}
-          isLoading={tradingTradesQuery.isLoading}
-          isError={tradingTradesQuery.isError}
-        />
-        <StatCard
-          title="Realized P&L (all time)"
-          icon={<Wallet className="text-muted-foreground h-4 w-4" />}
-          value={currency(performance.realizedPnl)}
-          valueClassName={performance.realizedPnl >= 0 ? "text-success" : "text-destructive"}
-          subtext={`${performance.winRate.toFixed(0)}% win rate`}
-          isLoading={tradingTradesQuery.isLoading}
-          isError={tradingTradesQuery.isError}
+          isLoading={portfolioTradingData.isLoading}
+          isError={portfolioTradingData.isError}
         />
       </div>
 
@@ -617,7 +1026,7 @@ export default function PortfolioCenterPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3 sm:px-6 sm:pb-6">
-            {tradingPositionsQuery.isLoading ? (
+            {portfolioTradingData.isLoading ? (
               <Skeleton className="h-56 w-full" />
             ) : (
               <AllocationChart positions={openPositions} />
@@ -629,7 +1038,7 @@ export default function PortfolioCenterPage() {
             <CardTitle className="text-xs sm:text-sm">Currency Exposure</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3 sm:px-6 sm:pb-6">
-            {tradingPositionsQuery.isLoading ? (
+            {portfolioTradingData.isLoading ? (
               <Skeleton className="h-56 w-full" />
             ) : (
               <CurrencyExposure positions={openPositions} />
@@ -656,19 +1065,19 @@ export default function PortfolioCenterPage() {
         {positionTab === "open" && (
           <PositionsTable
             positions={openPositions}
-            isLoading={tradingPositionsQuery.isLoading}
+            isLoading={portfolioTradingData.isLoading}
             status="OPEN"
           />
         )}
         {positionTab === "closed" && (
           <PositionsTable
             positions={closedPositions}
-            isLoading={tradingPositionsQuery.isLoading}
+            isLoading={portfolioTradingData.isLoading}
             status="CLOSED"
           />
         )}
         {positionTab === "history" && (
-          <TradeHistoryTable trades={trades} isLoading={tradingTradesQuery.isLoading} />
+          <TradeHistoryTable trades={trades} isLoading={portfolioTradingData.isLoading} />
         )}
       </div>
     </div>

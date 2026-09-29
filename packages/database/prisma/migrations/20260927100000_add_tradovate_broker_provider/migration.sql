@@ -1,0 +1,1 @@
+ALTER TYPE "BrokerProvider" ADD VALUE 'TRADOVATE';

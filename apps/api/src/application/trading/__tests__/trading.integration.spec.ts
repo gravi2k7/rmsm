@@ -12,6 +12,10 @@ import {
   InstrumentStatus,
 } from "@rmsm/database";
 import { TradingApplicationModule } from "../trading.module";
+import { AppConfigModule } from "../../../config/app-config.module";
+import { EventsModule } from "../../../common/events/events.module";
+import { QueueModule } from "../../../queue/queue.module";
+import { EmailService } from "../../../modules/email/email.service.interface";
 import { MarketDataService } from "../../../modules/market-data/services/market-data.service";
 import { MarketDataModule } from "../../../modules/market-data/market-data.module";
 import { InstrumentAliasRepository } from "../../../modules/market-data/repositories/instrument-alias.repository";
@@ -21,6 +25,12 @@ import { MarketDataStreamPublisher } from "../../../modules/market-data/services
 import { PermissionsGuard } from "../../../modules/auth/guards/permissions.guard";
 import { TestAuthGuard } from "../../common/testing/test-auth.guard";
 import type { AccessTokenPayload } from "../../../modules/auth/services/token.service";
+import { DomainEventPublisher } from "../../../common/events/domain-event-publisher.service";
+import { COPY_ENGINE_EVENTS } from "../../copy-engine/copy-engine.types";
+
+const testEmailService = {
+  send: jest.fn().mockResolvedValue(undefined),
+};
 
 const testMarketDataService = {
   getLatestQuote: jest.fn(),
@@ -91,6 +101,9 @@ describe("Trading accounts module (integration)", () => {
   let otherUserId: string;
   let instrumentId: string;
   let providerId: string;
+  let domainEventPublisher: DomainEventPublisher;
+  let capturedOrderFilledEvents: Array<Record<string, unknown>>;
+  let orderFilledListener: (payload: Record<string, unknown>) => void;
 
   const primaryUser: AccessTokenPayload = {
     sub: "",
@@ -233,8 +246,15 @@ describe("Trading accounts module (integration)", () => {
     testProviderRegistry.tryGet.mockReturnValue(testProvider);
 
     const moduleRef = await Test.createTestingModule({
-      imports: [TradingApplicationModule],
+      imports: [
+        AppConfigModule,
+        EventsModule,
+        QueueModule,
+        TradingApplicationModule,
+      ],
     })
+      .overrideProvider(EmailService)
+      .useValue(testEmailService)
       .overrideModule(MarketDataModule)
       .useModule(TestMarketDataModule)
       .overrideGuard(PermissionsGuard)
@@ -269,10 +289,33 @@ describe("Trading accounts module (integration)", () => {
     );
 
     await app.init();
+
+    domainEventPublisher =
+      app.get(DomainEventPublisher);
+  });
+
+  beforeEach(() => {
+    capturedOrderFilledEvents = [];
+
+    orderFilledListener = (payload) => {
+      capturedOrderFilledEvents.push(payload);
+    };
+
+    domainEventPublisher.on(
+      COPY_ENGINE_EVENTS.ORDER_FILLED,
+      orderFilledListener,
+    );
   });
 
   afterEach(async () => {
     activeTestUser = primaryUser;
+
+    if (domainEventPublisher && orderFilledListener) {
+      domainEventPublisher.off(
+        COPY_ENGINE_EVENTS.ORDER_FILLED,
+        orderFilledListener,
+      );
+    }
 
     await prisma.tradingLedgerEntry.deleteMany({
       where: {
@@ -1224,6 +1267,21 @@ it("POST /orders executes a full BUY then SELL using ask/bid and persists the cl
     expect(ledger[1]!.balanceAfter.toString()).toBe(
       "98997.5",
     );
+
+    expect(capturedOrderFilledEvents).toHaveLength(1);
+
+    const event = capturedOrderFilledEvents[0]!;
+
+    expect(event.organizationId).toBe(organizationId);
+    expect(event.sourceOrderId).toBe(order!.id);
+    expect(event.accountId).toBe(accountId);
+    expect(event.instrumentId).toBe(instrumentId);
+    expect(event.side).toBe("BUY");
+    expect(event.type).toBe("MARKET");
+    expect(event.executionKind).toBe("ENTRY");
+    expect(event.quantity).toBe("10");
+    expect(event.executedPrice).toBe("100.25");
+    expect(event.filledAt).toBeInstanceOf(Date);
   });
 
 });

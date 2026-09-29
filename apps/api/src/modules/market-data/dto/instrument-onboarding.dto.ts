@@ -24,6 +24,12 @@ export class InstrumentOnboardingDto {
   @Length(1, 100)
   providerSymbol!: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  providerInstrumentId?: string;
+
   @ApiProperty()
   @IsString()
   @Length(1, 200)

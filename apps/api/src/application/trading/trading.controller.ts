@@ -29,6 +29,7 @@ import { BrokerExecutionService } from "./broker-execution.service";
 import {
   AddTradingFundsDto,
   CreateTradingAccountDto,
+  UpdateTradingAccountLeverageDto,
 } from "./dto/trading-account.dto";
 import { PlaceOrderDto } from "./dto/paper-order.dto";
 import { UpdatePositionRiskDto } from "./dto/update-position-risk.dto";
@@ -334,15 +335,6 @@ export class TradingController {
       );
     }
 
-    if (
-      dto.stopLossPrice !== undefined ||
-      dto.takeProfitPrice !== undefined
-    ) {
-      throw new BadRequestException(
-        "Broker orders do not yet support stop-loss or take-profit attachment.",
-      );
-    }
-
     return this.brokerExecutionService.placeOrder(
       organizationId,
       accountId,
@@ -353,8 +345,30 @@ export class TradingController {
         quantity: dto.quantity,
         limitPrice: dto.limitPrice,
         stopPrice: dto.stopPrice,
+        stopLossPrice: dto.stopLossPrice,
+        takeProfitPrice: dto.takeProfitPrice,
       },
     );
+  }
+
+  @Patch(":id/leverage")
+  async updateLeverage(
+    @Param("organizationId", ParseUUIDPipe)
+    organizationId: string,
+    @Param("id", ParseUUIDPipe)
+    accountId: string,
+    @Body() dto: UpdateTradingAccountLeverageDto,
+    @CurrentUser() user: AccessTokenPayload,
+  ) {
+    const account =
+      await this.tradingAccountService.updateLeverage(
+        organizationId,
+        user.sub,
+        accountId,
+        dto.leverage,
+      );
+
+    return mapTradingAccount(account);
   }
 
   @Post(":id/funds")

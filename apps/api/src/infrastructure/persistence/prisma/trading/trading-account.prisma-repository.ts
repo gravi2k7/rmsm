@@ -83,6 +83,25 @@ export class PrismaTradingAccountRepository
     });
   }
 
+  async findBrokerBoundActive(
+    client: DbClient = prisma,
+  ): Promise<TradingAccount[]> {
+    return client.tradingAccount.findMany({
+      where: {
+        status: TradingAccountStatus.ACTIVE,
+        brokerConnectionId: {
+          not: null,
+        },
+        brokerAccountId: {
+          not: null,
+        },
+      },
+      orderBy: {
+        updatedAt: "asc",
+      },
+    });
+  }
+
   async bindBroker(
     organizationId: string,
     ownerUserId: string,
@@ -147,6 +166,38 @@ export class PrismaTradingAccountRepository
       data: {
         balance,
         status,
+      },
+    });
+  }
+
+  async updateLeverage(
+    organizationId: string,
+    ownerUserId: string,
+    accountId: string,
+    leverage: number,
+    client: DbClient = prisma,
+  ): Promise<TradingAccount> {
+    const account = await client.tradingAccount.findFirst({
+      where: {
+        id: accountId,
+        organizationId,
+        ownerUserId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!account) {
+      throw new Error("Trading account not found");
+    }
+
+    return client.tradingAccount.update({
+      where: {
+        id: account.id,
+      },
+      data: {
+        leverage,
       },
     });
   }

@@ -7,6 +7,7 @@ import {
 import {
   addTradingFunds,
   resetDemoTradingAccount,
+  updateTradingAccountLeverage,
 } from "../api/trading-api";
 
 export function useTradingAccountMaintenance(
@@ -52,6 +53,42 @@ export function useTradingAccountMaintenance(
     },
   });
 
+  const updateLeverage = useMutation({
+    mutationFn: async ({
+      accountId: targetAccountId,
+      leverage,
+    }: {
+      accountId: string;
+      leverage: number;
+    }) => {
+      if (!organizationId || !targetAccountId) {
+        throw new Error(
+          "A trading account is required.",
+        );
+      }
+
+      return updateTradingAccountLeverage(
+        organizationId,
+        targetAccountId,
+        leverage,
+      );
+    },
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: [
+            "trading-account",
+            organizationId,
+            variables.accountId,
+          ],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: accountsKey,
+        }),
+      ]);
+    },
+  });
+
   const reset = useMutation({
     mutationFn: async () => {
       if (!organizationId || !accountId) {
@@ -79,6 +116,7 @@ export function useTradingAccountMaintenance(
 
   return {
     addFunds,
+    updateLeverage,
     reset,
   };
 }

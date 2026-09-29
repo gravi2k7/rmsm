@@ -162,6 +162,30 @@ export class CTraderOpenApiClient {
     this.rejectPending(new Error("cTrader Open API client disconnected"));
   }
 
+  async decodePayload<T = Record<string, unknown>>(
+    payloadTypeName: string,
+    payload?: Uint8Array,
+  ): Promise<T> {
+    if (!payload) {
+      throw new Error(
+        `cTrader Open API response has no payload: ${payloadTypeName}`,
+      );
+    }
+
+    const root = await this.protoRootPromise;
+    const messageType = root.lookupType(payloadTypeName);
+
+    return messageType.toObject(
+      messageType.decode(payload),
+      {
+        longs: String,
+        enums: String,
+        defaults: true,
+        arrays: true,
+      },
+    ) as T;
+  }
+
   async sendRequest(
     payloadType: number,
     payloadTypeName: string,

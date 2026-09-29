@@ -1,11 +1,35 @@
 import { describe, expect, it } from "vitest";
 import {
   NAVIGATION_REGISTRY,
+  NAVIGATION_SECTIONS,
   getNavigationItems,
+  getNavigationSections,
 } from "../registry";
 
 describe("navigation registry", () => {
-  it("keeps the requested main menu order", () => {
+  it("keeps the target navigation section structure", () => {
+    const sections = getNavigationSections({
+      hasPermission: () => true,
+    });
+
+    expect(sections.map((section) => section.title)).toEqual([
+      "TRADING",
+      "AUTOMATION",
+      "INTEGRATIONS",
+      "OTHER",
+    ]);
+
+    expect(
+      sections.map((section) => section.items.map((item) => item.label)),
+    ).toEqual([
+      ["Dashboard", "Market Watch", "Portfolio", "Analytics"],
+      ["Strategies", "Copier"],
+      ["Brokers"],
+      ["Notifications", "Team", "Security"],
+    ]);
+  });
+
+  it("keeps the flattened registry in target display order", () => {
     const items = getNavigationItems({
       hasPermission: () => true,
     });
@@ -13,14 +37,11 @@ describe("navigation registry", () => {
     expect(items.map((item) => item.label)).toEqual([
       "Dashboard",
       "Market Watch",
-      "Status",
-      "Watchlists",
       "Portfolio",
-      "Strategies",
-      "Opportunities",
-      "Decisions",
-      "Orders",
       "Analytics",
+      "Strategies",
+      "Copier",
+      "Brokers",
       "Notifications",
       "Team",
       "Security",
@@ -35,19 +56,12 @@ describe("navigation registry", () => {
     });
   });
 
-  it("keeps Status on the status route", () => {
-    expect(NAVIGATION_REGISTRY[2]).toMatchObject({
-      id: "status",
-      label: "Status",
-      href: "/status",
-    });
-  });
-
-  it("keeps Portfolio in position five", () => {
-    expect(NAVIGATION_REGISTRY[4]).toMatchObject({
-      id: "portfolio",
-      label: "Portfolio",
-      href: "/portfolio",
-    });
+  it("keeps the four navigation groups registered", () => {
+    expect(NAVIGATION_SECTIONS.map((section) => section.id)).toEqual([
+      "trading",
+      "automation",
+      "integrations",
+      "other",
+    ]);
   });
 });

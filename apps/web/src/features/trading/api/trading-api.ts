@@ -47,6 +47,17 @@ export function getTradingAccount(
   );
 }
 
+export function updateTradingAccountLeverage(
+  organizationId: string,
+  accountId: string,
+  leverage: number,
+): Promise<TradingAccount> {
+  return api.patch<TradingAccount>(
+    `${accountPath(organizationId)}/${accountId}/leverage`,
+    { leverage },
+  );
+}
+
 export function addTradingFunds(
   organizationId: string,
   accountId: string,

@@ -8,6 +8,12 @@ import type { LucideIcon } from "lucide-react";
  * compatibility). Every field below except `children` existed implicitly
  * before this registry; `children` is genuinely new.
  */
+export interface NavigationSection {
+  id: string;
+  title: string;
+  items: NavigationItem[];
+}
+
 export interface NavigationItem {
   /** Stable identifier, independent of `label`/`href` — used as the React
    * key and as the anchor for future deep-linking (e.g. highlighting a

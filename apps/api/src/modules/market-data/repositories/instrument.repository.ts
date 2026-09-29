@@ -9,6 +9,7 @@ export interface CreateInstrumentInput {
   name: string;
   assetClass: AssetClass;
   currency: string;
+  status?: InstrumentStatus;
   isin?: string;
   cusip?: string;
   tickSize?: string;
@@ -53,6 +54,7 @@ export class InstrumentRepository {
       name: data.name,
       assetClass: data.assetClass,
       currency: data.currency,
+      ...(data.status !== undefined ? { status: data.status } : {}),
       isin: data.isin,
       cusip: data.cusip,
       tickSize: data.tickSize,

@@ -73,6 +73,7 @@ export class PrismaPaperTradingRepository
       executedPrice?: string;
       rejectionReason?: string;
       filledAt?: Date;
+      clientOrderId?: string;
     },
     client: DbClient = prisma,
   ): Promise<TradingOrder> {
@@ -90,6 +91,7 @@ export class PrismaPaperTradingRepository
         executedPrice: data.executedPrice,
         rejectionReason: data.rejectionReason,
         filledAt: data.filledAt,
+        clientOrderId: data.clientOrderId,
       },
     });
   }
@@ -301,6 +303,19 @@ export class PrismaPaperTradingRepository
       where: {
         accountId,
         brokerOrderId,
+      },
+    });
+  }
+
+  async findOrderByClientOrderId(
+    accountId: string,
+    clientOrderId: string,
+    client: DbClient = prisma,
+  ): Promise<TradingOrder | null> {
+    return client.tradingOrder.findFirst({
+      where: {
+        accountId,
+        clientOrderId,
       },
     });
   }

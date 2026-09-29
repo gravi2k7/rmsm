@@ -7,7 +7,7 @@ import { Star, LineChart as LineChartIcon, ArrowUpDown } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Button, Badge, Skeleton } from "@rmsm/ui";
 import { cn } from "@rmsm/ui";
 import type { Instrument, Quote } from "../types";
-import { toNumber } from "../types";
+import { priceFormatFromTickSize, toNumber } from "../types";
 import { useWatchlistStore } from "@/features/watchlists/store";
 
 export interface MarketWatchRow {
@@ -42,11 +42,6 @@ function movementClassName(
   return "text-foreground";
 }
 
-function StatusBadge({ status }: { status: Instrument["status"] }) {
-  const variant = status === "ACTIVE" ? "default" : status === "SUSPENDED" ? "secondary" : "outline";
-  return <Badge variant={variant}>{status}</Badge>;
-}
-
 function PriceCell({
   value,
   previousValue = null,
@@ -77,7 +72,17 @@ function PriceCell({
   );
 }
 
-export function MarketWatchTable({ rows, isLoading }: { rows: MarketWatchRow[]; isLoading: boolean }) {
+export function MarketWatchTable({
+  rows,
+  isLoading,
+  onSelectInstrument,
+  selectedInstrumentId,
+}: {
+  rows: MarketWatchRow[];
+  isLoading: boolean;
+  onSelectInstrument?: (instrumentId: string) => void;
+  selectedInstrumentId?: string | null;
+}) {
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const previousPricesRef = useRef<
@@ -153,16 +158,24 @@ export function MarketWatchTable({ rows, isLoading }: { rows: MarketWatchRow[]; 
         id: "symbol",
         header: "Symbol",
         cell: ({ row }) => (
-          <div>
-            <div className="font-medium">{row.original.instrument.symbol}</div>
-            <div className="text-xs text-muted-foreground">{row.original.instrument.name}</div>
-          </div>
+          <span className="font-medium">{row.original.instrument.symbol}</span>
+        ),
+      },
+      {
+        accessorFn: (row) => row.instrument.name,
+        id: "name",
+        header: "Name",
+        enableSorting: true,
+        cell: ({ row }) => (
+          <span className="max-w-[220px] truncate text-muted-foreground">
+            {row.original.instrument.name}
+          </span>
         ),
       },
       {
         accessorFn: (row) => row.instrument.assetClass,
         id: "assetClass",
-        header: "Class",
+        header: "Asset Class",
         cell: ({ getValue }) => <Badge variant="outline">{getValue<string>()}</Badge>,
       },
       {
@@ -223,15 +236,33 @@ export function MarketWatchTable({ rows, isLoading }: { rows: MarketWatchRow[]; 
         cell: ({ row }) => {
           const bid = toNumber(row.original.quote?.bidPrice);
           const ask = toNumber(row.original.quote?.askPrice);
-          if (bid === null || ask === null) return <span className="text-muted-foreground">—</span>;
-          return <PriceCell value={ask - bid} />;
+          if (bid === null || ask === null) {
+            return <span className="text-muted-foreground">—</span>;
+          }
+
+          const { precision } = priceFormatFromTickSize(
+            row.original.instrument.tickSize,
+          );
+
+          return (
+            <PriceCell
+              value={ask - bid}
+              precision={precision}
+            />
+          );
         },
       },
       {
-        accessorFn: (row) => row.instrument.status,
-        id: "status",
-        header: "Status",
-        cell: ({ getValue }) => <StatusBadge status={getValue<Instrument["status"]>()} />,
+        id: "change",
+        header: "Change",
+        enableSorting: false,
+        cell: () => <span className="text-muted-foreground">—</span>,
+      },
+      {
+        id: "changePercent",
+        header: "Change %",
+        enableSorting: false,
+        cell: () => <span className="text-muted-foreground">—</span>,
       },
       {
         id: "actions",
@@ -268,7 +299,7 @@ export function MarketWatchTable({ rows, isLoading }: { rows: MarketWatchRow[]; 
               )}
 
               <Button variant="ghost" size="sm" asChild>
-                <Link href={`/trading?instrument=${instrumentId}`}>
+                <Link href={`/market/${instrumentId}`}>
                   <LineChartIcon className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                   Chart
                 </Link>
@@ -333,7 +364,22 @@ export function MarketWatchTable({ rows, isLoading }: { rows: MarketWatchRow[]; 
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
+            <TableRow
+              key={row.id}
+              data-state={
+                selectedInstrumentId === row.original.instrument.id
+                  ? "selected"
+                  : undefined
+              }
+              className={
+                onSelectInstrument
+                  ? "cursor-pointer"
+                  : undefined
+              }
+              onClick={() =>
+                onSelectInstrument?.(row.original.instrument.id)
+              }
+            >
               {row.getVisibleCells().map((cell) => (
                 <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
               ))}

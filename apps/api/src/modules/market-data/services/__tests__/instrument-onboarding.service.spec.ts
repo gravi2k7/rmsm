@@ -106,6 +106,28 @@ describe("InstrumentOnboardingService", () => {
     };
   }
 
+  it("forwards providerInstrumentId to the provider alias", async () => {
+    const { service, instrumentAliasRepository } = buildService();
+
+    await service.onboard({
+      providerConfigId: "provider-1",
+      providerSymbol: "NAS100-F",
+      providerInstrumentId: "11374",
+      name: "NAS100 Futures",
+      assetClass: "FUTURE",
+      currency: "USD",
+      exchangeCode: "CME",
+    });
+
+    expect(instrumentAliasRepository.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerSymbol: "NAS100-F",
+        providerInstrumentId: "11374",
+      }),
+      expect.anything(),
+    );
+  });
+
   it("throws when the provider configuration does not exist", async () => {
     const { service } = buildService({
       providerConfigRepository: {

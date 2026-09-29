@@ -9,6 +9,7 @@ export interface CreateBrokerConnectionInput {
   provider: BrokerProvider;
   name: string;
   credentialsEnc: string;
+  mt5WorkerId?: string | null;
 }
 
 export interface BrokerConnectionRepository {
@@ -24,5 +25,20 @@ export interface BrokerConnectionRepository {
     status: BrokerConnectionStatus,
     lastConnectionTestAt: Date,
     lastConnectionTestStatus: string,
+  ): Promise<BrokerConnection>;
+
+  tryAssignMt5Worker(
+    organizationId: string,
+    id: string,
+    workerId: string,
+  ): Promise<{
+    connection: BrokerConnection;
+    assigned: boolean;
+  } | null>;
+
+  releaseMt5Worker(
+    organizationId: string,
+    id: string,
+    workerId: string,
   ): Promise<BrokerConnection>;
 }

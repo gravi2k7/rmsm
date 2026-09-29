@@ -24,6 +24,10 @@ import { InstrumentAliasRepository } from "../../modules/market-data/repositorie
 import { MarketDataProviderConfigRepository } from "../../modules/market-data/repositories/market-data-provider-config.repository";
 import { ProviderRegistryService } from "../../modules/market-data/providers/provider-registry.service";
 import { TransactionManager } from "@rmsm/database";
+import { DomainEventPublisher } from "../../common/events/domain-event-publisher.service";
+import {
+  COPY_ENGINE_EVENTS,
+} from "../copy-engine/copy-engine.types";
 import { PAPER_TRADING_REPOSITORY, TRADING_ACCOUNT_REPOSITORY } from "./trading.tokens";
 import type { PaperTradingRepository } from "./paper-trading.repository";
 import type { TradingAccountRepository } from "./trading.repository";
@@ -66,6 +70,7 @@ export class PaperTradingService {
     private readonly providerConfigRepository: MarketDataProviderConfigRepository,
     private readonly providerRegistry: ProviderRegistryService,
     private readonly transactionManager: TransactionManager,
+    private readonly domainEventPublisher: DomainEventPublisher,
   ) {}
 
   async requireDemoAccount(
@@ -744,7 +749,7 @@ export class PaperTradingService {
       accountId,
     );
 
-    return this.transactionManager.run(async (client) => {
+    const executionResult = await this.transactionManager.run(async (client) => {
       const lockedAccount =
         await this.tradingAccountRepository.findById(
           organizationId,
@@ -1090,6 +1095,15 @@ export class PaperTradingService {
           client,
         );
 
+      const executionKind: "ENTRY" | "EXIT" | "REVERSAL" =
+        !oppositePosition
+          ? "ENTRY"
+          : quantity.lte(
+                new Prisma.Decimal(oppositePosition.quantity),
+              )
+            ? "EXIT"
+            : "REVERSAL";
+
       /*
        * Same-side order:
        *   BUY  + LONG  => add to LONG
@@ -1380,8 +1394,37 @@ export class PaperTradingService {
         realizedPnl: "0",
         balance:
           nextBalance.toString(),
+        executionKind,
+        filledAt: now,
       };
 
     });
+
+    if (executionResult.order.status === TradingOrderStatus.FILLED) {
+      this.domainEventPublisher.publish(
+        COPY_ENGINE_EVENTS.ORDER_FILLED,
+        {
+          organizationId,
+          sourceOrderId: executionResult.order.id,
+          accountId,
+          instrumentId: input.instrumentId,
+          side: input.side,
+          type: executionResult.order.type,
+          executionKind: executionResult.executionKind,
+          quantity: quantity.toString(),
+          executedPrice: executionResult.executedPrice!,
+          filledAt: executionResult.filledAt,
+        },
+      );
+    }
+
+    return {
+      order: executionResult.order,
+      position: executionResult.position,
+      trade: executionResult.trade,
+      executedPrice: executionResult.executedPrice,
+      realizedPnl: executionResult.realizedPnl,
+      balance: executionResult.balance,
+    };
   }
 }

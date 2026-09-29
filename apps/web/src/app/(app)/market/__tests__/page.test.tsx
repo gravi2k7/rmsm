@@ -1,6 +1,28 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { renderWithQueryClient } from "@/test/render-with-query";
+
+vi.mock("@/features/market/hooks/use-market-realtime", () => ({
+  useMarketRealtime: () => ({
+    liveCandle: null,
+    liveQuote: null,
+    liveDepth: null,
+    liveQuotes: {},
+  }),
+}));
+
+vi.mock("@/features/market/components/rmsm-candlestick-chart", () => ({
+  RMSMCandlestickChart: () => (
+    <div data-testid="mock-market-chart">Mock Market Chart</div>
+  ),
+}));
+
+vi.mock("@/features/market/components/mobile-market-watch", () => ({
+  MobileMarketWatch: () => (
+    <div data-testid="mock-mobile-market-watch">Mock Mobile Market Watch</div>
+  ),
+}));
+
 import MarketWatchPage from "../page";
 import { useAuthStore } from "@/lib/auth-store";
 import { useWatchlistStore } from "@/features/watchlists/store";
@@ -26,12 +48,22 @@ const SAMPLE_INSTRUMENT = {
 };
 
 describe("MarketWatchPage", () => {
+  beforeEach(() => {
+    useWatchlistStore.setState({
+      watchlists: [{ id: "default", name: "My Watchlist", instrumentIds: [] }],
+      activeWatchlistId: null,
+      favoriteInstrumentIds: [],
+      pinnedInstrumentIds: [],
+      recentInstrumentIds: [],
+    });
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     useWatchlistStore.setState({
       watchlists: [{ id: "default", name: "My Watchlist", instrumentIds: [] }],
-      activeWatchlistId: "default",
+      activeWatchlistId: null,
       favoriteInstrumentIds: [],
       pinnedInstrumentIds: [],
       recentInstrumentIds: [],
@@ -43,10 +75,21 @@ describe("MarketWatchPage", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async (url: string) => {
-        if (url.includes("/market-data/instruments")) {
+        console.log("[MARKET TEST FETCH]", url);
+        if (
+          url.includes("/market-data/instruments?") ||
+          url.endsWith("/market-data/instruments")
+        ) {
           return jsonResponse({
             data: [SAMPLE_INSTRUMENT],
-            pagination: { page: 1, pageSize: 25, totalCount: 1, totalPages: 1, hasNextPage: false, hasPreviousPage: false },
+            pagination: {
+              page: 1,
+              pageSize: 25,
+              totalCount: 1,
+              totalPages: 1,
+              hasNextPage: false,
+              hasPreviousPage: false,
+            },
           });
         }
         if (url.includes("/market-data/quotes")) {
@@ -63,7 +106,7 @@ describe("MarketWatchPage", () => {
     });
   });
 
-  it("renders market status and trading sessions context", async () => {
+  it("renders the compact market workstation", async () => {
     useAuthStore.setState({
       accessToken: "token",
       refreshToken: "refresh",
@@ -73,14 +116,16 @@ describe("MarketWatchPage", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async (url: string) => {
+        console.log("[MARKET TEST FETCH]", url);
+
         if (url.includes("/market-data/instruments")) {
           return jsonResponse({
-            data: [],
+            data: [SAMPLE_INSTRUMENT],
             pagination: {
               page: 1,
               pageSize: 25,
-              totalCount: 0,
-              totalPages: 0,
+              totalCount: 1,
+              totalPages: 1,
               hasNextPage: false,
               hasPreviousPage: false,
             },
@@ -88,22 +133,22 @@ describe("MarketWatchPage", () => {
         }
 
         if (url.includes("/market-data/quotes")) {
-          return jsonResponse([]);
+          return jsonResponse([
+            {
+              id: "q1",
+              instrumentId: "instr-1",
+              bidPrice: "1.1",
+              askPrice: "1.1002",
+              lastPrice: "1.1001",
+              eventTime: "2026-07-20T00:00:00.000Z",
+              providerId: "p1",
+              source: "PROVIDER",
+            },
+          ]);
         }
 
-        if (
-          url.includes("/markets?pageSize=100") ||
-          url.includes("/market-data/status")
-        ) {
-          return jsonResponse({
-            items: [
-              {
-                id: "exchange-1",
-                name: "New York Stock Exchange",
-                isOpen: true,
-              },
-            ],
-          });
+        if (url.includes("/market-data/candles")) {
+          return jsonResponse([]);
         }
 
         return jsonResponse({});
@@ -112,28 +157,25 @@ describe("MarketWatchPage", () => {
 
     renderMarketWatch();
 
-    expect(
-      screen.getByRole("region", {
-        name: "Market context",
-      }),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByText("Market Status"),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByText("Trading Sessions"),
-    ).toBeInTheDocument();
-
     await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Markets" })).toBeInTheDocument();
       expect(
-        screen.getByText("New York Stock Exchange"),
+        screen.getByText(
+          "Real-time prices across global markets. Add to your watchlist and trade instantly.",
+        ),
       ).toBeInTheDocument();
+
+      expect(screen.getByText("All Markets")).toBeInTheDocument();
+      expect(screen.getByText("Major Pairs")).toBeInTheDocument();
+      expect(screen.getByText("All Asset Classes")).toBeInTheDocument();
+      expect(screen.getByText("All Status")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Reset" })).toBeInTheDocument();
+
+      expect(screen.getAllByText("EURUSD").length).toBeGreaterThan(0);
     });
   });
 
-  it("keeps market context independent from instrument loading failures", async () => {
+  it("keeps market workstation available when instruments fail", async () => {
     useAuthStore.setState({
       accessToken: "token",
       refreshToken: "refresh",
@@ -143,6 +185,7 @@ describe("MarketWatchPage", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation(async (url: string) => {
+        console.log("[MARKET TEST FETCH]", url);
         if (url.includes("/market-data/instruments")) {
           return jsonResponse(
             { error: { message: "instrument failure" } },
@@ -177,15 +220,6 @@ describe("MarketWatchPage", () => {
       ).toBeInTheDocument();
     });
 
-    expect(
-      screen.getByRole("region", {
-        name: "Market context",
-      }),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByText("Trading Sessions"),
-    ).toBeInTheDocument();
   });
 
   it("shows an error state when instruments fail to load", async () => {

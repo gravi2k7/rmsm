@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   getTradingAccount,
   getTradingAccounts,
@@ -98,4 +98,38 @@ export function useTradingTrades(
     enabled: !!organizationId && !!accountId,
     refetchInterval: 10_000,
   });
+}
+
+export function useTradingPortfolioData(
+  organizationId: string | undefined,
+  accountIds: readonly string[],
+) {
+  const positionQueries = useQueries({
+    queries: accountIds.map((accountId) => ({
+      queryKey: ["trading-positions", organizationId, accountId],
+      queryFn: () => getTradingPositions(organizationId!, accountId),
+      enabled: !!organizationId && !!accountId,
+      refetchInterval: 5_000,
+    })),
+  });
+
+  const tradeQueries = useQueries({
+    queries: accountIds.map((accountId) => ({
+      queryKey: ["trading-trades", organizationId, accountId],
+      queryFn: () => getTradingTrades(organizationId!, accountId),
+      enabled: !!organizationId && !!accountId,
+      refetchInterval: 10_000,
+    })),
+  });
+
+  return {
+    positionQueries,
+    tradeQueries,
+    isLoading:
+      positionQueries.some((query) => query.isLoading) ||
+      tradeQueries.some((query) => query.isLoading),
+    isError:
+      positionQueries.some((query) => query.isError) ||
+      tradeQueries.some((query) => query.isError),
+  };
 }

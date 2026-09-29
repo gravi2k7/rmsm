@@ -47,3 +47,13 @@ export class AddTradingFundsDto {
   @IsPositive()
   amount!: number;
 }
+
+export class UpdateTradingAccountLeverageDto {
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: "leverage must be a valid leverage value" },
+  )
+  @IsPositive()
+  @Min(1)
+  leverage!: number;
+}

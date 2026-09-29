@@ -1,7 +1,8 @@
 export type BrokerProviderName =
   | "PROJECTX"
   | "CTRADER"
-  | "MT5";
+  | "MT5"
+  | "TRADOVATE";
 
 export interface BrokerConnectionTestResult {
   success: boolean;
@@ -29,11 +30,14 @@ export interface BrokerPosition {
 export interface BrokerOrderRequest {
   accountId: string;
   instrumentId: string;
+  brokerSymbol?: string;
   side: "BUY" | "SELL";
   type: "MARKET" | "LIMIT" | "STOP" | "STOP_LIMIT";
   quantity: number;
   limitPrice?: number;
   stopPrice?: number;
+  stopLossPrice?: number;
+  takeProfitPrice?: number;
   clientOrderId?: string;
 }
 
@@ -72,6 +76,10 @@ export interface BrokerOrderResult {
   accepted: boolean;
   status?: string;
   message?: string;
+  filledQuantity?: number;
+  filledPrice?: number;
+  filledAt?: Date;
+  fills?: BrokerTrade[];
 }
 
 export interface BrokerAdapter {

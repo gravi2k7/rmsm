@@ -21,6 +21,9 @@ export class BrokerConnectionPrismaRepository
         provider: input.provider,
         name: input.name,
         credentialsEnc: input.credentialsEnc,
+        ...(input.mt5WorkerId !== undefined
+          ? { mt5WorkerId: input.mt5WorkerId }
+          : {}),
       },
     });
   }
@@ -65,5 +68,89 @@ export class BrokerConnectionPrismaRepository
 
       return connection;
     });
+  }
+
+  async tryAssignMt5Worker(
+    organizationId: string,
+    id: string,
+    workerId: string,
+  ): Promise<{
+    connection: BrokerConnection;
+    assigned: boolean;
+  } | null> {
+    try {
+      const result = await prisma.brokerConnection.updateMany({
+        where: {
+          id,
+          organizationId,
+          mt5WorkerId: null,
+        },
+        data: {
+          mt5WorkerId: workerId,
+        },
+      });
+
+      const connection = await prisma.brokerConnection.findFirst({
+        where: {
+          id,
+          organizationId,
+        },
+      });
+
+      if (!connection) {
+        throw new Error("Broker connection not found.");
+      }
+
+      if (result.count === 1) {
+        return {
+          connection,
+          assigned: true,
+        };
+      }
+
+      return {
+        connection,
+        assigned: false,
+      };
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        return null;
+      }
+
+      throw error;
+    }
+  }
+
+  async releaseMt5Worker(
+    organizationId: string,
+    id: string,
+    workerId: string,
+  ): Promise<BrokerConnection> {
+    await prisma.brokerConnection.updateMany({
+      where: {
+        id,
+        organizationId,
+        mt5WorkerId: workerId,
+      },
+      data: {
+        mt5WorkerId: null,
+      },
+    });
+
+    const connection = await prisma.brokerConnection.findFirst({
+      where: {
+        id,
+        organizationId,
+      },
+    });
+
+    if (!connection) {
+      throw new Error("Broker connection not found.");
+    }
+
+    return connection;
   }
 }

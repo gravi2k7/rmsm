@@ -520,19 +520,7 @@ export class CTraderFixClient extends EventEmitter {
       let chunk: Buffer | null;
 
       while ((chunk = socket.read()) !== null) {
-        console.log(
-          "[CTraderFixClient] RX DATA:",
-          `bytes=${chunk.length}`,
-        );
-
         const raw = chunk.toString("ascii");
-
-        console.log(
-          "[CTraderFixClient] RX RAW:",
-          raw
-            .replace(/\x01/g, "|")
-            .replace(/554=[^|]*/g, "554=***"),
-        );
 
         this.buffer += raw;
         this.processBuffer();
@@ -580,13 +568,6 @@ export class CTraderFixClient extends EventEmitter {
       if (!message) {
         return;
       }
-
-      console.log(
-        "[CTraderFixClient] RX FIX MESSAGE:",
-        message
-          .replace(/\x01/g, "|")
-          .replace(/554=[^|]*/g, "554=***"),
-      );
 
       this.lastMessageAt = new Date();
       this.handleMessage(message);

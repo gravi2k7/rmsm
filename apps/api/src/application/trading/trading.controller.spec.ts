@@ -1,4 +1,3 @@
-import { BadRequestException } from "@nestjs/common";
 import { TradingController } from "./trading.controller";
 
 describe("TradingController broker execution routing", () => {
@@ -105,11 +104,16 @@ describe("TradingController broker execution routing", () => {
     expect(paperTradingService.placeOrder).not.toHaveBeenCalled();
   });
 
-  it("rejects broker-bound SL/TP instead of dropping the values", async () => {
+  it("forwards broker-bound SL/TP to BrokerExecutionService", async () => {
     tradingAccountService.getAccount.mockResolvedValue({
       id: "account-1",
       brokerConnectionId: "connection-1",
       brokerAccountId: "broker-account-1",
+    });
+
+    brokerExecutionService.placeOrder.mockResolvedValue({
+      accepted: true,
+      brokerOrderId: "broker-order-sl-tp",
     });
 
     const brokerDto = {
@@ -125,9 +129,17 @@ describe("TradingController broker execution routing", () => {
         brokerDto,
         user,
       ),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).resolves.toEqual({
+      accepted: true,
+      brokerOrderId: "broker-order-sl-tp",
+    });
 
-    expect(brokerExecutionService.placeOrder).not.toHaveBeenCalled();
+    expect(brokerExecutionService.placeOrder).toHaveBeenCalledWith(
+      "org-1",
+      "account-1",
+      brokerDto,
+    );
+
     expect(paperTradingService.placeOrder).not.toHaveBeenCalled();
   });
 

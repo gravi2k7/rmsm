@@ -44,6 +44,7 @@ export interface PaperTradingRepository {
       executedPrice?: string;
       rejectionReason?: string;
       filledAt?: Date;
+      clientOrderId?: string;
     },
     client?: DbClient,
   ): Promise<TradingOrder>;
@@ -143,6 +144,12 @@ export interface PaperTradingRepository {
   findOrderByBrokerOrderId(
     accountId: string,
     brokerOrderId: string,
+    client?: DbClient,
+  ): Promise<TradingOrder | null>;
+
+  findOrderByClientOrderId(
+    accountId: string,
+    clientOrderId: string,
     client?: DbClient,
   ): Promise<TradingOrder | null>;
 
